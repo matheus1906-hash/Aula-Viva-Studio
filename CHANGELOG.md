@@ -1,5 +1,13 @@
 # Histórico de versões
 
+## 2.2.1
+- Cadastro: **CPF, celular e data de nascimento com digitação livre** (só números ou com pontos, traços e barras);
+  o app formata e valida ao sair do campo. A data aceita 10/04/1985, 10-04-1985, 10.04.1985 ou 10041985.
+- Corrigido: no tema claro, **listas suspensas e menus das janelas (ex.: gerar apostila com IA) ficavam pretos no
+  Windows**. A causa era uma regra de transparência em cascata; agora a transparência é aplicada sem contaminar
+  as cores dos controles (com teste automático para não voltar).
+- Capa de "Avaliação / Prova" mais clara.
+
 ## 2.2.0
 - **Muito mais rápido e sem travamentos:** geração de PDF (prévia, exportação, miniaturas) roda num processo separado,
   sem disputar o processador com a interface; páginas do painel montadas sob demanda; troca de tema claro/escuro de
