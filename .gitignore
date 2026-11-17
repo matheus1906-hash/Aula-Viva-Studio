@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.venv/
+build/
+dist/
+.pytest_cache/
+*.spec.bak
+
+*.zip
+.claude/
