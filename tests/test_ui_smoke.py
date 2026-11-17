@@ -69,6 +69,18 @@ def test_full_flow(tmp_path, monkeypatch):
     ed.duplicate(); ed.move(-1); ed.delete_block()
     assert len(ed.doc["blocks"]) == n
     ed.undo()
+    # importar conteúdo de um arquivo para dentro do material (processo auxiliar)
+    md = tmp_path / "anotacoes.md"
+    md.write_text("# Revisão\nTexto base.\n\n1) Quanto é 2+2?\na) 3\n*b) 4\n", encoding="utf-8")
+    from PySide6.QtWidgets import QFileDialog
+    monkeypatch.setattr(QFileDialog, "getOpenFileName", staticmethod(lambda *a, **k: (str(md), "")))
+    before = len(ed.doc["blocks"])
+    ed.insert_from_file()
+    for _ in range(150):
+        if len(ed.doc["blocks"]) > before:
+            break
+        _wait(100)
+    assert len(ed.doc["blocks"]) == before + 3
     from aulaviva.core.quicklist import EXAMPLE, parse_questions
     ed.doc["blocks"].extend(parse_questions(EXAMPLE)); ed._rebuild_cards(-1)
     assert len(ed.cards) == len(ed.doc["blocks"])

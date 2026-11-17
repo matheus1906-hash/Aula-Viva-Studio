@@ -58,13 +58,24 @@ class NavButton(QWidget):
 
     def __init__(self, icon: str, text: str):
         super().__init__()
-        self.icon, self.text, self.active, self._hover = icon, text, False, 0.0
+        self.icon, self.text, self.active, self._hover, self._act = icon, text, False, 0.0, 0.0
         self.setFixedHeight(44)
         self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         from PySide6.QtCore import QVariantAnimation
 
         self._h = QVariantAnimation(self, duration=Motion.ms(160))
         self._h.valueChanged.connect(lambda v: (setattr(self, "_hover", float(v)), self.update()))
+        self._aa = QVariantAnimation(self, duration=Motion.ms(260), easingCurve=QEasingCurve.Type.OutCubic)
+        self._aa.valueChanged.connect(lambda v: (setattr(self, "_act", float(v)), self.update()))
+
+    def set_active(self, on: bool):
+        if on == self.active:
+            return
+        self.active = on
+        self._aa.stop()
+        self._aa.setStartValue(self._act)
+        self._aa.setEndValue(1.0 if on else 0.0)
+        self._aa.start()
 
     def enterEvent(self, e):
         self._h.stop()
@@ -83,35 +94,38 @@ class NavButton(QWidget):
             self.clicked.emit()
 
     def paintEvent(self, e):
+        from aulaviva.ui.art import line_icon
+
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         r = QRectF(self.rect()).adjusted(2, 2, -2, -2)
-        if self.active:
-            p.setBrush(QColor(theme.PRIMARY_SOFT))
-        else:
-            p.setBrush(QColor(47, 111, 237, int(12 * self._hover)))
         p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(QColor(47, 111, 237, int(14 * self._hover * (1 - self._act))))
         p.drawRoundedRect(r, 11, 11)
-        if self.active:
+        if self._act:
+            soft = QColor(theme.PRIMARY_SOFT)
+            soft.setAlphaF(self._act)
+            p.setBrush(soft)
+            p.drawRoundedRect(r, 11, 11)
             p.setBrush(QColor(theme.PRIMARY))
-            p.drawRoundedRect(QRectF(2, 11, 4, self.height() - 22), 2, 2)
+            h = (self.height() - 22) * self._act
+            p.drawRoundedRect(QRectF(2, (self.height() - h) / 2, 4, h), 2, 2)
+        col = QColor(theme.PRIMARY) if self.active else QColor(theme.TEXT_DIM)
+        line_icon(p, QRectF(16 + 2 * self._hover, (self.height() - 20) / 2, 20, 20), self.icon, col)
         f = self.font()
-        f.setPixelSize(15)
+        f.setPixelSize(14)
+        f.setWeight(f.Weight.Bold if self.active else f.Weight.DemiBold)
         p.setFont(f)
         p.setPen(QColor(theme.PRIMARY) if self.active else QColor(theme.TEXT_DIM))
-        p.drawText(QRectF(14, 0, 26, self.height()), Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignHCenter, self.icon)
-        f.setPixelSize(13)
-        f.setWeight(f.Weight.DemiBold if self.active else f.Weight.Normal)
-        p.setFont(f)
-        p.drawText(QRectF(48, 0, self.width() - 52, self.height()), Qt.AlignmentFlag.AlignVCenter, self.text)
+        p.drawText(QRectF(48 + 2 * self._hover, 0, self.width() - 52, self.height()), Qt.AlignmentFlag.AlignVCenter, self.text)
 
 
 class Sidebar(GlassCard):
     navigate = Signal(str)
     logout = Signal()
 
-    ITEMS = [("home", "⌂", "Início"), ("projects", "▤", "Meus materiais"), ("templates", "❏", "Modelos"),
-             ("tools", "▦", "QR code e links"), ("ai", "✦", "Assistente IA"), ("settings", "⚙", "Configurações")]
+    ITEMS = [("home", "home", "Início"), ("projects", "folder", "Meus materiais"), ("templates", "templates", "Modelos"),
+             ("tools", "qr", "QR code e links"), ("ai", "sparkle", "Assistente IA"), ("settings", "gear", "Configurações")]
 
     def __init__(self, user: User):
         super().__init__(radius=20, padding=16, opacity=0.06)
@@ -141,7 +155,7 @@ class Sidebar(GlassCard):
         prof.lay.setSpacing(2)
         prof.lay.addWidget(self.user_name)
         prof.lay.addWidget(self.user_inst)
-        out = Button("Sair", "ghost", icon_text="⎋", height=34)
+        out = Button("Sair", "ghost", icon_text="⎋", height=34)  # ícone desenhado (logout)
         out.clicked.connect(self.logout)
         prof.lay.addWidget(out)
         self.lay.addWidget(prof)
@@ -153,8 +167,7 @@ class Sidebar(GlassCard):
 
     def set_active(self, key: str):
         for k, b in self.buttons.items():
-            b.active = k == key
-            b.update()
+            b.set_active(k == key)
 
 
 class ProviderTile(QWidget):
@@ -320,29 +333,18 @@ class FlowGrid(QWidget):
 
 
 class QuickAction(GlassCard):
+    """Cartão de ação com capa ilustrada e animação ao passar o mouse."""
+
     clicked = Signal()
 
     def __init__(self, icon: str, title: str, text: str):
-        super().__init__(radius=18, padding=18, opacity=0.07)
-        self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        self.setMinimumHeight(130)
-        ic = QLabel(icon)
-        ic.setFixedSize(42, 42)
-        ic.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        ic.setStyleSheet(f"background: qlineargradient(x1:0,y1:0,x2:1,y2:1, stop:0 {theme.PRIMARY}, stop:1 {theme.PRIMARY_2});"
-                         "border-radius: 12px; font-size: 18px; color: white; font-weight: 700;")
-        self.lay.addWidget(ic)
+        super().__init__(radius=18, padding=18, opacity=0.07, interactive=True)
+        from aulaviva.ui.art import ART_FOR_SYMBOL, ArtIcon
+
+        self.setMinimumHeight(150)
+        self.lay.addWidget(ArtIcon(ART_FOR_SYMBOL.get(icon, icon), 50))
         self.lay.addWidget(label(title, "h3"))
         self.lay.addWidget(label(text, "dim", wrap=True))
-        self._base = self.opacity
-
-    def enterEvent(self, e):
-        self.opacity = self._base + 0.05
-        self.update()
-
-    def leaveEvent(self, e):
-        self.opacity = self._base
-        self.update()
 
     def mouseReleaseEvent(self, e):
         if self.rect().contains(e.position().toPoint()):
@@ -377,6 +379,7 @@ class HomePage(SmoothScrollArea):
         tools.setSpacing(10)
         for txt, icon, fn in (("Gerar QR code", "▦", lambda: shell.navigate("tools", tab=0)),
                               ("Gerar link (WhatsApp, Drive, YouTube...)", "🔗", lambda: shell.navigate("tools", tab=1)),
+                              ("Importar Word, PowerPoint ou PDF", "📄", shell.import_material),
                               ("Ver modelos prontos", "❏", lambda: shell.navigate("templates"))):
             b = Button(txt, "secondary", icon_text=icon, height=40)
             b.clicked.connect(fn)
@@ -395,7 +398,7 @@ class HomePage(SmoothScrollArea):
         self.empty = label("Você ainda não tem projetos. Que tal começar pela IA ou por um modelo?", "dim")
         lay.addWidget(self.empty)
         tips = GlassCard(radius=18, padding=18, opacity=0.06)
-        tips.lay.addWidget(label("💡  Dicas rápidas", "h3"))
+        tips.lay.addWidget(label("Dicas rápidas", "h3"))
         for t in ("Use QR codes para levar os alunos do papel a vídeos e simuladores.",
                   "Ative 'Gabarito ao final' e remova a página antes de distribuir a versão do aluno.",
                   "Proteja o PDF com senha para que ninguém altere seu material, sem impedir que os alunos respondam."):
@@ -427,7 +430,14 @@ class ProjectsPage(QWidget):
         self.search.textChanged.connect(self.refresh)
         head.addWidget(self.search)
         imp = Button("Importar", "secondary", icon_text="⤒")
-        imp.clicked.connect(shell.import_project)
+
+        def import_menu():
+            menu = QMenu(self)
+            menu.addAction("Arquivo do professor (Word, PowerPoint, PDF, Canva...)", shell.import_material)
+            menu.addAction("Projeto do AulaViva (.aulaviva)", shell.import_project)
+            menu.exec(imp.mapToGlobal(imp.rect().bottomLeft()))
+
+        imp.clicked.connect(import_menu)
         head.addWidget(imp)
         new = Button("Novo projeto", "primary", icon_text="+")
         new.clicked.connect(lambda: shell.new_material("apostila"))
@@ -474,7 +484,7 @@ class AIPage(SmoothScrollArea):
             grid.addWidget(c, 0, i)
         lay.addLayout(grid)
         box = GlassCard(radius=18, padding=20, opacity=0.06)
-        box.lay.addWidget(label("🔒  Privacidade no uso da IA", "h3"))
+        box.lay.addWidget(label("Privacidade no uso da IA", "h3"))
         for t in ("Somente o tema e os textos do material são enviados ao serviço de IA, nunca seus dados pessoais.",
                   "Não inclua nomes, notas ou informações de alunos nos pedidos.",
                   "Todo conteúdo gerado passa por validação: links inseguros são descartados automaticamente.",
@@ -845,7 +855,7 @@ class SettingsPage(QWidget):
 
         mode_row = QHBoxLayout()
         self.theme_group = QButtonGroup(self)
-        for key, text in (("light", "☀  Claro"), ("dark", "🌙  Escuro"), ("system", "🖥  Automático (igual ao Windows)")):
+        for key, text in (("light", "Claro"), ("dark", "Escuro"), ("system", "Automático (igual ao Windows)")):
             rb = QRadioButton(text)
             rb.setChecked(self.shell.prefs.theme_mode == key)
             rb.toggled.connect(lambda on, k=key: on and k != self.shell.prefs.theme_mode and self.shell.theme_requested.emit(k))
@@ -930,6 +940,20 @@ class SettingsPage(QWidget):
         self._build_ai_panel(ai_mod.effective_provider(self.shell.prefs, self.shell.auth.c))
 
 
+class _LazyPages(dict):
+    """Dicionário de páginas que cria cada página sob demanda (abertura do painel muito mais rápida)."""
+
+    def __init__(self, shell, factories: dict):
+        super().__init__()
+        self.shell, self.factories = shell, factories
+
+    def __missing__(self, key):
+        page = self.factories[key](self.shell)
+        self[key] = page
+        self.shell.stack.addWidget(page)
+        return page
+
+
 class Shell(QWidget):
     """Contêiner principal após o login."""
 
@@ -952,12 +976,11 @@ class Shell(QWidget):
         from aulaviva.ui.templates_page import TemplatesPage
         from aulaviva.ui.tools_page import ToolsPage
 
-        self.pages = {"home": HomePage(self), "projects": ProjectsPage(self), "templates": TemplatesPage(self),
-                      "tools": ToolsPage(self), "ai": AIPage(self), "settings": SettingsPage(self)}
-        for p in self.pages.values():
-            self.stack.addWidget(p)
+        factories = {"home": HomePage, "projects": ProjectsPage, "templates": TemplatesPage,
+                     "tools": ToolsPage, "ai": AIPage, "settings": SettingsPage}
+        self.pages = _LazyPages(self, factories)   # cada página só é montada quando aberta pela 1ª vez
         root.addWidget(self.stack, 1)
-        self._order = list(self.pages)
+        self._order = list(factories)
         self.current = "home"
         self.navigate("home")
 
@@ -1042,7 +1065,7 @@ class Shell(QWidget):
             run_async(work, ok, fail)
 
         open_new_material(self, create, defaults, preselect, ai_available=True, ai_mode=ai_mode,
-                          provider_name=ai_mod.PROVIDERS[provider][0])
+                          provider_name=ai_mod.PROVIDERS[provider][0], on_import=self.import_material)
 
     def insert_block_into_project(self, block: dict):
         """Escolhe um material e adiciona o bloco (QR code/link) ao final dele."""
@@ -1091,6 +1114,59 @@ class Shell(QWidget):
         doc = template_documents()[name]
         pid = self.store.create(self.user.id, self._author_defaults(doc))
         self.open_editor.emit(pid)
+
+    def import_material(self, preselect: str = "apostila"):
+        """Cria um material a partir de um arquivo do professor (Word, PowerPoint, PDF...), com ou sem IA."""
+        from aulaviva.core.projects import document_for_kind
+        from aulaviva.ui.editor import ai_busy_modal
+        from aulaviva.ui.quick_create import open_import_material
+
+        p = self.user.profile
+        author, school = (p.display_name, p.institution) if p else ("", "")
+        provider = ai_mod.effective_provider(self.prefs, self.auth.c)
+
+        def as_is(kind, res, info):
+            doc = document_for_kind(kind, info["title"], info["subject"], info["level"], author, school)
+            if kind in ("apostila", "roteiro"):
+                doc["blocks"] = []
+            doc["blocks"].extend(res.blocks)
+            self._open_new(doc)
+            Toast.show_message(self, f"Arquivo importado: {res.summary()}. Revise e ajuste no editor.", "success", 6000)
+
+        def create(kind, res, use_ai, info):
+            if not use_ai or provider == "demo":
+                if use_ai:
+                    Toast.show_message(self, "Modo demonstração: o arquivo foi importado como está. Configure uma IA "
+                                       "(gratuita: Ollama, Gemini ou Groq) para transformar o conteúdo.", "warning", 7000)
+                as_is(kind, res, info)
+                return
+            try:
+                assistant = self.get_assistant()
+            except ai_mod.AIError as exc:
+                Toast.show_message(self, str(exc), "error", 7000)
+                return
+            busy = ai_busy_modal(self)
+            text = res.as_text(400_000)
+
+            def work():
+                result = assistant.generate_from_document(kind, text, info["title"], info["subject"], info["level"],
+                                                          info["details"], info["amount"])
+                return ai_mod.build_material_doc(kind, result, info["subject"], info["level"], author, school)
+
+            def ok(doc):
+                busy.close_modal()
+                self._open_new(doc)
+                Toast.show_message(self, "Pronto! Material criado a partir do seu arquivo. Revise antes de distribuir.", "success", 5000)
+
+            def fail(exc):
+                busy.close_modal()
+                Toast.show_message(self, (str(exc) if isinstance(exc, ai_mod.AIError) else "Falha na IA.")
+                                   + " Você pode importar o arquivo 'como está'.", "error", 8000)
+
+            run_async(work, ok, fail)
+
+        open_import_material(self, create, {"subject": p.subjects.split(",")[0].strip() if p else ""},
+                             ai_mod.PROVIDERS[provider][0], provider != "demo", preselect)
 
     def new_with_ai(self):
         self.new_material("apostila", ai_mode=True)

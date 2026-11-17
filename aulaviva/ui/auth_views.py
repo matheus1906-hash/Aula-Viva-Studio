@@ -48,33 +48,43 @@ def _busy(btn: Button, busy: bool, text: str):
 
 
 class HeroPanel(QWidget):
+    """Lado esquerdo do login: chamada + vitrine animada com amostras reais do programa."""
+
     def __init__(self):
         super().__init__()
+        from aulaviva.ui.art import ArtIcon
+        from aulaviva.ui.promo import PromoScene
+
         lay = QVBoxLayout(self)
-        lay.setContentsMargins(10, 10, 30, 10)
-        lay.addStretch()
+        lay.setContentsMargins(10, 0, 30, 0)
+        top = QHBoxLayout()
         logo = QLabel()
-        logo.setPixmap(logo_pixmap(72))
-        lay.addWidget(logo)
+        logo.setPixmap(logo_pixmap(46))
+        top.addWidget(logo)
+        name = label(APP_NAME, "h2")
+        top.addWidget(name)
+        top.addStretch()
+        lay.addLayout(top)
         lay.addSpacing(10)
-        t = label(APP_NAME, "h1")
-        t.setStyleSheet("font-size: 38px; font-weight: 800;")
+        t = label("Materiais que seus alunos vão querer abrir.", "h1", wrap=True)
+        t.setStyleSheet(f"font-family: '{theme.HEADING_FAMILY}'; font-size: 34px; font-weight: 800;")
         lay.addWidget(t)
-        sub = label("Materiais didáticos interativos, criados em minutos, com a ajuda da IA.", "dim", wrap=True)
-        sub.setStyleSheet("font-size: 17px;")
+        sub = label("Apostilas, listas e provas em PDF interativo, com QR codes, vídeos e respostas no próprio arquivo. "
+                    "A IA faz o rascunho, você dá o toque final.", "dim", wrap=True)
+        sub.setStyleSheet("font-size: 16px;")
         lay.addWidget(sub)
-        lay.addSpacing(18)
-        for icon, txt in (("▦", "QR codes, links e vídeos clicáveis"), ("✎", "Exercícios respondidos no próprio PDF"),
-                          ("✦", "Assistente de IA para planejar e escrever"), ("🔒", "Dados criptografados e conformidade LGPD")):
-            row = QHBoxLayout()
-            ic = QLabel(icon)
-            ic.setFixedSize(30, 30)
-            ic.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            ic.setStyleSheet(f"background: {theme.PRIMARY_SOFT}; color: {theme.PRIMARY}; border-radius: 9px; font-size: 14px;")
-            row.addWidget(ic)
-            row.addWidget(label(txt, "dim"), 1)
-            lay.addLayout(row)
-        lay.addStretch()
+        self.scene = PromoScene("full")
+        lay.addWidget(self.scene, 1)
+        chips = QHBoxLayout()
+        for icon, txt in (("qrcode", "QR codes e links"), ("open_question", "Respostas no PDF"), ("image", "Modelos prontos")):
+            c = QHBoxLayout()
+            c.setSpacing(6)
+            c.addWidget(ArtIcon(icon, 26, "line"))
+            c.addWidget(label(txt, "dim"))
+            chips.addLayout(c)
+            chips.addSpacing(10)
+        chips.addStretch()
+        lay.addLayout(chips)
 
 
 class LoginView(QWidget):

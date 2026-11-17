@@ -49,10 +49,13 @@ def is_dark() -> bool:
 
 
 def load_fonts() -> None:
-    """Registra a fonte de interface Inter (licença OFL) embutida no app."""
+    """Registra as fontes de interface embutidas (Nunito para títulos, Nunito Sans para textos; licença OFL)."""
     folder = resource_path("aulaviva/assets/fonts/ui")
-    for f in sorted(folder.glob("*.otf")) if folder.exists() else []:
+    for f in sorted([*folder.glob("*.ttf"), *folder.glob("*.otf")]) if folder.exists() else []:
         QFontDatabase.addApplicationFont(str(f))
+
+
+HEADING_FAMILY = "Nunito"
 
 
 def qcolor(hex_or_rgba: str, alpha: float | None = None) -> QColor:
@@ -64,7 +67,7 @@ def qcolor(hex_or_rgba: str, alpha: float | None = None) -> QColor:
 
 def pick_font_family() -> str:
     families = set(QFontDatabase.families())
-    for fam in ("Inter", "Segoe UI", "Ubuntu", "Cantarell", "Noto Sans", "DejaVu Sans"):
+    for fam in ("Nunito Sans", "Segoe UI", "Ubuntu", "Cantarell", "Noto Sans", "DejaVu Sans"):
         if fam in families:
             return fam
     return QFont().defaultFamily()
@@ -90,6 +93,7 @@ def _asset(name: str) -> str:
 
 
 def stylesheet(family: str) -> str:
+    head = HEADING_FAMILY if HEADING_FAMILY in QFontDatabase.families() else family
     arrow, check = _asset("arrow-down-dark.svg" if is_dark() else "arrow-down.svg"), _asset("check.svg")
     SCROLL, SCROLL_HOVER = ("rgba(255,255,255,0.18)", "rgba(255,255,255,0.32)") if is_dark() else ("rgba(30,41,59,0.20)", "rgba(30,41,59,0.36)")
     return f"""
@@ -98,9 +102,9 @@ QWidget {{ font-size: 14px; }}
 QToolTip {{ background: {SURFACE}; color: {TEXT}; border: 1px solid {BORDER_STRONG}; padding: 6px 8px; border-radius: 6px; }}
 
 QLabel {{ background: transparent; }}
-QLabel[role="h1"] {{ font-size: 28px; font-weight: 700; color: {TEXT}; letter-spacing: -0.3px; }}
-QLabel[role="h2"] {{ font-size: 21px; font-weight: 700; color: {TEXT}; letter-spacing: -0.2px; }}
-QLabel[role="h3"] {{ font-size: 15px; font-weight: 600; color: {TEXT}; }}
+QLabel[role="h1"] {{ font-family: "{head}"; font-size: 30px; font-weight: 800; color: {TEXT}; }}
+QLabel[role="h2"] {{ font-family: "{head}"; font-size: 22px; font-weight: 800; color: {TEXT}; }}
+QLabel[role="h3"] {{ font-size: 15px; font-weight: 700; color: {TEXT}; }}
 QLabel[role="dim"] {{ color: {TEXT_DIM}; }}
 QLabel[role="muted"] {{ color: {TEXT_MUTED}; font-size: 13px; }}
 QLabel[role="error"] {{ color: {DANGER}; font-size: 13px; font-weight: 500; }}

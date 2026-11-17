@@ -18,31 +18,35 @@ SLIDES = [
         "text": "Um estúdio feito exclusivamente para docentes criarem apostilas, listas de exercícios e "
                 "roteiros de aula em PDF interativo: com QR codes, links, vídeos, documentos Word e "
                 "campos para o aluno responder no próprio arquivo.",
-        "items": [("▦", "QR codes e links clicáveis"), ("✎", "Campos de resposta no PDF"), ("W", "Documentos Word anexados ou linkados")],
+        "items": [("qrcode", "QR codes e links clicáveis"), ("open_question", "Campos de resposta no PDF"), ("word", "Word, PowerPoint e PDF como base")],
+        "scene": "full",
     },
     {
         "badge": "COMO FUNCIONA",
         "title": "Do planejamento ao PDF em 3 passos",
         "text": "Você monta o material encaixando blocos, como peças de um quebra-cabeça, e vê o resultado ao vivo.",
-        "items": [("1", "Crie um projeto em branco, a partir de um modelo ou com a IA"),
-                  ("2", "Adicione blocos: textos, imagens, QR codes, vídeos, exercícios"),
-                  ("3", "Exporte o PDF interativo e compartilhe com a turma")],
+        "items": [("plus", "Comece em branco, de um modelo, de um arquivo seu ou com a IA"),
+                  ("bullets", "Adicione blocos: textos, imagens, QR codes, vídeos, exercícios"),
+                  ("download", "Exporte o PDF interativo (aluno e professor) e compartilhe")],
+        "scene": "editor",
     },
     {
         "badge": "ASSISTENTE DE IA",
         "title": "Uma IA que trabalha para você",
         "text": "Descreva o tema e a turma: a IA monta uma apostila inteira, cria exercícios com gabarito e "
                 "melhora seus textos. Você sempre revisa antes de usar, porque a palavra final é sua.",
-        "items": [("✦", "Apostilas completas a partir de um tema"), ("✓", "Exercícios com gabarito automático"),
-                  ("↺", "Reescrita adaptada à faixa etária")],
+        "items": [("sparkle", "Apostilas, listas e provas a partir de um tema"), ("check", "Exercícios com gabarito automático"),
+                  ("file", "Transforma seus documentos em material novo")],
+        "scene": "ia",
     },
     {
         "badge": "SEGURANÇA E PRIVACIDADE",
         "title": "Seus dados protegidos de ponta a ponta",
         "text": "Senhas com Argon2id, dados pessoais criptografados (AES-256) no seu computador, bloqueio "
                 "automático por inatividade e conformidade com a LGPD. Nenhum dado pessoal é enviado à IA.",
-        "items": [("🔒", "Criptografia local dos seus dados"), ("⏱", "Bloqueio automático da sessão"),
-                  ("⚖", "Exportação e exclusão de dados (LGPD)")],
+        "items": [("eye", "Criptografia local dos seus dados"), ("gear", "Bloqueio automático da sessão"),
+                  ("check", "Exportação e exclusão de dados (LGPD)")],
+        "scene": "seguranca",
     },
 ]
 
@@ -76,27 +80,32 @@ class Dots(QWidget):
 class SlidePage(QWidget):
     def __init__(self, data: dict):
         super().__init__()
-        lay = QVBoxLayout(self)
+        from aulaviva.ui.art import ArtIcon
+        from aulaviva.ui.promo import PromoScene
+
+        outer = QHBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(24)
+        left = QWidget()
+        lay = QVBoxLayout(left)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(14)
+        outer.addWidget(left, 5)
+        self.scene = PromoScene(data.get("scene", "full"))
+        outer.addWidget(self.scene, 6)
         badge = label(data["badge"], "badge")
         badge.setSizePolicy(badge.sizePolicy().horizontalPolicy(), badge.sizePolicy().verticalPolicy())
         lay.addWidget(badge, 0, Qt.AlignmentFlag.AlignLeft)
         lay.addWidget(label(data["title"], "h1", wrap=True))
         txt = label(data["text"], "dim", wrap=True)
-        txt.setStyleSheet("font-size: 15px; line-height: 150%;")
+        txt.setStyleSheet("font-size: 16px;")
         lay.addWidget(txt)
         lay.addSpacing(8)
         self.items = []
         for icon, text in data["items"]:
             row = GlassCard(radius=14, padding=14, opacity=0.06)
             h = QHBoxLayout()
-            ic = QLabel(icon)
-            ic.setFixedSize(38, 38)
-            ic.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            ic.setStyleSheet(f"background: qlineargradient(x1:0,y1:0,x2:1,y2:1, stop:0 {theme.PRIMARY}, stop:1 {theme.PRIMARY_2});"
-                             "border-radius: 11px; font-size: 16px; font-weight: 700; color: white;")
-            h.addWidget(ic)
+            h.addWidget(ArtIcon(icon, 34, "line"))
             h.addSpacing(6)
             t = label(text, "h3", wrap=True)
             h.addWidget(t, 1)
@@ -118,9 +127,9 @@ class OnboardingView(QWidget):
         outer = QVBoxLayout(self)
         outer.setContentsMargins(40, 30, 40, 30)
         outer.addStretch()
-        card = GlassCard(radius=26, padding=40, opacity=0.08)
-        card.setMaximumWidth(760)
-        card.setMinimumWidth(min(640, 760))
+        card = GlassCard(radius=26, padding=36, opacity=0.08)
+        card.setMaximumWidth(1180)
+        card.setMinimumWidth(820)
         top = QHBoxLayout()
         logo = QLabel()
         logo.setPixmap(logo_pixmap(44))
@@ -137,7 +146,7 @@ class OnboardingView(QWidget):
         self.pages = [SlidePage(d) for d in SLIDES]
         for pg in self.pages:
             self.stack.addWidget(pg)
-        self.stack.setMinimumHeight(420)
+        self.stack.setMinimumHeight(460)
         card.lay.addWidget(self.stack, 1)
         bottom = QHBoxLayout()
         self.dots = Dots(len(SLIDES))

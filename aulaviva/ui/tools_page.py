@@ -401,8 +401,10 @@ class ToolsPage(QWidget):
         self.tabs = QTabWidget()
         self.qr = QRTool(shell)
         self.link = LinkTool(shell, self.qr, self.tabs)
-        for w, name in ((self.qr, "▦  Gerador de QR code"), (self.link, "🔗  Gerador de links")):
+        from aulaviva.ui.art import icon
+
+        for w, name, ic in ((self.qr, "Gerador de QR code", "qr"), (self.link, "Gerador de links", "link")):
             sc = SmoothScrollArea()
             sc.setWidget(w)
-            self.tabs.addTab(sc, name)
+            self.tabs.addTab(sc, icon(ic, theme.PRIMARY), name)
         lay.addWidget(self.tabs, 1)

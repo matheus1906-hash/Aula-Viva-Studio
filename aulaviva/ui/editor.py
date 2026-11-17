@@ -20,7 +20,7 @@ from PySide6.QtWidgets import (
 )
 
 from aulaviva.core.ai import AIError, Assistant
-from aulaviva.core.pdf_builder import ExportError, build_pdf, incomplete_blocks
+from aulaviva.core.pdf_builder import ExportError, build_pdf, export_to_file, incomplete_blocks, preview_pdf
 from aulaviva.core.projects import (
     BLOCK_TYPES, CALLOUT_STYLES, THEMES, ProjectStore, block_url_problem, load_attachment_safely, load_image_safely,
     new_block, sanitize_document,
@@ -30,7 +30,7 @@ from aulaviva.ui import theme
 from aulaviva.ui.widgets import (
     Button, Field, GlassCard, Modal, PasswordInput, SmoothScrollArea, Spinner, Toast, checkbox, hline, label, line_edit,
 )
-from aulaviva.ui.workers import run_async
+from aulaviva.ui.workers import run_async, run_in_process, warm_up_process
 
 PALETTE_GROUPS = [
     ("Conteúdo", ["heading", "paragraph", "bullets", "callout", "image", "table"]),
@@ -491,11 +491,10 @@ class AddTile(QWidget):
         self.setMinimumHeight(64)
         lay = QHBoxLayout(self)
         lay.setContentsMargins(10, 8, 10, 8)
-        ic = QLabel(icon)
-        ic.setFixedSize(36, 36)
-        ic.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        ic.setStyleSheet(f"background: {theme.PRIMARY_SOFT}; color: {theme.PRIMARY}; border-radius: 10px; font-weight: 700;")
-        lay.addWidget(ic)
+        from aulaviva.ui.art import ArtIcon
+
+        self.art = ArtIcon(kind, 36, "line")
+        lay.addWidget(self.art)
         col = QVBoxLayout()
         col.setSpacing(1)
         col.addWidget(label(name, "h3"))
@@ -504,10 +503,12 @@ class AddTile(QWidget):
 
     def enterEvent(self, e):
         self._hover = True
+        self.art.set_hover(True)
         self.update()
 
     def leaveEvent(self, e):
         self._hover = False
+        self.art.set_hover(False)
         self.update()
 
     def mouseReleaseEvent(self, e):
@@ -525,13 +526,21 @@ class AddTile(QWidget):
         p.drawRoundedRect(QRectF(self.rect()).adjusted(1, 1, -1, -1), 12, 12)
 
 
-def open_add_menu(host: QWidget, on_pick: Callable[[str], None], on_quick: Callable[[], None]) -> Modal:
+def open_add_menu(host: QWidget, on_pick: Callable[[str], None], on_quick: Callable[[], None],
+                  on_file: Callable[[], None] | None = None) -> Modal:
     m = Modal(host, 760)
     m.body.addWidget(label("Adicionar ao material", "h2"))
     m.body.addWidget(label("Escolha o que quer inserir. O bloco entra logo abaixo do bloco selecionado.", "dim"))
-    ql = Button("⚡  Lista rápida: digitar várias questões de uma vez", "soft", height=44)
+    top = QHBoxLayout()
+    ql = Button("Lista rápida de questões", "soft", icon_text="⚡", height=44)
     ql.clicked.connect(lambda: (m.close_modal(), on_quick()))
-    m.body.addWidget(ql)
+    top.addWidget(ql, 1)
+    if on_file is not None:
+        fb = Button("Trazer conteúdo de um arquivo", "soft", icon_text="📄", height=44)
+        fb.setToolTip("Word, PowerPoint, PDF (Canva), LibreOffice, texto...")
+        fb.clicked.connect(lambda: (m.close_modal(), on_file()))
+        top.addWidget(fb, 1)
+    m.body.addLayout(top)
     for group, kinds in ADD_GROUPS:
         g = label(group.upper(), "muted")
         g.setStyleSheet(f"letter-spacing: 1px; font-weight: 700; font-size: 12px; color: {theme.TEXT_MUTED}; margin-top: 6px;")
@@ -566,12 +575,9 @@ class BlockCard(QFrame):
         lay.setSpacing(6)
         head = QHBoxLayout()
         name, icon, _ = BLOCK_TYPES[block["type"]]
-        ic = QLabel(icon)
-        ic.setFixedSize(30, 30)
-        ic.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        ic.setStyleSheet(f"background: {theme.PRIMARY if expanded else theme.PRIMARY_SOFT}; color: {'white' if expanded else theme.PRIMARY};"
-                         "border-radius: 8px; font-weight: 700; font-size: 12px;")
-        head.addWidget(ic)
+        from aulaviva.ui.art import ArtIcon
+
+        head.addWidget(ArtIcon(block["type"], 28, "line"))
         title = name + (f"  {number}" if number else "")
         tl = QVBoxLayout()
         tl.setSpacing(0)
@@ -640,7 +646,7 @@ class EditorView(QWidget):
         # Barra superior
         top = GlassCard(radius=14, padding=8, opacity=0.06)
         tl = QHBoxLayout()
-        back = Button("← Meus materiais", "ghost", height=38)
+        back = Button("Meus materiais", "ghost", icon_text="←", height=38)
         back.clicked.connect(self._back)
         tl.addWidget(back)
         self.title = QLineEdit()
@@ -722,6 +728,7 @@ class EditorView(QWidget):
 
     # -- carregamento ------------------------------------------------------
     def open_project(self, pid: int):
+        warm_up_process()
         self.pid = pid
         self.doc = self.store.load(self.uid, pid)
         self._assets.clear()
@@ -770,24 +777,15 @@ class EditorView(QWidget):
             empty.lay.addWidget(label("Comece adicionando um título, um texto ou cole uma lista de questões. "
                                       "Ou peça para a IA montar tudo.", "dim", wrap=True))
             self.col_lay.addWidget(empty)
-        qnum = 0
-        for i, b in enumerate(self.doc["blocks"]):
-            number = None
-            if b["type"] in ("open_question", "choice_question", "true_false"):
-                qnum += 1
-                number = qnum
-            card = BlockCard(i, b, i == self.sel, number)
-            card.selected.connect(self.select_block)
-            card.action.connect(self._card_action)
-            card.changed.connect(self._block_changed)
-            card.improve.connect(lambda idx: (self.select_block(idx), self.improve_selected()))
+        for i in range(len(self.doc["blocks"])):
+            card = self._make_card(i)
             self.col_lay.addWidget(card)
             self.cards.append(card)
         row = QHBoxLayout()
-        add = Button("＋  Adicionar", "primary", height=44)
+        add = Button("Adicionar", "primary", icon_text="＋", height=44)
         add.setToolTip("Inserir título, texto, imagem, QR code, questão... (Ctrl+B)")
         add.clicked.connect(self.open_add)
-        ql = Button("⚡ Lista rápida de questões", "soft", height=44)
+        ql = Button("Lista rápida de questões", "soft", icon_text="⚡", height=44)
         ql.setToolTip("Digite ou cole várias questões de uma vez (Ctrl+L)")
         ql.clicked.connect(self.open_quick_list)
         row.addWidget(add, 1)
@@ -803,8 +801,42 @@ class EditorView(QWidget):
 
     # -- edição ------------------------------------------------------------
     def select_block(self, i: int):
+        """Abre/fecha um bloco trocando só os cartões afetados (rápido mesmo em materiais longos)."""
+        prev = self.sel
         self.sel = -1 if i == self.sel else i
-        self._rebuild_cards(None, focus=self.sel >= 0)
+        if len(self.cards) != len(self.doc["blocks"]):
+            self._rebuild_cards(None, focus=self.sel >= 0)
+            return
+        for idx in {prev, self.sel} - {-1}:
+            if 0 <= idx < len(self.cards):
+                self._replace_card(idx)
+        if self.sel >= 0:
+            card = self.cards[self.sel]
+            QTimer.singleShot(30, lambda: (self.canvas.ensureWidgetVisible(card, 0, 60), card.form and card.form.focus_first(False)))
+
+    def _question_number(self, idx: int) -> int | None:
+        kinds = ("open_question", "choice_question", "true_false")
+        if self.doc["blocks"][idx]["type"] not in kinds:
+            return None
+        return sum(1 for b in self.doc["blocks"][: idx + 1] if b["type"] in kinds)
+
+    def _make_card(self, i: int) -> "BlockCard":
+        card = BlockCard(i, self.doc["blocks"][i], i == self.sel, self._question_number(i))
+        card.selected.connect(self.select_block)
+        card.action.connect(self._card_action)
+        card.changed.connect(self._block_changed)
+        card.improve.connect(lambda idx: (self.select_block(idx), self.improve_selected()))
+        return card
+
+    def _replace_card(self, idx: int):
+        old = self.cards[idx]
+        pos = self.col_lay.indexOf(old)
+        new = self._make_card(idx)
+        self.col_lay.insertWidget(pos, new)
+        old.hide()
+        old.setParent(None)
+        old.deleteLater()
+        self.cards[idx] = new
 
     def _card_action(self, i: int, act: str):
         self.sel = i
@@ -828,7 +860,69 @@ class EditorView(QWidget):
         self._mark_dirty()
 
     def open_add(self):
-        open_add_menu(self, self.add_block, self.open_quick_list)
+        open_add_menu(self, self.add_block, self.open_quick_list, self.insert_from_file)
+
+    def insert_from_file(self):
+        """Traz títulos, textos, listas, tabelas, imagens e questões de um arquivo para dentro do material."""
+        from aulaviva.core.importers import FILE_FILTER, ImportError_, import_file
+
+        path, _ = QFileDialog.getOpenFileName(self, "Trazer conteúdo de um arquivo", "", FILE_FILTER)
+        if not path:
+            return
+        busy = Modal(self, 380, dismissable=False)
+        busy.body.addWidget(label("Lendo o arquivo...", "h3"))
+        busy.body.addWidget(Spinner(), 0, Qt.AlignmentFlag.AlignHCenter)
+        busy.open()
+
+        def ok(res):
+            busy.close_modal()
+            pos = self._insert_pos()
+            self.doc["blocks"][pos:pos] = res.blocks
+            self._rebuild_cards(-1)
+            self._mark_dirty(True)
+            Toast.show_message(self, f"Inserido: {res.summary()}. Ctrl+Z desfaz.", "success", 5000)
+
+        def fail(exc):
+            busy.close_modal()
+            Toast.show_message(self, str(exc) if isinstance(exc, ImportError_) else "Não foi possível ler o arquivo.", "error", 7000)
+
+        run_in_process(import_file, path, on_done=ok, on_error=fail)
+
+    def exercises_from_file(self):
+        """IA: gera questões com gabarito a partir de um arquivo do professor."""
+        from aulaviva.core.ai import AIApostila, build_material_doc
+        from aulaviva.core.importers import FILE_FILTER, ImportError_, import_file
+
+        try:
+            assistant = self.get_assistant()
+        except AIError as exc:
+            Toast.show_message(self, str(exc), "error", 6000)
+            return
+        path, _ = QFileDialog.getOpenFileName(self, "Gerar questões a partir de um arquivo", "", FILE_FILTER)
+        if not path:
+            return
+        busy = ai_busy_modal(self)
+        level = self.doc["meta"]["level"]
+
+        def parsed(res):
+            if assistant.is_demo:
+                busy.close_modal()
+                qs = [b for b in res.blocks if b["type"].endswith("question") or b["type"] == "true_false"]
+                Toast.show_message(self, "Modo demonstração: foram trazidas apenas as questões que já estavam no arquivo. "
+                                   "Configure uma IA para gerar questões novas.", "warning", 7000)
+                if qs:
+                    self._ai_replace({"blocks": qs}, "append")
+                return
+
+            def work():
+                r = assistant.generate_from_document("lista", res.as_text(400_000), "", self.doc["meta"]["subject"], level, "", 8)
+                return build_material_doc("lista", r, "", level, "", "")["blocks"]
+
+            run_async(work, lambda blocks: (busy.close_modal(), self._ai_replace({"blocks": blocks}, "append")),
+                      lambda e: (busy.close_modal(), Toast.show_message(self, str(e) if isinstance(e, AIError) else "Falha na IA.", "error", 7000)))
+
+        run_in_process(import_file, path, on_done=parsed,
+                       on_error=lambda e: (busy.close_modal(), Toast.show_message(self, str(e) if isinstance(e, ImportError_) else "Não foi possível ler o arquivo.", "error", 7000)))
 
     def _insert_pos(self) -> int:
         return self.sel + 1 if 0 <= self.sel < len(self.doc["blocks"]) else len(self.doc["blocks"])
@@ -962,7 +1056,7 @@ class EditorView(QWidget):
                 self.preview.set_busy(False)
                 self.preview.status.setText("Prévia indisponível: " + (str(exc)[:80] if isinstance(exc, (ExportError, SecurityError)) else "erro"))
 
-        run_async(lambda: build_pdf(snapshot, preview=True), ok, fail)
+        run_in_process(preview_pdf, snapshot, on_done=ok, on_error=fail)
 
     def save_silent(self):
         if self.pid is None or not self.dirty:
@@ -1074,35 +1168,25 @@ class EditorView(QWidget):
         busy.body.addWidget(Spinner(), 0, Qt.AlignmentFlag.AlignHCenter)
         busy.open()
 
-        def work():
-            done = []
-            for out, with_key in outputs:
-                data = build_pdf(snapshot, skip_incomplete=True, answer_key=with_key)
-                tmp = out.with_name(out.name + ".part")
-                try:
-                    tmp.write_bytes(data)
-                    tmp.replace(out)
-                except PermissionError as exc:
-                    tmp.unlink(missing_ok=True)
-                    raise ExportError(f"Não foi possível salvar \"{out.name}\". O arquivo pode estar aberto em outro "
-                                      "programa (feche o PDF e tente de novo) ou a pasta não permite gravação.") from exc
-                except OSError as exc:
-                    tmp.unlink(missing_ok=True)
-                    raise ExportError(f"Não foi possível salvar o arquivo ({exc.strerror or 'erro de disco'}).") from exc
-                done.append(out)
-            return done
+        pending = list(outputs)
+        done_files: list[Path] = []
 
-        def ok(files):
-            busy.close_modal()
-            self.save_silent()
-            self._export_done(files)
+        def next_file(_=None):
+            if not pending:
+                busy.close_modal()
+                self.save_silent()
+                self._export_done(done_files)
+                return
+            out, with_key = pending.pop(0)
+            done_files.append(out)
+            run_in_process(export_to_file, snapshot, str(out), with_key, on_done=next_file, on_error=fail)
 
         def fail(e):
             busy.close_modal()
             msg = str(e) if isinstance(e, (SecurityError, ExportError)) else "Não foi possível exportar o PDF."
             Toast.show_message(self, msg, "error", 7000)
 
-        run_async(work, ok, fail)
+        next_file()
 
     def _export_done(self, files: list[Path]):
         from PySide6.QtCore import QUrl
@@ -1213,6 +1297,7 @@ class EditorView(QWidget):
         menu = QMenu(self)
         menu.addAction("✦  Gerar apostila completa com IA...", lambda: open_ai_generate(self, self.get_assistant, self._ai_replace))
         menu.addAction("✓  Gerar exercícios com gabarito...", self.ai_exercises)
+        menu.addAction("📄  Gerar questões a partir de um arquivo (Word, PDF...)", self.exercises_from_file)
         menu.addAction("↺  Melhorar texto do bloco selecionado", self.improve_selected)
         menu.exec(anchor.mapToGlobal(anchor.rect().bottomLeft()))
 

@@ -30,22 +30,36 @@ class KindCard(QWidget):
         lay = QVBoxLayout(self)
         lay.setContentsMargins(14, 12, 14, 12)
         lay.setSpacing(4)
-        ic = QLabel(self.icon)
-        ic.setStyleSheet("font-size: 22px; background: transparent;")
-        lay.addWidget(ic)
+        from aulaviva.ui.art import ArtIcon
+
+        self.art = ArtIcon(key, 40)
+        lay.addWidget(self.art)
+        self._h = 0.0
+        from PySide6.QtCore import QEasingCurve, QVariantAnimation
+
+        from aulaviva.ui.widgets import Motion
+
+        self._ha = QVariantAnimation(self, duration=Motion.ms(180), easingCurve=QEasingCurve.Type.OutCubic)
+        self._ha.valueChanged.connect(lambda v: (setattr(self, "_h", float(v)), self.update()))
         lay.addWidget(label(self.title, "h3", wrap=True))
         d = label(self.desc, "muted", wrap=True)
         lay.addWidget(d)
         lay.addStretch()
         self.setToolTip(self.desc)
 
+    def _anim(self, on: bool):
+        self._hover = on
+        self._ha.stop()
+        self._ha.setStartValue(self._h)
+        self._ha.setEndValue(1.0 if on else 0.0)
+        self._ha.start()
+        self.art.set_hover(on)
+
     def enterEvent(self, e):
-        self._hover = True
-        self.update()
+        self._anim(True)
 
     def leaveEvent(self, e):
-        self._hover = False
-        self.update()
+        self._anim(False)
 
     def mouseReleaseEvent(self, e):
         if self.rect().contains(e.position().toPoint()):
@@ -56,7 +70,11 @@ class KindCard(QWidget):
 
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        r = QRectF(self.rect()).adjusted(1, 1, -1, -1)
+        r = QRectF(self.rect()).adjusted(1, 3, -1, -1).translated(0, -2 * self._h)
+        if self._h:
+            p.setPen(Qt.PenStyle.NoPen)
+            p.setBrush(QColor(*theme.SHADOW, int(20 * self._h)))
+            p.drawRoundedRect(r.translated(0, 3), 14, 14)
         if self.selected:
             p.setBrush(QColor(theme.PRIMARY_SOFT))
             p.setPen(QPen(QColor(theme.PRIMARY), 2))
@@ -114,7 +132,7 @@ def open_quicklist(host: QWidget, on_insert: Callable[[list[dict]], None], initi
 
 def open_new_material(host: QWidget, on_create: Callable[[str, dict, list[dict], bool], None],
                       defaults: dict | None = None, preselect: str = "apostila", ai_available: bool = True,
-                      ai_mode: bool = False, provider_name: str = "") -> Modal:
+                      ai_mode: bool = False, provider_name: str = "", on_import: Callable[[str], None] | None = None) -> Modal:
     """Assistente 'Criar novo material': com IA (a IA escreve, você ajusta) ou manualmente.
 
     on_create(kind, info, blocks, use_ai). Em modo IA, info traz também 'details' e 'amount'.
@@ -125,10 +143,14 @@ def open_new_material(host: QWidget, on_create: Callable[[str, dict, list[dict],
     # alternância IA / manual
     seg = QHBoxLayout()
     seg.setSpacing(8)
-    b_ai = Button("✦  Criar com IA", "soft", height=46)
-    b_man = Button("✍  Criar manualmente", "secondary", height=46)
+    b_ai = Button("Criar com IA", "soft", icon_text="✦", height=46)
+    b_man = Button("Criar manualmente", "secondary", icon_text="✍", height=46)
+    b_file = Button("A partir de um arquivo", "secondary", icon_text="📄", height=46)
+    b_file.setToolTip("Word, PowerPoint, PDF (Canva), LibreOffice, texto...")
     seg.addWidget(b_ai, 1)
     seg.addWidget(b_man, 1)
+    seg.addWidget(b_file, 1)
+    b_file.setVisible(on_import is not None)
     m.body.addLayout(seg)
     mode_hint = label("", "muted", wrap=True)
     m.body.addWidget(mode_hint)
@@ -240,6 +262,7 @@ def open_new_material(host: QWidget, on_create: Callable[[str, dict, list[dict],
     for c in cards.values():
         c.clicked.connect(select)
     b_ai.clicked.connect(lambda: set_mode(True))
+    b_file.clicked.connect(lambda: (m.close_modal(), on_import and on_import(state["kind"] if state["kind"] != "branco" else "apostila")))
     b_man.clicked.connect(lambda: set_mode(False))
     refresh()
 
@@ -259,4 +282,144 @@ def open_new_material(host: QWidget, on_create: Callable[[str, dict, list[dict],
     title.returnPressed.connect(go)
     m.open()
     title.setFocus()
+    return m
+
+
+def open_import_material(host: QWidget, on_create: Callable[[str, object, bool, dict], None],
+                         defaults: dict | None = None, provider_name: str = "", ai_real: bool = True,
+                         preselect: str = "apostila") -> Modal:
+    """'Criar a partir de um arquivo': Word, PowerPoint, PDF/Canva... vira material (com ou sem IA).
+
+    on_create(kind, import_result, use_ai, info)
+    """
+    from PySide6.QtWidgets import QButtonGroup, QFileDialog, QRadioButton
+
+    from aulaviva.core.importers import FILE_FILTER, ImportError_, import_file
+    from aulaviva.ui.widgets import Spinner
+    from aulaviva.ui.workers import run_in_process
+
+    defaults = defaults or {}
+    m = Modal(host, 860)
+    m.body.addWidget(label("Criar a partir de um arquivo", "h2"))
+    m.body.addWidget(label("Aproveite documentos que você já tem: Word, PowerPoint, PDF (inclusive exportado do Canva), "
+                           "LibreOffice, texto ou RTF. Sem precisar transcrever nada.", "dim", wrap=True))
+    pick_row = QHBoxLayout()
+    pick = Button("Escolher arquivo...", "primary", icon_text="📄", height=46)
+    file_lbl = label("Nenhum arquivo escolhido", "muted", wrap=True)
+    pick_row.addWidget(pick)
+    pick_row.addWidget(file_lbl, 1)
+    m.body.addLayout(pick_row)
+    spinner = Spinner(26)
+    spinner.hide()
+    m.body.addWidget(spinner)
+    found = label("", "dim", wrap=True)
+    m.body.addWidget(found)
+    m.body.addWidget(label("Formatos: .docx .doc .pptx .ppt .pdf .odt .odp .txt .md .rtf. No Canva: Compartilhar > Baixar > "
+                           "PDF ou PowerPoint. Arquivos .doc/.ppt antigos usam o LibreOffice, se instalado.", "muted", wrap=True))
+    m.body.addWidget(label("Transformar em:", "h3"))
+    grid = QGridLayout()
+    grid.setSpacing(10)
+    cards: dict[str, KindCard] = {}
+    for i, key in enumerate(k for k in MATERIAL_KINDS if k != "branco"):
+        c = KindCard(key)
+        cards[key] = c
+        grid.addWidget(c, 0, i)
+    m.body.addLayout(grid)
+    how = QButtonGroup(m)
+    r_ai = QRadioButton("Com IA: reorganizar e completar o conteúdo")
+    r_raw = QRadioButton("Importar como está")
+    for r, hint in ((r_ai, f"A IA usa o arquivo como base e monta o material no formato escolhido. Usando: {provider_name or 'IA'}"
+                     + ("" if ai_real else " (configure uma IA real em Configurações para usar esta opção)")),
+                    (r_raw, "Títulos, textos, listas, tabelas, imagens e questões do arquivo viram blocos editáveis.")):
+        how.addButton(r)
+        m.body.addWidget(r)
+        m.body.addWidget(label(hint, "muted", wrap=True))
+    (r_ai if ai_real else r_raw).setChecked(True)
+    privacy = label("O conteúdo do arquivo será enviado ao serviço de IA escolhido. Não use documentos com dados pessoais de alunos.",
+                    "muted", wrap=True)
+    m.body.addWidget(privacy)
+    g = QGridLayout()
+    g.setHorizontalSpacing(12)
+    title = line_edit("Título do material (opcional)", 200)
+    subject = line_edit("Ex.: Ciências", 100)
+    subject.setText(defaults.get("subject", ""))
+    level = line_edit("Ex.: 7º ano", 100)
+    details = line_edit("Opcional: foco, nível de dificuldade, quantidade de seções...", 300)
+    amount = QSpinBox()
+    amount.setRange(1, 20)
+    amount.setValue(8)
+    amount.setMinimumHeight(40)
+    g.addWidget(Field("Título", title), 0, 0, 1, 2)
+    g.addWidget(Field("Componente curricular", subject), 1, 0)
+    g.addWidget(Field("Ano / turma", level), 1, 1)
+    g.addWidget(Field("Pedidos para a IA", details), 2, 0)
+    amount_f = Field("Questões", amount)
+    g.addWidget(amount_f, 2, 1)
+    m.body.addLayout(g)
+    row = QHBoxLayout()
+    row.addStretch()
+    cancel = Button("Cancelar", "ghost")
+    go = Button("Criar material", "primary", icon_text="→", height=46)
+    go.setEnabled(False)
+    cancel.clicked.connect(m.close_modal)
+    row.addWidget(cancel)
+    row.addWidget(go)
+    m.body.addLayout(row)
+    state = {"kind": preselect if preselect in cards else "apostila", "result": None}
+
+    def refresh():
+        for k, c in cards.items():
+            c.selected = k == state["kind"]
+            c.update()
+        ai = r_ai.isChecked()
+        privacy.setVisible(ai)
+        details.setEnabled(ai)
+        amount_f.setVisible(ai and state["kind"] != "apostila")
+        go.setText("Criar com IA" if ai else "Importar")
+        go.icon_text = "✦" if ai else "→"
+        go.update()
+        QTimer.singleShot(0, lambda: m._place())
+
+    for k, c in cards.items():
+        c.clicked.connect(lambda kk: (state.update(kind=kk), refresh()))
+    r_ai.toggled.connect(lambda _: refresh())
+
+    def choose():
+        path, _ = QFileDialog.getOpenFileName(host, "Escolher arquivo", "", FILE_FILTER)
+        if not path:
+            return
+        file_lbl.setText(path.replace("\\", "/").rsplit("/", 1)[-1])
+        found.setText("Lendo o arquivo...")
+        spinner.show()
+        go.setEnabled(False)
+
+        def ok(res):
+            spinner.hide()
+            state["result"] = res
+            found.setText("✓ Encontrado: " + res.summary() + ("".join("\n⚠ " + w for w in res.warnings)))
+            if not title.text().strip():
+                title.setText(res.title)
+            go.setEnabled(True)
+
+        def fail(exc):
+            spinner.hide()
+            state["result"] = None
+            found.setText("✗ " + (str(exc) if isinstance(exc, ImportError_) else "Não foi possível ler o arquivo."))
+
+        run_in_process(import_file, path, on_done=ok, on_error=fail)
+
+    pick.clicked.connect(choose)
+
+    def create():
+        res = state["result"]
+        if res is None:
+            return
+        info = {"title": title.text().strip() or res.title, "subject": subject.text().strip(), "level": level.text().strip(),
+                "details": details.text().strip(), "amount": amount.value()}
+        m.close_modal()
+        on_create(state["kind"], res, r_ai.isChecked(), info)
+
+    go.clicked.connect(create)
+    refresh()
+    m.open()
     return m

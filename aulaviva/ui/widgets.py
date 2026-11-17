@@ -46,25 +46,56 @@ def repolish(w: QWidget) -> None:
 class GlassCard(QFrame):
     """Cartão branco com borda suave e sombra leve (estilo folha de papel)."""
 
-    def __init__(self, parent=None, radius: int = 20, opacity: float = 0.07, padding: int = 24, strong: bool = False):
+    def __init__(self, parent=None, radius: int = 20, opacity: float = 0.07, padding: int = 24, strong: bool = False,
+                 interactive: bool = False):
         super().__init__(parent)
-        self.radius, self.opacity, self.strong = radius, opacity, strong
+        self.radius, self.opacity, self.strong, self.interactive = radius, opacity, strong, interactive
+        self._h = 0.0
+        if interactive:
+            self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+            self._ha = QVariantAnimation(self, duration=Motion.ms(200), easingCurve=QEasingCurve.Type.OutCubic)
+            self._ha.valueChanged.connect(lambda v: (setattr(self, "_h", float(v)), self.update()))
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, False)
         self.lay = QVBoxLayout(self)
         self.lay.setContentsMargins(padding, padding, padding, padding)
         self.lay.setSpacing(12)
 
+    def _hover(self, on: bool):
+        if not self.interactive:
+            return
+        self._ha.stop()
+        self._ha.setStartValue(self._h)
+        self._ha.setEndValue(1.0 if on else 0.0)
+        self._ha.start()
+        from aulaviva.ui.art import ArtIcon
+
+        for icon in self.findChildren(ArtIcon):
+            icon.set_hover(on)
+
+    def enterEvent(self, e):
+        self._hover(True)
+        super().enterEvent(e)
+
+    def leaveEvent(self, e):
+        self._hover(False)
+        super().leaveEvent(e)
+
     def paintEvent(self, e):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        depth = 5 if self.strong else 3
-        r = QRectF(self.rect()).adjusted(depth, depth - 1, -depth, -depth - 1)
+        depth = 5 if self.strong else (5 if self.interactive else 3)
+        r = QRectF(self.rect()).adjusted(depth, depth - 1, -depth, -depth - 1).translated(0, -2.5 * self._h)
         p.setPen(Qt.PenStyle.NoPen)
         for i in range(depth, 0, -1):  # sombra suave pintada (barata)
-            p.setBrush(QColor(*theme.SHADOW, ((9 if self.strong else 6) - i) * (3 if theme.is_dark() else 1)))
+            p.setBrush(QColor(*theme.SHADOW, int(((9 if self.strong else 6) - i + 4 * self._h) * (3 if theme.is_dark() else 1))))
             p.drawRoundedRect(r.adjusted(-i, -i + 2, i, i + 2), self.radius + i, self.radius + i)
         p.setBrush(QColor(theme.SURFACE))
-        p.setPen(QPen(QColor(theme.BORDER), 1))
+        border = QColor(theme.BORDER)
+        if self._h:
+            pc = QColor(theme.PRIMARY)
+            border = QColor(int(border.red() + (pc.red() - border.red()) * self._h), int(border.green() + (pc.green() - border.green()) * self._h),
+                            int(border.blue() + (pc.blue() - border.blue()) * self._h))
+        p.setPen(QPen(border, 1 + 0.5 * self._h))
         p.drawRoundedRect(r, self.radius, self.radius)
 
 
@@ -171,8 +202,20 @@ class Button(QPushButton):
             p.drawRoundedRect(r.adjusted(-1, -1, 1, 1), 12, 12)
         p.setPen(QColor(theme.PRIMARY) if self.kind == "ghost" and self._hover > 0.5 else fg)
         text = self.text()
-        if self.icon_text:
-            fm = self.fontMetrics()
+        from aulaviva.ui.art import ICON_FOR_SYMBOL, line_icon
+
+        drawn = ICON_FOR_SYMBOL.get(self.icon_text.strip()) if self.icon_text else None
+        if not drawn and not self.icon_text and text.strip() in ICON_FOR_SYMBOL:
+            drawn, text = ICON_FOR_SYMBOL[text.strip()], ""  # botões só com símbolo (↑ ↓ ⧉ 🗑 ↶ ↷)
+        fm = self.fontMetrics()
+        if drawn:
+            isz = 17.0
+            total = isz + (8 + fm.horizontalAdvance(text) if text else 0)
+            x = r.center().x() - total / 2
+            line_icon(p, QRectF(x, r.center().y() - isz / 2, isz, isz), drawn, p.pen().color())
+            if text:
+                p.drawText(QRectF(x + isz + 8, r.top(), total, r.height()), Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, text)
+        elif self.icon_text:
             total = fm.horizontalAdvance(self.icon_text) + 8 + fm.horizontalAdvance(text) if text else fm.horizontalAdvance(self.icon_text)
             x = r.center().x() - total / 2
             p.drawText(QRectF(x, r.top(), total + 4, r.height()), Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft,
@@ -489,7 +532,7 @@ def fade_in(widget: QWidget, duration: int = 300, delay: int = 0, rise: int = 14
         group.finished.connect(lambda: widget.setGraphicsEffect(None))
         group.start(QPropertyAnimation.DeletionPolicy.DeleteWhenStopped)
 
-    QTimer.singleShot(delay, start)
+    QTimer.singleShot(delay, widget, start)  # cancelado automaticamente se o widget for destruído
 
 
 class Spinner(QWidget):
