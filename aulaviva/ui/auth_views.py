@@ -90,6 +90,99 @@ class HeroPanel(QWidget):
         lay.addLayout(chips)
 
 
+GOOGLE_STEPS = (
+    "1. No Google Cloud, abra 'Google Auth Platform' (ou 'Tela de permissão OAuth') e clique em 'Começar'. Preencha nome do app "
+    "(AulaViva Studio), e-mail de suporte, público 'Externo' e e-mail de contato.\n"
+    "2. Em 'Clientes', crie um 'ID do cliente OAuth' do tipo 'App para computador' e copie o ID e a chave secreta.\n"
+    "3. Em 'Público': enquanto estiver em 'Teste', adicione em 'Usuários de teste' os e-mails que vão entrar; para liberar "
+    "para todos, clique em 'Publicar app' (não precisa de verificação, pois usamos só nome e e-mail).\n"
+    "Não é preciso ativar nenhuma API."
+)
+
+
+def open_google_setup(host: QWidget, on_saved=None) -> Modal:
+    """Configura o login com Google colando o ID e a chave do cliente (salvos só neste computador)."""
+    from PySide6.QtCore import QUrl
+    from PySide6.QtGui import QDesktopServices
+
+    m = Modal(host, 640)
+    m.body.addWidget(label("Configurar login com Google", "h2"))
+    m.body.addWidget(label(GOOGLE_STEPS, "dim", wrap=True))
+    links = QHBoxLayout()
+    for text, url in (("Abrir Google Auth Platform", "https://console.cloud.google.com/auth/overview"),
+                      ("Abrir clientes OAuth", "https://console.cloud.google.com/auth/clients")):
+        b = Button(text, "soft", icon_text="↗", height=36)
+        b.clicked.connect(lambda _=False, u=url: QDesktopServices.openUrl(QUrl(u)))
+        links.addWidget(b)
+    links.addStretch()
+    m.body.addLayout(links)
+    cid = line_edit("000000000000-xxxx.apps.googleusercontent.com", 200)
+    secret = PasswordInput("GOCSPX-...")
+    f_id, f_sec = Field("ID do cliente", cid, True), Field("Chave secreta do cliente", secret, True)
+    m.body.addWidget(f_id)
+    m.body.addWidget(f_sec)
+    m.body.addWidget(label("Ficam salvos apenas neste computador, na pasta de configuração do seu usuário. "
+                           "Em apps de computador o Google não considera essa chave confidencial; a segurança do login vem do "
+                           "PKCE e da verificação do token.", "muted", wrap=True))
+    status = label("", "dim", wrap=True)
+    m.body.addWidget(status)
+    row = QHBoxLayout()
+    row.addStretch()
+    cancel = Button("Cancelar", "ghost")
+    save = Button("Testar e salvar", "primary", icon_text="✓")
+    cancel.clicked.connect(m.close_modal)
+    row.addWidget(cancel)
+    row.addWidget(save)
+    m.body.addLayout(row)
+
+    def go():
+        try:
+            oauth.validate_credentials("google", cid.text(), secret.text())
+        except oauth.OAuthError as exc:
+            f_id.set_error(str(exc) if "ID" in str(exc) else None)
+            f_sec.set_error(None if "ID" in str(exc) else str(exc))
+            return
+        f_id.set_error(None)
+        f_sec.set_error(None)
+        save.setEnabled(False)
+        status.setText("Conferindo com o Google...")
+        a, b = cid.text(), secret.text()
+
+        def ok(msg):
+            oauth.save_credentials("google", a, b)
+            m.close_modal()
+            Toast.show_message(host, f"{msg} Login com Google ativado neste computador.", "success", 5000)
+            if on_saved:
+                on_saved()
+
+        def fail(exc):
+            save.setEnabled(True)
+            status.setText("✗ " + (str(exc) if isinstance(exc, oauth.OAuthError) else "Não foi possível conferir."))
+
+        run_async(lambda: oauth.check_credentials("google", a, b), ok, fail)
+
+    save.clicked.connect(go)
+    m.open()
+    return m
+
+
+def oauth_waiting_modal(host: QWidget, provider: str, cancel_event) -> Modal:
+    m = Modal(host, 520, dismissable=False)
+    m.body.addWidget(label("Continue no navegador", "h2"))
+    m.body.addWidget(label(f"Abrimos a página de login do {oauth.PROVIDERS[provider].label}. Escolha sua conta e autorize; "
+                           "depois volte para cá.", "dim", wrap=True))
+    m.body.addWidget(Spinner(), 0, Qt.AlignmentFlag.AlignHCenter)
+    if provider == "google":
+        m.body.addWidget(label("Se aparecer \"Acesso bloqueado\" ou \"Erro 403: access_denied\": o app ainda está em modo de teste "
+                               "no Google Cloud. Adicione seu e-mail em 'Usuários de teste' ou publique o app. Se aparecer "
+                               "\"O Google não verificou este app\", clique em 'Avançado' e continue.", "muted", wrap=True))
+    cb = Button("Cancelar", "secondary")
+    cb.clicked.connect(lambda: (cancel_event.set(), m.close_modal()))
+    m.body.addWidget(cb)
+    m.open()
+    return m
+
+
 class LoginView(QWidget):
     logged_in = Signal(object)          # User
     wants_register = Signal()
@@ -190,6 +283,9 @@ class LoginView(QWidget):
         run_async(lambda: self.auth.login(email, pw), ok, fail)
 
     def _oauth(self, provider: str):
+        if not oauth.is_configured(provider) and provider == "google":
+            open_google_setup(self, lambda: self._oauth("google"))
+            return
         if not oauth.is_configured(provider):
             m = Modal(self, 500)
             m.body.addWidget(label(f"Login com {oauth.PROVIDERS[provider].label}", "h2"))
@@ -203,18 +299,10 @@ class LoginView(QWidget):
             m.body.addWidget(b)
             m.open()
             return
-        m = Modal(self, 420, dismissable=False)
-        m.body.addWidget(label("Continue no navegador", "h2"))
-        m.body.addWidget(label("Abrimos a página de login do provedor. Após entrar, volte para cá.", "dim", wrap=True))
-        sp = Spinner()
-        m.body.addWidget(sp, 0, Qt.AlignmentFlag.AlignHCenter)
         import threading
 
         cancel = threading.Event()
-        cb = Button("Cancelar", "secondary")
-        cb.clicked.connect(lambda: (cancel.set(), m.close_modal()))
-        m.body.addWidget(cb)
-        m.open()
+        m = oauth_waiting_modal(self, provider, cancel)
 
         def work():
             res = oauth.sign_in(provider, cancel_event=cancel)

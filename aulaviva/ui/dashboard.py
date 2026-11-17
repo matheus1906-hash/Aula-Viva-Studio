@@ -571,6 +571,22 @@ class SettingsPage(QWidget):
         b.clicked.connect(self._change_pw)
         card.lay.addWidget(b, 0, Qt.AlignmentFlag.AlignLeft)
         lay.addWidget(card)
+        cardg = GlassCard(radius=16, padding=20, opacity=0.06)
+        cardg.lay.addWidget(label("Login com Google", "h3"))
+        self.google_status = label("", "dim", wrap=True)
+        cardg.lay.addWidget(self.google_status)
+        grow = QHBoxLayout()
+        gconf = Button("Configurar ID e chave do Google", "secondary", icon_text="⚙")
+        glink = Button("Vincular minha conta Google", "soft", icon_text="🔗")
+        gclear = Button("Remover configuração", "ghost")
+        gconf.clicked.connect(self._google_setup)
+        glink.clicked.connect(self._link_google)
+        gclear.clicked.connect(self._google_clear)
+        for b in (gconf, glink, gclear):
+            grow.addWidget(b)
+        grow.addStretch()
+        cardg.lay.addLayout(grow)
+        lay.addWidget(cardg)
         card2 = GlassCard(radius=16, padding=20, opacity=0.06)
         card2.lay.addWidget(label("Códigos de recuperação", "h3"))
         card2.lay.addWidget(label("Gere novos códigos se você perdeu os anteriores. Os antigos deixam de funcionar.", "dim", wrap=True))
@@ -613,6 +629,50 @@ class SettingsPage(QWidget):
         ok.clicked.connect(check)
         pw.returnPressed.connect(check)
         m.open()
+
+    def _google_setup(self):
+        from aulaviva.ui.auth_views import open_google_setup
+
+        open_google_setup(self, self.refresh)
+
+    def _google_clear(self):
+        from aulaviva.core import oauth
+
+        oauth.clear_credentials("google")
+        Toast.show_message(self, "Configuração do Google removida deste computador.", "info")
+        self.refresh()
+
+    def _link_google(self):
+        """Vincula a conta Google à conta atual: depois dá para entrar pelo botão do Google."""
+        import threading
+
+        from aulaviva.core import oauth
+        from aulaviva.ui.auth_views import oauth_waiting_modal, open_google_setup
+
+        if not oauth.is_configured("google"):
+            open_google_setup(self, self._link_google)
+            return
+        cancel = threading.Event()
+        m = oauth_waiting_modal(self, "google", cancel)
+        uid = self.shell.user.id
+
+        def work():
+            res = oauth.sign_in("google", cancel_event=cancel)
+            self.shell.auth.link_oauth(uid, "google", res.subject)
+            return res.email
+
+        def ok(email):
+            m.close_modal()
+            Toast.show_message(self, f"Conta Google {email} vinculada. Agora você pode entrar com o botão do Google.", "success", 6000)
+            self.refresh()
+
+        def fail(exc):
+            if m.isVisible():
+                m.close_modal()
+            if not cancel.is_set():
+                Toast.show_message(self, str(exc) if isinstance(exc, (AuthError, oauth.OAuthError)) else "Não foi possível vincular.", "error", 7000)
+
+        run_async(work, ok, fail)
 
     def _change_pw(self):
         if self.new_pw.text() != self.new_pw2.text():
@@ -938,6 +998,12 @@ class SettingsPage(QWidget):
         evs = self.shell.auth.recent_security_events(u.id)
         self.events.setText("<br>".join(f"{EVENT_NAMES.get(e, e)} <span style='color:{theme.TEXT_MUTED}'>· {when(ts)}</span>" for e, ts in evs) or "Sem registros.")
         self._build_ai_panel(ai_mod.effective_provider(self.shell.prefs, self.shell.auth.c))
+        from aulaviva.core import oauth as _oauth
+
+        linked = self.shell.auth.db.query_one("SELECT 1 FROM oauth_identities WHERE user_id=? AND provider='google'", (u.id,))
+        self.google_status.setText(("✓ Login com Google configurado neste computador." if _oauth.is_configured("google")
+                                    else "Login com Google ainda não configurado neste computador.")
+                                   + ("  ✓ Sua conta Google está vinculada." if linked else ""))
 
 
 class _LazyPages(dict):

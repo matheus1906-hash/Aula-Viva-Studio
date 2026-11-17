@@ -18,8 +18,10 @@ import base64
 import hashlib
 import json
 import os
+import re
 import secrets
 import threading
+import urllib.error
 import urllib.parse
 import urllib.request
 import webbrowser
@@ -101,6 +103,71 @@ def _credentials(provider: str) -> tuple[str | None, str | None]:
     return None, None
 
 
+_GOOGLE_ID_RE = re.compile(r"^\d{6,20}-[a-z0-9]{10,64}\.apps\.googleusercontent\.com$")
+_SECRET_RE = re.compile(r"^[A-Za-z0-9_\-]{10,100}$")
+
+
+def validate_credentials(provider: str, client_id: str, client_secret: str) -> tuple[str, str]:
+    client_id, client_secret = client_id.strip(), client_secret.strip()
+    if provider == "google" and not _GOOGLE_ID_RE.match(client_id):
+        raise OAuthError("ID do cliente inválido. Ele termina com .apps.googleusercontent.com.")
+    if client_secret and not _SECRET_RE.match(client_secret):
+        raise OAuthError("Chave secreta do cliente inválida (copie a chave completa, que começa com GOCSPX-).")
+    if provider == "google" and not client_secret:
+        raise OAuthError("Informe também a chave secreta do cliente (começa com GOCSPX-).")
+    return client_id, client_secret
+
+
+def check_credentials(provider: str, client_id: str, client_secret: str) -> str:
+    """Confere com o Google se o par ID/chave existe e combina (usa um código falso: 'invalid_grant' = OK)."""
+    client_id, client_secret = validate_credentials(provider, client_id, client_secret)
+    if provider != "google":
+        return "Formato válido."
+    data = {"grant_type": "authorization_code", "code": "4/teste-aulaviva", "redirect_uri": "http://127.0.0.1:53682/",
+            "client_id": client_id, "client_secret": client_secret, "code_verifier": "a" * 50}
+    try:
+        _post_form(PROVIDERS["google"].token_url, data)
+    except urllib.error.HTTPError as exc:
+        body = exc.read(2000).decode("utf-8", "replace")
+        if "invalid_grant" in body:
+            return "Credenciais confirmadas pelo Google."
+        if "invalid_client" in body or "unauthorized_client" in body:
+            raise OAuthError("O Google não reconheceu esse ID/chave. Confira se copiou do mesmo cliente OAuth "
+                             "(tipo 'App para computador').") from exc
+        raise OAuthError(f"O Google respondeu de forma inesperada ({exc.code}).") from exc
+    except (urllib.error.URLError, TimeoutError) as exc:
+        raise OAuthError("Sem conexão com o Google para conferir as credenciais.") from exc
+    return "Credenciais confirmadas pelo Google."
+
+
+def save_credentials(provider: str, client_id: str, client_secret: str) -> None:
+    """Salva as credenciais na pasta de configuração do usuário (não vão para o Git nem para o instalador)."""
+    client_id, client_secret = validate_credentials(provider, client_id, client_secret)
+    path = config_dir() / "oauth_providers.json"
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(data, dict):
+            data = {}
+    except (OSError, ValueError):
+        data = {}
+    data[provider] = {"client_id": client_id, "client_secret": client_secret}
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    if os.name != "nt":
+        os.chmod(tmp, 0o600)
+    os.replace(tmp, path)
+
+
+def clear_credentials(provider: str) -> None:
+    path = config_dir() / "oauth_providers.json"
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        data.pop(provider, None)
+        path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    except (OSError, ValueError, AttributeError):
+        pass
+
+
 def is_configured(provider: str) -> bool:
     return bool(_credentials(provider)[0])
 
@@ -121,10 +188,15 @@ class _CallbackHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
         type(self).result.update(params)
+        ok = "code" in params
+        title = "Pronto! Login concluído." if ok else "Login não concluído"
+        msg = ("Você já pode fechar esta aba e voltar ao AulaViva Studio." if ok else
+               "O login foi cancelado ou recusado. Volte ao AulaViva Studio para tentar novamente.")
         body = (
             "<!doctype html><meta charset='utf-8'><title>AulaViva Studio</title>"
-            "<body style='font-family:sans-serif;background:#111827;color:#fff;display:grid;place-items:center;height:100vh'>"
-            "<div style='text-align:center'><h2>Pronto!</h2><p>Você já pode fechar esta aba e voltar ao AulaViva Studio.</p></div>"
+            "<body style='font-family:Segoe UI,sans-serif;background:#F4F6FB;color:#111827;display:grid;place-items:center;height:100vh;margin:0'>"
+            "<div style='text-align:center;background:#fff;padding:40px 56px;border-radius:18px;box-shadow:0 10px 30px rgba(0,0,0,.08)'>"
+            f"<h2 style='color:{'#15803D' if ok else '#DC2626'}'>{title}</h2><p>{msg}</p></div>"
         ).encode()
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
