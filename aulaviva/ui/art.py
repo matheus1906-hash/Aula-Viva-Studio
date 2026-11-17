@@ -409,6 +409,9 @@ def line_icon(p: QPainter, rect: QRectF, name: str, color: QColor, width: float 
         for k in range(8):
             a = k * math.pi / 4
             path((12 + 6.5 * math.cos(a), 12 + 6.5 * math.sin(a)), (12 + 8.8 * math.cos(a), 12 + 8.8 * math.sin(a)))
+    elif n == "close":
+        path((6.5, 6.5), (17.5, 17.5))
+        path((17.5, 6.5), (6.5, 17.5))
     elif n == "trash":
         path((4, 6.5), (20, 6.5))
         path((9, 6.5), (9, 4), (15, 4), (15, 6.5))
@@ -438,7 +441,7 @@ def line_icon(p: QPainter, rect: QRectF, name: str, color: QColor, width: float 
 ICON_FOR_SYMBOL = {
     "✦": "sparkle", "⚙": "gear", "👁": "eye", "⤓": "download", "＋": "plus", "+": "plus", "⚡": "bolt", "📄": "file",
     "▦": "qr", "🔗": "link", "❏": "templates", "⧉": "copy", "✓": "check", "↗": "external", "⎋": "logout", "⤒": "upload",
-    "📁": "folder", "🏫": "school", "✍": "open_question", "←": "back", "↶": "undo", "↷": "redo", "↑": "up", "↓": "down", "🗑": "trash", "✕": "trash",
+    "📁": "folder", "🏫": "school", "✍": "open_question", "←": "back", "↶": "undo", "↷": "redo", "↑": "up", "↓": "down", "🗑": "trash", "✕": "close",
 }
 ART_FOR_SYMBOL = {"✦": "ia", "📘": "apostila", "📝": "lista", "🧾": "prova", "▦": "qr", "🔗": "link", "📄": "arquivo",
                   "❏": "modelos", "✓": "lista", "↺": "ia", "＋": "branco", "🔒": "seguranca", "✎": "lista", "W": "arquivo",

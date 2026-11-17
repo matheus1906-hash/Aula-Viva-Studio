@@ -918,11 +918,11 @@ class EditorView(QWidget):
                 r = assistant.generate_from_document("lista", res.as_text(400_000), "", self.doc["meta"]["subject"], level, "", 8)
                 return build_material_doc("lista", r, "", level, "", "")["blocks"]
 
-            run_async(work, lambda blocks: (busy.close_modal(), self._ai_replace({"blocks": blocks}, "append")),
-                      lambda e: (busy.close_modal(), Toast.show_message(self, str(e) if isinstance(e, AIError) else "Falha na IA.", "error", 7000)))
+            run_async(work, busy.guard(lambda blocks: (busy.close_modal(), self._ai_replace({"blocks": blocks}, "append"))),
+                      busy.guard(lambda e: (busy.close_modal(), Toast.show_message(self, str(e) if isinstance(e, AIError) else "Falha na IA.", "error", 7000))))
 
-        run_in_process(import_file, path, on_done=parsed,
-                       on_error=lambda e: (busy.close_modal(), Toast.show_message(self, str(e) if isinstance(e, ImportError_) else "Não foi possível ler o arquivo.", "error", 7000)))
+        run_in_process(import_file, path, on_done=busy.guard(parsed),
+                       on_error=busy.guard(lambda e: (busy.close_modal(), Toast.show_message(self, str(e) if isinstance(e, ImportError_) else "Não foi possível ler o arquivo.", "error", 7000))))
 
     def _insert_pos(self) -> int:
         return self.sel + 1 if 0 <= self.sel < len(self.doc["blocks"]) else len(self.doc["blocks"])
@@ -1345,8 +1345,8 @@ class EditorView(QWidget):
             busy = ai_busy_modal(self)
             args = (topic.toPlainText(), level.text(), count.value(), kinds.currentText())
             run_async(lambda: assistant.generate_exercises(*args),
-                      lambda blocks: (busy.close_modal(), self._ai_replace({"blocks": blocks}, "append")),
-                      lambda e: (busy.close_modal(), Toast.show_message(self, str(e) if isinstance(e, AIError) else "Falha na IA.", "error", 6000)))
+                      busy.guard(lambda blocks: (busy.close_modal(), self._ai_replace({"blocks": blocks}, "append"))),
+                      busy.guard(lambda e: (busy.close_modal(), Toast.show_message(self, str(e) if isinstance(e, AIError) else "Falha na IA.", "error", 6000))))
 
         go.clicked.connect(run)
         m.open()
@@ -1385,20 +1385,54 @@ class EditorView(QWidget):
                 self._mark_dirty(True)
                 Toast.show_message(self, "Texto atualizado. Use Ctrl+Z para desfazer.", "success")
 
-            run_async(lambda: assistant.improve_text(text, ins), ok,
-                      lambda e: (busy.close_modal(), Toast.show_message(self, str(e) if isinstance(e, AIError) else "Falha na IA.", "error", 6000)))
+            run_async(lambda: assistant.improve_text(text, ins), busy.guard(ok),
+                      busy.guard(lambda e: (busy.close_modal(), Toast.show_message(self, str(e) if isinstance(e, AIError) else "Falha na IA.", "error", 6000))))
 
         go.clicked.connect(run)
         m.open()
 
 
-def ai_busy_modal(host: QWidget) -> Modal:
-    m = Modal(host, 420, dismissable=False)
-    m.body.addWidget(label("A IA está trabalhando...", "h3"))
-    m.body.addWidget(label("Isso pode levar até um minuto. Você poderá revisar tudo depois.", "dim", wrap=True))
-    m.body.addWidget(Spinner(40), 0, Qt.AlignmentFlag.AlignHCenter)
-    m.open()
-    return m
+class AIBusy(Modal):
+    """Tela de espera da IA com botão Cancelar: o resultado que chegar depois é descartado."""
+
+    def __init__(self, host: QWidget):
+        super().__init__(host, 440, dismissable=False)
+        self.cancelled = False
+        self._host_widget = host
+        self.body.addWidget(label("A IA está trabalhando...", "h3"))
+        self.body.addWidget(label("Isso pode levar até um minuto. Você poderá revisar tudo depois.", "dim", wrap=True))
+        self.body.addWidget(Spinner(40), 0, Qt.AlignmentFlag.AlignHCenter)
+        cancel = Button("Cancelar", "secondary", icon_text="✕")
+        cancel.setToolTip("Mudou de ideia? Cancela agora: nada será alterado (tecla Esc)")
+        cancel.clicked.connect(self.cancel)
+        self.body.addWidget(cancel, 0, Qt.AlignmentFlag.AlignHCenter)
+        self.open()
+
+    def cancel(self):
+        if self.cancelled:
+            return
+        self.cancelled = True
+        host = self._host_widget
+        self.close_modal()
+        Toast.show_message(host, "Geração cancelada. Nada foi alterado.", "info", 3000)
+
+    def keyPressEvent(self, e):
+        if e.key() == Qt.Key.Key_Escape:
+            self.cancel()
+        else:
+            super().keyPressEvent(e)
+
+    def guard(self, fn):
+        """Envolve um callback: se a geração foi cancelada, o resultado é ignorado."""
+        def wrapped(*args):
+            if self.cancelled:
+                return None
+            return fn(*args)
+        return wrapped
+
+
+def ai_busy_modal(host: QWidget) -> AIBusy:
+    return AIBusy(host)
 
 
 def open_ai_generate(host: QWidget, get_assistant: Callable[[], Assistant], on_result: Callable[[dict, str], None],
@@ -1452,10 +1486,10 @@ def open_ai_generate(host: QWidget, get_assistant: Callable[[], Assistant], on_r
         m.close_modal()
         busy = ai_busy_modal(host)
         run_async(lambda: assistant.generate_apostila(*args),
-                  lambda doc: (busy.close_modal(), on_result(sanitize_document(doc), chosen),
+                  busy.guard(lambda doc: (busy.close_modal(), on_result(sanitize_document(doc), chosen),
                                assistant.is_demo and Toast.show_message(host, "Modo demonstração: conteúdo de EXEMPLO. Configure uma IA "
-                                                                        "gratuita (Ollama ou Gemini) em Configurações para conteúdo real.", "warning", 7000)),
-                  lambda e: (busy.close_modal(), Toast.show_message(host, str(e) if isinstance(e, AIError) else "Falha na IA.", "error", 6000)))
+                                                                        "gratuita (Ollama ou Gemini) em Configurações para conteúdo real.", "warning", 7000))),
+                  busy.guard(lambda e: (busy.close_modal(), Toast.show_message(host, str(e) if isinstance(e, AIError) else "Falha na IA.", "error", 6000))))
 
     go.clicked.connect(run)
     m.open()

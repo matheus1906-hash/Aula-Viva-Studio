@@ -108,6 +108,32 @@ def test_full_flow(tmp_path, monkeypatch):
     for x in w.findChildren(Modal):
         x.close_modal()
     _wait(300)
+    # cancelar a geração por IA: o resultado que chegar depois é descartado e nada muda
+    from aulaviva.ui.editor import ai_busy_modal
+    busy = ai_busy_modal(w.shell)
+    got_result = []
+    cb = busy.guard(lambda r: got_result.append(r))
+    busy.cancel()
+    cb("resultado tardio")
+    assert busy.cancelled and got_result == []
+    n_projects = len(w.store.list(w.user.id))
+    from aulaviva.ui import editor as ed_mod
+    orig = ed_mod.AIBusy.__init__
+
+    def auto_cancel(self, host):
+        orig(self, host)
+        self.cancel()          # professor muda de ideia assim que a geração começa
+    monkeypatch.setattr(ed_mod.AIBusy, "__init__", auto_cancel)
+    from aulaviva.ui.quick_create import open_new_material  # noqa: F401
+    w.shell.new_material("apostila", ai_mode=True)
+    m = [x for x in w.findChildren(Modal) if x.isVisible()][-1]
+    from PySide6.QtWidgets import QLineEdit as _LE
+    m.findChildren(_LE)[0].setText("Fotossíntese")
+    m.findChildren(_LE)[2].setText("7º ano")
+    [b for b in m.findChildren(type(w.login.btn)) if "Gerar" in b.text()][0].click()
+    _wait(1500)
+    assert len(w.store.list(w.user.id)) == n_projects   # nenhum material criado após cancelar
+    monkeypatch.setattr(ed_mod.AIBusy, "__init__", orig)
     # troca de tema na hora, mantendo a sessão
     w.apply_theme("dark")
     assert w.user is not None and w.shell is not None
