@@ -29,6 +29,18 @@ jobs:
       - name: Testes
         env: { QT_QPA_PLATFORM: offscreen }
         run: python -m pytest -q
+      - name: Credenciais de login (Google) a partir dos segredos do repositório
+        shell: bash
+        env:
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+        run: |
+          if [ -n "$GOOGLE_CLIENT_ID" ]; then
+            python -c "import json,os; json.dump({'google': {'client_id': os.environ['GOOGLE_CLIENT_ID'], 'client_secret': os.environ.get('GOOGLE_CLIENT_SECRET','')}}, open('aulaviva/assets/oauth_providers.json','w'))"
+            echo "Login com Google habilitado no instalador."
+          else
+            echo "Segredo GOOGLE_CLIENT_ID não configurado: instalador sem login Google."
+          fi
       - name: Build Linux
         if: runner.os == 'Linux'
         run: bash packaging/build_linux.sh

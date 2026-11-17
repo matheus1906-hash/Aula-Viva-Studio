@@ -4,7 +4,19 @@ O login social usa OAuth 2.0 + OpenID Connect para aplicativos nativos (PKCE + r
 `http://127.0.0.1:<porta>/callback`). Cada provedor exige que a instituição ou equipe **registre o aplicativo**
 e obtenha um `client_id`.
 
-Depois do registro, crie o arquivo `oauth_providers.json` na pasta de configuração do usuário:
+## Onde colocar as credenciais
+
+- **Instaladores gerados pelo GitHub Actions:** em *Settings > Secrets and variables > Actions* do repositório, crie os
+  segredos `GOOGLE_CLIENT_ID` e `GOOGLE_CLIENT_SECRET`. O workflow `build` gera `aulaviva/assets/oauth_providers.json`
+  durante a compilação e o embute no instalador; o arquivo nunca entra no Git (`.gitignore`).
+- **Rodando pelo código no seu PC:** coloque o arquivo em `aulaviva/assets/oauth_providers.json` (ignorado pelo Git) ou
+  na pasta de configuração do usuário (abaixo).
+
+No Google Cloud, o cliente OAuth precisa ser do tipo **App para computador (Desktop)**. Enquanto a tela de consentimento
+estiver em modo *Teste*, só os e-mails cadastrados em *Usuários de teste* conseguem entrar; para liberar a todos,
+publique o app (*Publicar aplicativo*).
+
+Pasta de configuração do usuário:
 - Windows: `%LOCALAPPDATA%\AulaViva\aulaviva-studio\oauth_providers.json`
 - Linux: `~/.config/aulaviva-studio/oauth_providers.json`
 

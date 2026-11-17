@@ -28,7 +28,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import jwt
 
-from aulaviva.core.config import config_dir
+from aulaviva.core.config import config_dir, resource_path
 
 
 @dataclass(frozen=True)
@@ -81,16 +81,24 @@ class OAuthResult:
 
 
 def _credentials(provider: str) -> tuple[str | None, str | None]:
+    """Ordem: variáveis de ambiente > pasta de configuração do usuário > arquivo embutido no instalador.
+
+    O arquivo embutido (aulaviva/assets/oauth_providers.json) é gerado no build a partir de segredos
+    e NUNCA vai para o Git (.gitignore). Em apps de computador o Google não trata o client_secret como
+    confidencial; a segurança do fluxo vem do PKCE, do state/nonce e da validação do ID Token.
+    """
     env = provider.upper()
     cid, secret = os.environ.get(f"AULAVIVA_{env}_CLIENT_ID"), os.environ.get(f"AULAVIVA_{env}_CLIENT_SECRET")
-    if not cid:
+    if cid:
+        return cid, secret
+    for path in (config_dir() / "oauth_providers.json", resource_path("aulaviva/assets/oauth_providers.json")):
         try:
-            cfg = json.loads((config_dir() / "oauth_providers.json").read_text(encoding="utf-8"))
-            entry = cfg.get(provider, {})
-            cid, secret = entry.get("client_id"), entry.get("client_secret")
-        except (OSError, ValueError):
-            pass
-    return cid, secret
+            entry = json.loads(path.read_text(encoding="utf-8")).get(provider, {})
+        except (OSError, ValueError, AttributeError):
+            continue
+        if isinstance(entry, dict) and entry.get("client_id"):
+            return str(entry["client_id"]), (str(entry["client_secret"]) if entry.get("client_secret") else None)
+    return None, None
 
 
 def is_configured(provider: str) -> bool:
@@ -103,15 +111,15 @@ def _b64url(data: bytes) -> str:
 
 class _CallbackHandler(BaseHTTPRequestHandler):
     result: dict = {}
-    expected_path = "/callback"
+    expected_path = "/"
 
     def do_GET(self):  # noqa: N802
         parsed = urllib.parse.urlsplit(self.path)
-        if parsed.path != self.expected_path:
-            self.send_response(404)
+        params = dict(urllib.parse.parse_qsl(parsed.query))
+        if parsed.path != self.expected_path or not ({"code", "error"} & params.keys()):
+            self.send_response(404)  # ex.: /favicon.ico
             self.end_headers()
             return
-        params = dict(urllib.parse.parse_qsl(parsed.query))
         type(self).result.update(params)
         body = (
             "<!doctype html><meta charset='utf-8'><title>AulaViva Studio</title>"
@@ -158,7 +166,7 @@ def sign_in(provider_key: str, timeout: int = 180, cancel_event: threading.Event
     handler = type("Handler", (_CallbackHandler,), {"result": {}})
     server = HTTPServer(("127.0.0.1", 0), handler)
     server.timeout = 1
-    redirect_uri = f"http://127.0.0.1:{server.server_port}/callback"
+    redirect_uri = f"http://127.0.0.1:{server.server_port}/"  # loopback aceito por apps "Computador" no Google
     params = {
         "client_id": client_id, "response_type": "code", "redirect_uri": redirect_uri, "scope": provider.scopes,
         "state": state, "nonce": nonce, "code_challenge": challenge, "code_challenge_method": "S256",
