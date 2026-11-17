@@ -41,7 +41,12 @@ def test_full_flow(tmp_path, monkeypatch):
     reg.pw.setText("Giz&Lousa-2026x"); reg.pw2.setText("Giz&Lousa-2026x")
     reg._next()
     f = reg.form
-    f.full_name.setText("Ana Souza"); f.cpf.setText("52998224725"); f.phone.setText("11987654321")
+    f.full_name.setText("Ana Souza")
+    # campos livres: digitação crua e formatação ao sair do campo
+    f.cpf.setText("529.982.247-25"); f.cpf.editingFinished.emit()
+    f.phone.setText("11 98765 4321"); f.phone.editingFinished.emit()
+    f.birth.setText("10041985"); f.birth.editingFinished.emit()
+    assert f.cpf.text() == "529.982.247-25" and f.phone.text() == "(11) 98765-4321" and f.birth.text() == "10/04/1985"
     reg._next()
     f.institution.setText("E.E. Machado"); f.network.setCurrentIndex(1); f.role.setCurrentIndex(1)
     f.levels.set_selected(["Ensino Médio"]); f.subjects.setText("Biologia"); f.city.setText("Campinas")
@@ -107,6 +112,24 @@ def test_full_flow(tmp_path, monkeypatch):
     w.apply_theme("dark")
     assert w.user is not None and w.shell is not None
     w.apply_theme("light")
+    # regressão: listas suspensas dentro de janelas não podem herdar fundo transparente (ficavam pretas no Windows)
+    from PySide6.QtGui import QPalette
+    from PySide6.QtWidgets import QComboBox
+    from aulaviva.ui import theme as th
+    w.shell.new_material("apostila", ai_mode=True)
+    combos = [c for m in w.findChildren(Modal) for c in m.findChildren(QComboBox)]
+    from aulaviva.ui.editor import open_ai_generate
+    w.shell.new_from_sample("sistema-solar")
+    open_ai_generate(w.editor, w.shell.get_assistant, lambda d, mode: None)
+    combos += [c for m in w.findChildren(Modal) for c in m.findChildren(QComboBox)]
+    assert combos
+    for c in combos:
+        base = c.view().palette().color(QPalette.ColorRole.Base)
+        assert base.alpha() == 255 and base.name().lower() == th.SURFACE.lower(), base.name()
+    for x in w.findChildren(Modal):
+        x.close_modal()
+    _wait(300)
+    w.close_editor()
     w.do_logout("teste")
     assert w.user is None and w.stack.currentWidget() is w.login
     db.close()

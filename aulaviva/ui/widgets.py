@@ -452,6 +452,14 @@ class SmoothScrollArea(QScrollArea):
         self.setWidgetResizable(True)
         self.setFrameShape(QFrame.Shape.NoFrame)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        # Transparência só da área de rolagem (sem regra de estilo em cascata: ela "contaminava" a paleta dos
+        # filhos e deixava listas suspensas e menus pretos no Windows)
+        self.viewport().setAutoFillBackground(False)
+        self.setAutoFillBackground(False)
+
+    def setWidget(self, widget):
+        widget.setAutoFillBackground(False)
+        super().setWidget(widget)
         self._target = 0
         self._anim = QPropertyAnimation(self.verticalScrollBar(), b"value", self)
         self._anim.setEasingCurve(QEasingCurve.Type.OutCubic)
@@ -620,7 +628,7 @@ class Modal(QWidget):
         # Conteúdo rolável: janelas grandes continuam usáveis em telas de notebook
         self._scroll = SmoothScrollArea()
         self._inner = QWidget()
-        self._inner.setStyleSheet("background: transparent;")
+        self._inner.setAutoFillBackground(False)
         self.body = QVBoxLayout(self._inner)
         self.body.setContentsMargins(22, 22, 18, 22)
         self.body.setSpacing(12)

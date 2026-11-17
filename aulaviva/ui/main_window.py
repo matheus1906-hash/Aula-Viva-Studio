@@ -54,7 +54,7 @@ class MainWindow(QMainWindow):
         layout.setStackingMode(QStackedLayout.StackingMode.StackAll)
         self.bg = SchoolBackground()
         self.stack = AnimatedStack()
-        self.stack.setStyleSheet("background: transparent;")
+        self.stack.setAutoFillBackground(False)  # transparente sem regra de estilo em cascata
         layout.addWidget(self.stack)
         layout.addWidget(self.bg)
         self.stack.raise_()

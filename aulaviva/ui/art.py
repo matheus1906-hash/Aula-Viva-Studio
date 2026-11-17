@@ -17,9 +17,9 @@ from aulaviva.ui import theme
 
 # paleta por ilustração: (cor 1, cor 2)
 _GRAD = {
-    "apostila": ("#3B82F6", "#6366F1"), "lista": ("#F59E0B", "#F97316"), "prova": ("#475569", "#1E293B"),
+    "apostila": ("#3B82F6", "#6366F1"), "lista": ("#F59E0B", "#F97316"), "prova": ("#F43F5E", "#BE123C"),
     "roteiro": ("#10B981", "#0D9488"), "branco": ("#94A3B8", "#64748B"), "ia": ("#8B5CF6", "#EC4899"),
-    "arquivo": ("#0EA5E9", "#2563EB"), "qr": ("#334155", "#0F172A"), "link": ("#06B6D4", "#3B82F6"),
+    "arquivo": ("#0EA5E9", "#2563EB"), "qr": ("#475569", "#334155"), "link": ("#06B6D4", "#3B82F6"),
     "modelos": ("#F43F5E", "#F97316"), "seguranca": ("#22C55E", "#059669"), "pdf": ("#EF4444", "#DC2626"),
 }
 
@@ -95,13 +95,13 @@ def illustration(p: QPainter, rect: QRectF, name: str) -> None:
         for y in (32, 42, 52, 62):
             p.drawLine(Pt(32, y), Pt(60, y))
         p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(QColor("#EF4444"))
+        p.setBrush(QColor("#FBBF24"))
         p.drawEllipse(R(54, 54, 30, 30))
         f = p.font()
         f.setPixelSize(int(13 * u))
         f.setBold(True)
         p.setFont(f)
-        p.setPen(white)
+        p.setPen(QColor("#7C2D12"))
         p.drawText(R(54, 54, 30, 30), Qt.AlignmentFlag.AlignCenter, "A+")
     elif name == "roteiro":  # mapa com rota e pino
         path = QPainterPath(Pt(22, 34))

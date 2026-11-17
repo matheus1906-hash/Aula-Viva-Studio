@@ -123,8 +123,11 @@ QLineEdit[invalid="true"], QComboBox[invalid="true"], QDateEdit[invalid="true"],
 QLineEdit:disabled, QComboBox:disabled {{ color: {TEXT_MUTED}; background: {SURFACE_ALT}; }}
 QComboBox::drop-down, QDateEdit::drop-down {{ border: 0; width: 28px; }}
 QComboBox::down-arrow, QDateEdit::down-arrow {{ image: url("{arrow}"); width: 12px; height: 12px; }}
-QComboBox QAbstractItemView {{ background: {SURFACE}; border: 1px solid {BORDER_STRONG}; selection-background-color: {PRIMARY_SOFT};
-    selection-color: {TEXT}; padding: 4px; border-radius: 8px; outline: 0; }}
+QComboBox {{ combobox-popup: 0; }}
+QComboBox QAbstractItemView {{ background: {SURFACE}; color: {TEXT}; border: 1px solid {BORDER_STRONG}; selection-background-color: {PRIMARY_SOFT};
+    selection-color: {TEXT}; padding: 4px; outline: 0; }}
+QComboBox QAbstractItemView::item {{ min-height: 30px; padding: 2px 8px; color: {TEXT}; }}
+QComboBox QAbstractItemView::item:hover, QComboBox QAbstractItemView::item:selected {{ background: {PRIMARY_SOFT}; color: {TEXT}; }}
 QSpinBox::up-button, QSpinBox::down-button {{ width: 0; border: 0; }}
 
 QCheckBox {{ spacing: 8px; color: {TEXT_DIM}; background: transparent; }}
@@ -136,7 +139,7 @@ QRadioButton::indicator {{ width: 16px; height: 16px; border-radius: 9px; border
 QRadioButton::indicator:hover {{ border-color: {PRIMARY}; }}
 QRadioButton::indicator:checked {{ border: 5px solid {PRIMARY}; background: {SURFACE}; }}
 
-QScrollArea, QScrollArea > QWidget > QWidget {{ background: transparent; border: 0; }}
+QScrollArea {{ border: 0; }}
 QScrollBar:vertical {{ background: transparent; width: 10px; margin: 4px 2px; }}
 QScrollBar::handle:vertical {{ background: {SCROLL}; border-radius: 3px; min-height: 40px; }}
 QScrollBar::handle:vertical:hover {{ background: {SCROLL_HOVER}; }}
@@ -155,7 +158,7 @@ QTabWidget::pane {{ border: 0; }}
 QTabBar::tab {{ background: transparent; color: {TEXT_MUTED}; padding: 10px 16px; font-size: 14px; border-bottom: 2px solid transparent; font-weight: 600; }}
 QTabBar::tab:selected {{ color: {PRIMARY}; border-bottom: 2px solid {PRIMARY}; }}
 QTabBar::tab:hover {{ color: {TEXT}; }}
-QMenu {{ background: {SURFACE}; border: 1px solid {BORDER_STRONG}; border-radius: 10px; padding: 6px; }}
+QMenu {{ background: {SURFACE}; color: {TEXT}; border: 1px solid {BORDER_STRONG}; padding: 6px; }}
 QMenu::item {{ padding: 8px 18px; border-radius: 6px; color: {TEXT}; }}
 QMenu::item:selected {{ background: {PRIMARY_SOFT}; color: {PRIMARY}; }}
 QMenu::separator {{ height: 1px; background: {BORDER}; margin: 4px 8px; }}
