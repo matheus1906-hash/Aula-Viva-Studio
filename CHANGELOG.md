@@ -1,5 +1,13 @@
 # Histórico de versões
 
+## 2.2.3
+- **Gemini corrigido:** a chave pode ser colada com o botão direito (antes só Ctrl+V), aspas e espaços colados junto
+  são ignorados, salvar a chave já passa a usar o Gemini, botão "Buscar modelos disponíveis" escolhe automaticamente o
+  melhor modelo da sua conta, troca automática quando um modelo é aposentado pelo Google, mais espaço de resposta para
+  modelos que "pensam" e mensagens claras para cada erro (chave inválida, API não ativada, cota do plano gratuito).
+- **Cancelar a geração por IA:** a tela "A IA está trabalhando..." tem botão Cancelar (ou tecla Esc); o resultado que
+  chegar depois é descartado e nada é alterado.
+
 ## 2.2.2
 - **Login com Google configurável dentro do app:** ao clicar em "Continuar com o Google" (ou em Configurações >
   Segurança), cole o ID e a chave do cliente OAuth; o app confere com o Google antes de salvar e guarda só no
