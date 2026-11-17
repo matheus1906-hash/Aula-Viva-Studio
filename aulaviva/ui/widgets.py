@@ -326,7 +326,9 @@ class PasswordInput(QLineEdit):
         self.setMinimumHeight(40)
         self.setEchoMode(QLineEdit.EchoMode.Password)
         self.setDragEnabled(False)
-        self.setContextMenuPolicy(Qt.ContextMenuPolicy.NoContextMenu)
+        # menu do botão direito só com "Colar" (copiar/recortar continuam bloqueados)
+        self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.customContextMenuRequested.connect(self._menu)
         self.setInputMethodHints(Qt.InputMethodHint.ImhHiddenText | Qt.InputMethodHint.ImhSensitiveData | Qt.InputMethodHint.ImhNoPredictiveText)
         self._toggle = self.addAction(self._eye_icon(False), QLineEdit.ActionPosition.TrailingPosition)
         self._toggle.setToolTip("Mostrar senha")
@@ -350,6 +352,14 @@ class PasswordInput(QLineEdit):
             p.drawLine(6, 30, 30, 6)
         p.end()
         return QIcon(pm)
+
+    def _menu(self, pos):
+        from PySide6.QtWidgets import QMenu
+
+        menu = QMenu(self)
+        menu.addAction("Colar", self.paste)
+        menu.addAction("Limpar", self.clear)
+        menu.exec(self.mapToGlobal(pos))
 
     def _flip(self):
         show = self.echoMode() == QLineEdit.EchoMode.Password

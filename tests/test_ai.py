@@ -48,3 +48,52 @@ def test_provider_selection_and_errors(monkeypatch):
 def test_extract_json_tolerates_fences():
     assert ai._extract_json('```json\n{"a": 1}\n```') == '{"a": 1}'
     assert ai._extract_json('Claro! {"a": 1} Espero ter ajudado') == '{"a": 1}'
+
+
+def _http_error(code, payload):
+    import io
+    import json
+    import urllib.error
+    return urllib.error.HTTPError("u", code, "x", {}, io.BytesIO(json.dumps(payload).encode()))
+
+
+def test_gemini_model_choice_and_errors(monkeypatch):
+    assert ai.gemini_best_model(["gemini-2.0-flash", "gemini-3-flash", "gemini-3-pro", "gemini-3-flash-preview"]) == "gemini-3-flash"
+    assert ai.gemini_best_model(["gemini-2.5-pro"]) == "gemini-2.5-pro"
+    assert ai.gemini_best_model([]) is None
+    disabled = {"error": {"code": 403, "message": "Generative Language API has not been used in project 1 before or it is disabled.",
+                          "details": [{"reason": "SERVICE_DISABLED", "metadata": {"activationUrl": "https://console.developers.google.com/x"}}]}}
+    assert "não está ativada" in str(ai._gemini_error(_http_error(403, disabled), "m"))
+    quota0 = {"error": {"code": 429, "message": "Quota exceeded ... limit: 0"}}
+    assert "não inclui" in str(ai._gemini_error(_http_error(429, quota0), "gemini-2.5-pro"))
+
+
+def test_gemini_rediscovers_retired_model_and_ignores_thoughts(monkeypatch):
+    b = ai._GeminiBackend("AIza" + "x" * 35, "gemini-velho")
+    calls = []
+
+    def fake_call(payload):
+        calls.append(b.model)
+        if b.model == "gemini-velho":
+            raise _http_error(404, {"error": {"code": 404, "message": "not found"}})
+        return {"candidates": [{"finishReason": "STOP", "content": {"parts": [
+            {"text": "pensando...", "thought": True}, {"text": '{"text": "ok"}'}]}}]}
+
+    monkeypatch.setattr(b, "_call", fake_call)
+    monkeypatch.setattr(ai, "gemini_list_models", lambda key: ["gemini-3-flash", "gemini-3-pro"])
+
+    from pydantic import BaseModel
+
+    class T(BaseModel):
+        text: str
+
+    assert b.parse("x", T, 100).text == "ok"
+    assert calls == ["gemini-velho", "gemini-3-flash"] and b.switched_to == "gemini-3-flash"
+
+
+def test_key_paste_tolerance(tmp_path, monkeypatch):
+    monkeypatch.setattr(ai, "config_dir", lambda: tmp_path)
+    monkeypatch.setenv("AULAVIVA_NO_KEYRING", "1")
+    c = Crypto(secrets.token_bytes(32))
+    ai.save_api_key('  "AIza' + "y" * 35 + '"\n', c, "gemini")
+    assert ai.load_api_key(c, "gemini") == "AIza" + "y" * 35

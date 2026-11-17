@@ -124,13 +124,13 @@ def _key_file(provider: str):
 
 
 def _validate_key(provider: str, key: str) -> str:
-    key = key.strip()
+    key = key.strip().strip('"').strip("'").strip()  # tolera aspas/espaços colados junto
     if not key or len(key) > 300 or any(c.isspace() for c in key):
         raise SecurityError("Chave de API com formato inválido.")
     if provider == "claude" and not key.startswith("sk-ant-"):
         raise SecurityError("A chave da Anthropic deve começar com sk-ant-.")
-    if provider == "gemini" and not re.fullmatch(r"[A-Za-z0-9_\-]{20,200}", key):
-        raise SecurityError("Chave do Gemini inválida (copie a chave completa do Google AI Studio).")
+    if provider == "gemini" and not re.fullmatch(r"[A-Za-z0-9_\-.]{20,300}", key):
+        raise SecurityError("Chave do Gemini inválida: copie a chave completa do Google AI Studio (sem espaços).")
     if provider in OPENAI_COMPAT and not re.fullmatch(r"[A-Za-z0-9_\-.:]{8,300}", key):
         raise SecurityError("Chave inválida: copie a chave completa, sem espaços.")
     return key
@@ -249,46 +249,138 @@ class _ClaudeBackend:
         return response.parsed_output
 
 
+GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta"
+
+
+def _gemini_error(exc: urllib.error.HTTPError, model: str) -> AIError:
+    """Traduz os erros do Gemini em mensagens claras (com o que fazer)."""
+    raw = exc.read(8000).decode("utf-8", "replace")
+    try:
+        err = json.loads(raw).get("error", {})
+    except ValueError:
+        err = {}
+    msg = str(err.get("message", "")).lower()
+    reasons = {d.get("reason", "") for d in err.get("details", []) if isinstance(d, dict)}
+    activation = next((d.get("metadata", {}).get("activationUrl") for d in err.get("details", [])
+                       if isinstance(d, dict) and d.get("metadata", {}).get("activationUrl")), "")
+    if "API_KEY_INVALID" in reasons or "api key not valid" in msg or "api_key_invalid" in msg:
+        return AIError("Chave do Gemini inválida. Copie a chave inteira em aistudio.google.com/apikey (começa com AIza) e salve de novo.")
+    if "SERVICE_DISABLED" in reasons or "has not been used" in msg or "is disabled" in msg:
+        return AIError("A API do Gemini não está ativada no projeto dessa chave. Crie a chave pelo Google AI Studio "
+                       "(aistudio.google.com/apikey), que já vem ativada, ou ative a 'Generative Language API'"
+                       + (f" em: {activation}" if activation else " no Google Cloud.") )
+    if "API_KEY_SERVICE_BLOCKED" in reasons or "blocked" in msg:
+        return AIError("Essa chave tem restrições que bloqueiam o Gemini. No Google Cloud, em Credenciais, libere a "
+                       "'Generative Language API' para a chave (ou crie uma nova no AI Studio).")
+    if exc.code == 403 and ("location" in msg or "region" in msg or "country" in msg):
+        return AIError("O Gemini não está disponível para esta conta/região.")
+    if exc.code == 403:
+        return AIError("Sem permissão para usar o Gemini com essa chave. Crie uma nova em aistudio.google.com/apikey.")
+    if exc.code == 404:
+        return AIError(f"O modelo '{model}' não está disponível na sua conta do Gemini.")
+    if exc.code == 429:
+        if "limit: 0" in msg or "pro" in model:
+            return AIError(f"O plano gratuito não inclui o modelo '{model}'. Em Configurações, escolha um modelo 'flash' "
+                           "(ex.: gemini-2.5-flash) ou clique em 'Buscar modelos disponíveis'.")
+        return AIError("Limite do plano gratuito do Gemini atingido. Aguarde um minuto (ou até amanhã) e tente de novo.")
+    if exc.code >= 500:
+        return AIError("O Gemini está instável no momento. Tente novamente em instantes.")
+    return AIError(f"O Gemini recusou o pedido ({exc.code}): {err.get('message', '')[:160]}")
+
+
+def gemini_list_models(key: str) -> list[str]:
+    """Modelos da conta que aceitam geração de texto (para escolher automaticamente ou exibir na lista)."""
+    req = urllib.request.Request(f"{GEMINI_BASE}/models?pageSize=200", headers={"x-goog-api-key": key})
+    try:
+        with urllib.request.build_opener().open(req, timeout=30) as resp:  # noqa: S310
+            data = json.loads(resp.read(5_000_000))
+    except urllib.error.HTTPError as exc:
+        raise _gemini_error(exc, "") from exc
+    except (urllib.error.URLError, TimeoutError) as exc:
+        raise AIError("Sem conexão com o Google Gemini. Verifique sua internet.") from exc
+    names = []
+    for m in data.get("models", []):
+        name = str(m.get("name", "")).removeprefix("models/")
+        methods = m.get("supportedGenerationMethods", [])
+        if "generateContent" in methods and name.startswith("gemini") and not any(x in name for x in ("embedding", "image", "tts", "audio", "live", "vision")):
+            names.append(name)
+    return names
+
+
+def gemini_best_model(names: list[str]) -> str | None:
+    """Escolhe o melhor modelo para gerar materiais: 'flash' estável mais recente (rápido e com plano gratuito)."""
+    if not names:
+        return None
+
+    def version(n: str) -> float:
+        if n.endswith("-latest"):
+            return 99.0
+        m = re.match(r"gemini-(\d+(?:\.\d+)?)", n)
+        return float(m.group(1)) if m else 0.0
+
+    def stable(n: str) -> bool:
+        return not any(x in n for x in ("preview", "exp", "-0", "thinking"))
+
+    for pool in ([n for n in names if "flash" in n and "lite" not in n and stable(n)],
+                 [n for n in names if "flash" in n and stable(n)],
+                 [n for n in names if "flash" in n],
+                 [n for n in names if stable(n)], names):
+        if pool:
+            return sorted(pool, key=version, reverse=True)[0]
+    return None
+
+
 class _GeminiBackend:
     def __init__(self, key: str, model: str):
-        self.key = key
+        self.key = key.strip()
         self.model = model if _MODEL_NAME_RE.match(model or "") else GEMINI_MODELS[0]
+        self.switched_to: str | None = None
+
+    def _call(self, payload: dict) -> dict:
+        url = f"{GEMINI_BASE}/models/{urllib.parse.quote(self.model, safe='.-_')}:generateContent"
+        return _http_json(url, payload, {"x-goog-api-key": self.key}, timeout=240)
 
     def parse(self, prompt: str, schema: type[BaseModel], max_tokens: int):
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{urllib.parse.quote(self.model, safe='.-_')}:generateContent"
         note = ""
-        for attempt in range(2):
+        tried_discovery = False
+        attempt = 0
+        while attempt < 2:
             payload = {
                 "systemInstruction": {"parts": [{"text": SYSTEM_PROMPT}]},
                 "contents": [{"role": "user", "parts": [{"text": prompt + _schema_instructions(schema) + note}]}],
-                "generationConfig": {"responseMimeType": "application/json", "maxOutputTokens": max_tokens, "temperature": 0.7},
+                # modelos 2.5 "pensam" e esse raciocínio conta no limite de saída: damos folga para não cortar o JSON
+                "generationConfig": {"responseMimeType": "application/json", "maxOutputTokens": max(max_tokens, 32768),
+                                     "temperature": 0.7},
             }
             try:
-                data = _http_json(url, payload, {"x-goog-api-key": self.key}, timeout=180)
+                data = self._call(payload)
             except urllib.error.HTTPError as exc:
-                body = exc.read(4000).decode("utf-8", "replace").lower()
-                if exc.code in (400, 403) and ("api key" in body or "api_key" in body or "permission" in body):
-                    raise AIError("Chave do Gemini inválida ou sem permissão. Gere outra em aistudio.google.com.") from exc
-                if exc.code == 404:
-                    raise AIError(f"Modelo '{self.model}' não encontrado no Gemini. Escolha outro em Configurações.") from exc
-                if exc.code == 429:
-                    raise AIError("Limite do plano gratuito do Gemini atingido. Aguarde alguns minutos ou tente amanhã.") from exc
-                raise AIError(f"O Gemini retornou um erro ({exc.code}). Tente novamente.") from exc
+                if exc.code == 404 and not tried_discovery:
+                    # modelo aposentado/renomeado: escolhe automaticamente um disponível na conta e tenta de novo
+                    tried_discovery = True
+                    best = gemini_best_model(gemini_list_models(self.key))
+                    if best and best != self.model:
+                        self.model = self.switched_to = best
+                        continue
+                raise _gemini_error(exc, self.model) from exc
             except (urllib.error.URLError, TimeoutError) as exc:
-                raise AIError("Sem conexão com o Google Gemini. Verifique sua internet.") from exc
+                raise AIError("Sem conexão com o Google Gemini (ou ele demorou demais). Verifique sua internet.") from exc
+            block = (data.get("promptFeedback") or {}).get("blockReason")
             cands = data.get("candidates") or []
-            if not cands:
-                raise AIError("O Gemini bloqueou ou não respondeu este pedido. Tente reformular.")
+            if block or not cands:
+                raise AIError("O Gemini bloqueou ou não respondeu este pedido. Tente reformular o tema.")
             finish = cands[0].get("finishReason", "")
-            if finish in ("SAFETY", "PROHIBITED_CONTENT", "BLOCKLIST", "RECITATION"):
+            if finish in ("SAFETY", "PROHIBITED_CONTENT", "BLOCKLIST", "RECITATION", "SPII"):
                 raise AIError("O Gemini não pôde atender este pedido. Tente reformulá-lo.")
-            text = "".join(p.get("text", "") for p in cands[0].get("content", {}).get("parts", []))
+            parts = cands[0].get("content", {}).get("parts", [])
+            text = "".join(p.get("text", "") for p in parts if not p.get("thought"))  # ignora o "raciocínio"
             try:
                 return schema.model_validate_json(_extract_json(text))
             except ValidationError:
                 if finish == "MAX_TOKENS":
                     raise AIError("A resposta ficou longa demais. Peça menos seções ou exercícios.")
                 note = "\n\nATENÇÃO: sua resposta anterior não era um JSON válido para o schema. Responda apenas o JSON."
+                attempt += 1
         raise AIError("O Gemini respondeu em um formato inesperado. Tente novamente.")
 
 
@@ -482,7 +574,11 @@ class Assistant:
             mensagem: str
 
         r = self._parse('Responda com ok=true e mensagem="Conexão funcionando".', Ping, 300)
-        return "Conexão funcionando!" if r.ok else r.mensagem
+        model = getattr(self.backend, "model", "")
+        extra = f" (modelo: {model})" if model else ""
+        if getattr(self.backend, "switched_to", None):
+            extra = f" (o modelo configurado não existe mais; usando {self.backend.switched_to})"
+        return ("Conexão funcionando!" if r.ok else r.mensagem) + extra
 
     # Tarefas ---------------------------------------------------------------
     def generate_apostila(self, topic: str, subject: str, level: str, sections: int, exercises: int, notes: str = "") -> dict:

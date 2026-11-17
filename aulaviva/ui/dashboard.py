@@ -824,8 +824,15 @@ class SettingsPage(QWidget):
             model.addItems(options)
             model.setCurrentText(ai_mod.provider_model(prefs, key))
             model.currentTextChanged.connect(lambda v: self._save_model(key, v))
+            if key == "gemini":
+                self.gemini_combo = model
         lay.addWidget(Field("Modelo", model, hint="Você pode digitar outro nome de modelo disponível no serviço."
                             if key != "claude" else ""))
+        if key == "gemini":
+            find = Button("Buscar modelos disponíveis", "secondary", icon_text="↓", height=36)
+            find.setToolTip("Consulta o Google e escolhe automaticamente o melhor modelo para a sua chave")
+            find.clicked.connect(lambda: self._gemini_models(False))
+            lay.addWidget(find, 0, Qt.AlignmentFlag.AlignLeft)
         if key == "claude":
             effort = QComboBox()
             effort.setMinimumHeight(40)
@@ -889,16 +896,59 @@ class SettingsPage(QWidget):
         except ai_mod.AIError as exc:
             done(str(exc), False)
             return
-        run_async(assistant.test_connection, done, lambda e: done(str(e) if isinstance(e, ai_mod.AIError) else "Falha no teste.", False))
+
+        def ok(msg):
+            switched = getattr(assistant.backend, "switched_to", None)
+            if switched and assistant.provider == "gemini":
+                self._save_model("gemini", switched)  # lembra o modelo que funcionou
+            done(msg)
+
+        run_async(assistant.test_connection, ok, lambda e: done(str(e) if isinstance(e, ai_mod.AIError) else "Falha no teste.", False))
 
     def _save_key(self, provider: str, field):
         try:
             ai_mod.save_api_key(field.text(), self.shell.auth.c, provider)
             field.clear()
-            Toast.show_message(self, "Chave salva com segurança no cofre do sistema.", "success")
+            # salvar a chave já passa a usar esse provedor (antes era preciso clicar no cartão também)
+            self.shell.prefs.ai_provider = provider
+            self.shell.prefs.save()
+            Toast.show_message(self, f"Chave salva com segurança. {ai_mod.PROVIDERS[provider][0]} agora é a IA em uso. "
+                               "Clique em 'Testar conexão' para conferir.", "success", 5000)
         except SecurityError as exc:
             Toast.show_message(self, str(exc), "error")
         self._build_ai_panel(provider)
+        if provider == "gemini" and ai_mod.load_api_key(self.shell.auth.c, "gemini"):
+            self._gemini_models(silent=True)
+
+    def _gemini_models(self, silent: bool = False):
+        """Pergunta ao Google quais modelos a conta pode usar e escolhe o melhor automaticamente."""
+        key = ai_mod.load_api_key(self.shell.auth.c, "gemini")
+        if not key:
+            Toast.show_message(self, "Salve a chave do Gemini primeiro.", "warning")
+            return
+
+        def ok(names):
+            best = ai_mod.gemini_best_model(names)
+            combo = getattr(self, "gemini_combo", None)
+            if combo is not None:
+                try:
+                    combo.blockSignals(True)
+                    combo.clear()
+                    combo.addItems(names)
+                    combo.setCurrentText(best or self.shell.prefs.gemini_model)
+                    combo.blockSignals(False)
+                except RuntimeError:
+                    pass
+            if best:
+                self._save_model("gemini", best)
+            if not silent:
+                Toast.show_message(self, f"{len(names)} modelo(s) disponível(is). Selecionado: {best}.", "success", 5000)
+
+        def fail(exc):
+            Toast.show_message(self, str(exc) if isinstance(exc, ai_mod.AIError) else "Não foi possível consultar os modelos.",
+                               "error", 8000)
+
+        run_async(lambda: ai_mod.gemini_list_models(key), ok, fail)
 
     def _remove_key(self, provider: str):
         ai_mod.delete_api_key(provider)
@@ -1128,7 +1178,7 @@ class Shell(QWidget):
                 busy.close_modal()
                 Toast.show_message(self, str(exc) if isinstance(exc, ai_mod.AIError) else "Falha na IA. Tente novamente.", "error", 8000)
 
-            run_async(work, ok, fail)
+            run_async(work, busy.guard(ok), busy.guard(fail))
 
         open_new_material(self, create, defaults, preselect, ai_available=True, ai_mode=ai_mode,
                           provider_name=ai_mod.PROVIDERS[provider][0], on_import=self.import_material)
@@ -1229,7 +1279,7 @@ class Shell(QWidget):
                 Toast.show_message(self, (str(exc) if isinstance(exc, ai_mod.AIError) else "Falha na IA.")
                                    + " Você pode importar o arquivo 'como está'.", "error", 8000)
 
-            run_async(work, ok, fail)
+            run_async(work, busy.guard(ok), busy.guard(fail))
 
         open_import_material(self, create, {"subject": p.subjects.split(",")[0].strip() if p else ""},
                              ai_mod.PROVIDERS[provider][0], provider != "demo", preselect)
