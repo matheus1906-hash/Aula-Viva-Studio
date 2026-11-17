@@ -1,5 +1,19 @@
 # Histórico de versões
 
+## 2.2.0
+- **Muito mais rápido e sem travamentos:** geração de PDF (prévia, exportação, miniaturas) roda num processo separado,
+  sem disputar o processador com a interface; páginas do painel montadas sob demanda; troca de tema claro/escuro de
+  ~1,5 s para ~0,2 s; abrir um bloco no editor de ~60 ms para ~15 ms.
+- **Importar arquivos do professor:** Word (.docx/.doc), PowerPoint (.pptx/.ppt), PDF (inclusive exportado do Canva),
+  LibreOffice (.odt/.odp), texto, Markdown, RTF e imagens. O conteúdo vira blocos editáveis (títulos, textos, listas,
+  tabelas, imagens e até questões) ou serve de **base para a IA** criar apostila, lista, prova ou roteiro.
+  Leitura segura (defusedxml, proteção contra zip bomb, bloqueio de macros).
+- **30 modelos prontos** (24 novos): apostilas, listas, provas e roteiros de várias disciplinas e anos, com ilustrações,
+  busca e filtro por disciplina.
+- **Novas fontes:** Nunito (títulos) e Nunito Sans (textos), embutidas.
+- **Ilustrações e ícones vetoriais** no lugar dos emojis; cartões e menu com animações ao passar o mouse.
+- **Boas-vindas e login no estilo vitrine**, com telas e PDFs reais do programa animados.
+
 ## 2.1.0
 - Nova fonte de interface **Inter** (embutida, licença OFL) e textos com mais contraste e tamanhos maiores.
 - **Modo escuro** (Claro / Escuro / Automático) em *Configurações > Preferências*, aplicado na hora sem sair da conta.

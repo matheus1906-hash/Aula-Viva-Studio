@@ -14,11 +14,12 @@ próprio PDF e um **assistente de IA** (com opções gratuitas).
 |---|---|
 | **Criar com IA** | Escolha o tipo (apostila, lista, prova ou roteiro), informe o tema e a turma: a IA escreve o material completo e você modifica o que quiser no editor. |
 | **Criar manualmente** | Editor em cartões: cada bloco é editado direto no documento. Botão **＋ Adicionar** com todos os tipos de bloco explicados. |
+| **A partir de um arquivo** | Importe Word, PowerPoint, PDF (Canva), ODT, TXT ou RTF: o conteúdo vira blocos editáveis ou serve de base para a IA montar o material. |
 | **Lista rápida** | Digite ou cole as questões em texto comum e elas viram questões interativas (múltipla escolha, V/F, abertas), com gabarito. |
-| **Modelos prontos** | Materiais reais por disciplina (Ciências, Matemática, Português, História, Geografia, Inglês), com ilustrações e prévia da página. |
+| **30 modelos prontos** | Apostilas, listas, provas e roteiros reais de várias disciplinas e anos, com ilustrações, prévia da página, busca e filtro. |
 | **QR code e links** | Gerador de QR code (PNG/SVG, cores, logo da escola, Wi-Fi) e de links (WhatsApp, e-mail, YouTube no minuto certo, Drive, cópia do Google Docs, Maps, limpeza de rastreadores). |
 | **PDF interativo** | Capa, sumário clicável, QR codes e botões clicáveis, campos de resposta, anexos Office, gabarito, proteção AES-256. Exporta as versões **aluno** e **professor** de uma vez. |
-| **Claro ou escuro** | Tema claro (papel/caderno) ou escuro (lousa), com a fonte Inter, nítida em qualquer tela. |
+| **Claro ou escuro** | Tema claro (papel/caderno) ou escuro (lousa), com as fontes Nunito e Nunito Sans e animações suaves. |
 | **Segurança** | Argon2id, dados pessoais criptografados (AES-256-GCM), cofre do sistema para chaves, bloqueio por inatividade, LGPD (exportar/excluir dados). |
 
 <table>
@@ -81,9 +82,9 @@ Linux a cada push; quando uma versão nova chega ao `main`, o workflow `build` g
 
 ```
 aulaviva/
-  core/   security · database · auth · projects · pdf_builder · quicklist · ai · samples · qrtools · linktools · oauth
+  core/   security · database · auth · projects · pdf_builder · quicklist · importers · ai · samples(+_extra) · qrtools · linktools · oauth
   ui/     theme · effects · widgets · onboarding · auth_views · dashboard · editor · quick_create
-          templates_page · tools_page · main_window
+          templates_page · tools_page · art (ilustrações) · promo (vitrine) · main_window
   assets/ ícones, fontes livres (DejaVu) e ícones de interface
 tests/    testes automatizados
 packaging/ PyInstaller, Inno Setup, scripts de build, atalho Linux
