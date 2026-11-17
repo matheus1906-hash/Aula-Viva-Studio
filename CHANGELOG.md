@@ -1,0 +1,21 @@
+# Histórico de versões
+
+## 2.0.0
+- Novo visual claro, inspirado em papel e caderno, mais limpo e legível.
+- **Criar com IA** qualquer tipo de material (apostila, lista, prova, roteiro) e editar depois.
+- Editor simplificado: blocos como cartões editáveis direto no documento; menu "Adicionar" com explicações.
+- **Modelos prontos reais** com ilustrações e prévia da página (6 disciplinas).
+- **Ferramentas**: gerador de QR code (PNG/SVG, cores, logo, Wi-Fi) e gerador de links.
+- Mais provedores de IA: Groq, OpenRouter, Mistral, ChatGPT, DeepSeek e servidores compatíveis com OpenAI.
+- Correções: subseção antes de seção travava a exportação; "(F)" em V/F era lido como alternativa "f)";
+  travamento ao fechar a visualização de PDF; testes não tocam mais no cofre de senhas do Windows.
+
+## 1.1.0
+- Exportação robusta: formatação inválida, blocos grandes e links vazios não travam mais; versões aluno/professor.
+- Fonte DejaVu embutida (símbolos π, ≈, ², ✓ em qualquer computador).
+- Assistente "Criar novo material", lista rápida de questões e modelo de prova.
+- IA gratuita: modo demonstração, Ollama (local) e Google Gemini.
+- Prévia de 6 a 9 vezes mais rápida; histórico de desfazer sem copiar imagens.
+
+## 1.0.0
+- Primeira versão: cadastro seguro, editor de blocos, PDF interativo, assistente Claude, empacotamento Windows/Linux.
