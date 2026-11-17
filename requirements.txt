@@ -11,3 +11,4 @@ platformdirs==4.14.5
 anthropic==2.9.0
 pydantic==2.13.5
 PyJWT[crypto]==2.15.0
+defusedxml==0.7.1
