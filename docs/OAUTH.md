@@ -4,7 +4,25 @@ O login social usa OAuth 2.0 + OpenID Connect para aplicativos nativos (PKCE + r
 `http://127.0.0.1:<porta>/callback`). Cada provedor exige que a instituição ou equipe **registre o aplicativo**
 e obtenha um `client_id`.
 
-## Onde colocar as credenciais
+## Jeito mais fácil (dentro do app)
+
+Clique em **Continuar com o Google** na tela de login (ou em *Configurações > Segurança > Configurar ID e chave do
+Google*), cole o **ID do cliente** e a **chave secreta**, e clique em **Testar e salvar**. O app confere com o Google e
+salva apenas no computador do usuário.
+
+## Passo a passo no Google Cloud (Google Auth Platform)
+
+1. Acesse https://console.cloud.google.com/auth/overview e clique em **Começar** (se pedir). Preencha: nome do app
+   (*AulaViva Studio*), e-mail de suporte, público **Externo** e e-mail de contato. Não é preciso ativar nenhuma API.
+2. Em **Clientes** (https://console.cloud.google.com/auth/clients): **Criar cliente** > tipo **App para computador**.
+   Copie o ID (termina em `.apps.googleusercontent.com`) e a chave secreta (`GOCSPX-...`).
+3. Em **Público**: enquanto o status for **Teste**, só entram os e-mails listados em **Usuários de teste** (adicione o
+   seu). Para liberar para qualquer professor, clique em **Publicar app**. Como o app pede só `openid`, e-mail e
+   perfil (escopos não sensíveis), não é exigida verificação do Google.
+4. Erros comuns: *"Acesso bloqueado / Erro 403: access_denied"* = e-mail fora da lista de teste (passo 3);
+   *"O Google não verificou este app"* = clique em *Avançado > Acessar*; *"invalid_client"* = ID e chave de clientes diferentes.
+
+## Onde colocar as credenciais (avançado)
 
 - **Instaladores gerados pelo GitHub Actions:** em *Settings > Secrets and variables > Actions* do repositório, crie os
   segredos `GOOGLE_CLIENT_ID` e `GOOGLE_CLIENT_SECRET`. O workflow `build` gera `aulaviva/assets/oauth_providers.json`

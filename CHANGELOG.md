@@ -1,5 +1,13 @@
 # Histórico de versões
 
+## 2.2.2
+- **Login com Google configurável dentro do app:** ao clicar em "Continuar com o Google" (ou em Configurações >
+  Segurança), cole o ID e a chave do cliente OAuth; o app confere com o Google antes de salvar e guarda só no
+  computador do usuário. Inclui o passo a passo do Google Cloud.
+- **Vincular conta Google** a uma conta já existente (Configurações > Segurança).
+- Tela de espera com dicas para os erros do Google ("acesso bloqueado"/usuários de teste, app não verificado) e página
+  de retorno no navegador mais clara.
+
 ## 2.2.1
 - Cadastro: **CPF, celular e data de nascimento com digitação livre** (só números ou com pontos, traços e barras);
   o app formata e valida ao sair do campo. A data aceita 10/04/1985, 10-04-1985, 10.04.1985 ou 10041985.
