@@ -61,3 +61,15 @@ def test_crypto_aead_and_context():
 def test_clean_text_removes_bidi_and_control():
     assert s.clean_text("ab‮cd\x00e") == "abcde"
     assert s.safe_filename("../../CON") != "CON"
+
+
+def test_free_typing_helpers():
+    from datetime import date
+    assert s.parse_birth_date("10/04/1985") == date(1985, 4, 10)
+    assert s.parse_birth_date("1-4-1985") == date(1985, 4, 1)
+    assert s.parse_birth_date("10.04.1985") == date(1985, 4, 10)
+    assert s.parse_birth_date("10041985") == date(1985, 4, 10)
+    assert s.parse_birth_date("31/02/1985") is None and s.parse_birth_date("abc") is None
+    assert s.format_phone_br("11987654321") == "(11) 98765-4321"
+    assert s.format_phone_br("+55 (11) 3456-7890") == "(11) 3456-7890"
+    assert s.format_cpf("52998224725") == "529.982.247-25"

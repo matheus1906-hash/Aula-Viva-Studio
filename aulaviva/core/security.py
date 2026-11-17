@@ -310,6 +310,35 @@ def format_cpf(cpf: str) -> str:
     return f"{d[:3]}.{d[3:6]}.{d[6:9]}-{d[9:]}" if len(d) == 11 else cpf
 
 
+def format_phone_br(phone: str) -> str:
+    """(11) 98765-4321 / (11) 3456-7890; devolve o texto original se não reconhecer."""
+    d = only_digits(phone)
+    if d.startswith("55") and len(d) in (12, 13):
+        d = d[2:]
+    if len(d) == 11:
+        return f"({d[:2]}) {d[2:7]}-{d[7:]}"
+    if len(d) == 10:
+        return f"({d[:2]}) {d[2:6]}-{d[6:]}"
+    return phone.strip()
+
+
+def parse_birth_date(text: str) -> date | None:
+    """Aceita dd/mm/aaaa, dd-mm-aaaa, dd.mm.aaaa, d/m/aaaa e ddmmaaaa."""
+    t = (text or "").strip()
+    m = re.fullmatch(r"(\d{1,2})\s*[/.\-\s]\s*(\d{1,2})\s*[/.\-\s]\s*(\d{4})", t)
+    if m:
+        dd, mm, yy = (int(x) for x in m.groups())
+    else:
+        d = only_digits(t)
+        if len(d) != 8:
+            return None
+        dd, mm, yy = int(d[:2]), int(d[2:4]), int(d[4:])
+    try:
+        return date(yy, mm, dd)
+    except ValueError:
+        return None
+
+
 def is_valid_phone_br(phone: str) -> bool:
     d = only_digits(phone)
     if d.startswith("55") and len(d) in (12, 13):

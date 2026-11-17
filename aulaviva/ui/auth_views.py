@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from datetime import date
 
-from PySide6.QtCore import QDate, QRegularExpression, Qt, QTimer, Signal
+from PySide6.QtCore import QRegularExpression, Qt, QTimer, Signal
 from PySide6.QtGui import QGuiApplication, QRegularExpressionValidator
 from PySide6.QtWidgets import (
-    QComboBox, QDateEdit, QFileDialog, QGridLayout, QHBoxLayout, QLabel, QPlainTextEdit, QProgressBar,
+    QComboBox, QFileDialog, QGridLayout, QHBoxLayout, QLabel, QPlainTextEdit, QProgressBar,
     QVBoxLayout, QWidget,
 )
 
@@ -15,7 +15,10 @@ from aulaviva import APP_NAME
 from aulaviva.core import oauth
 from aulaviva.core.auth import EDUCATION_LEVELS, ROLES, SCHOOL_NETWORKS, AuthError, AuthService, Profile, User
 from aulaviva.core.config import Preferences
-from aulaviva.core.security import BR_STATES, format_cpf, is_valid_email, password_problems
+from aulaviva.core.security import (
+    BR_STATES, format_cpf, format_phone_br, is_valid_cpf, is_valid_email, is_valid_phone_br, only_digits, parse_birth_date,
+    password_problems,
+)
 from aulaviva.ui import theme
 from aulaviva.ui.effects import logo_pixmap
 from aulaviva.ui.widgets import (
@@ -247,17 +250,16 @@ class ProfileForm(QWidget):
         g.setVerticalSpacing(10)
         self.full_name = line_edit("Nome completo conforme documento", 120)
         self.social_name = line_edit("Opcional", 120)
-        self.cpf = line_edit("000.000.000-00", 14)
-        self.cpf.setInputMask("000.000.000-00;_")
-        self.birth = QDateEdit()
-        self.birth.setDisplayFormat("dd/MM/yyyy")
-        self.birth.setCalendarPopup(True)
-        self.birth.setMinimumHeight(40)
-        self.birth.setMaximumDate(QDate.currentDate().addYears(-18))
-        self.birth.setMinimumDate(QDate.currentDate().addYears(-100))
-        self.birth.setDate(QDate(1990, 1, 1))
-        self.phone = line_edit("(00) 00000-0000", 15)
-        self.phone.setInputMask("(00) 00000-0000;_")
+        # Campos livres: o professor digita do jeito que preferir; formatamos ao sair do campo
+        self.cpf = line_edit("Somente números ou 000.000.000-00", 18)
+        self.cpf.setValidator(QRegularExpressionValidator(QRegularExpression(r"[0-9.\-\s]{0,18}")))
+        self.cpf.setInputMethodHints(Qt.InputMethodHint.ImhDigitsOnly)
+        self.birth = line_edit("dd/mm/aaaa", 12)
+        self.birth.setValidator(QRegularExpressionValidator(QRegularExpression(r"[0-9/.\-\s]{0,12}")))
+        self.birth.setInputMethodHints(Qt.InputMethodHint.ImhDigitsOnly)
+        self.phone = line_edit("(00) 00000-0000", 20)
+        self.phone.setValidator(QRegularExpressionValidator(QRegularExpression(r"[0-9()+.\-\s]{0,20}")))
+        self.phone.setInputMethodHints(Qt.InputMethodHint.ImhDialableCharactersOnly)
         self.fields = {
             "full_name": Field("Nome completo", self.full_name, True),
             "social_name": Field("Nome social", self.social_name, hint="Como prefere ser chamado(a)."),
@@ -265,6 +267,9 @@ class ProfileForm(QWidget):
             "birth_date": Field("Data de nascimento", self.birth, True),
             "phone": Field("Celular (com DDD)", self.phone, True),
         }
+        self.cpf.editingFinished.connect(self._fmt_cpf)
+        self.phone.editingFinished.connect(self._fmt_phone)
+        self.birth.editingFinished.connect(self._fmt_birth)
         g.addWidget(self.fields["full_name"], 0, 0, 1, 2)
         g.addWidget(self.fields["social_name"], 1, 0, 1, 2)
         g.addWidget(self.fields["cpf"], 2, 0)
@@ -312,11 +317,30 @@ class ProfileForm(QWidget):
         if "professional" in sections:
             lay.addWidget(self.professional)
 
+    # formatação ao sair do campo (sem mexer no cursor enquanto a pessoa digita)
+    def _fmt_cpf(self):
+        if len(only_digits(self.cpf.text())) == 11:
+            self.cpf.setText(format_cpf(self.cpf.text()))
+            self.fields["cpf"].set_error(None if is_valid_cpf(self.cpf.text()) else "CPF inválido. Confira os números.")
+
+    def _fmt_phone(self):
+        if self.phone.text().strip():
+            self.phone.setText(format_phone_br(self.phone.text()))
+            self.fields["phone"].set_error(None if is_valid_phone_br(self.phone.text()) else "Telefone inválido. Use DDD + número.")
+
+    def _fmt_birth(self):
+        if not self.birth.text().strip():
+            return
+        d = parse_birth_date(self.birth.text())
+        if d:
+            self.birth.setText(d.strftime("%d/%m/%Y"))
+        self.fields["birth_date"].set_error(None if d else "Data inválida. Use dia/mês/ano, ex.: 10/04/1985.")
+
     def profile(self) -> Profile:
-        d = self.birth.date()
+        d = parse_birth_date(self.birth.text())
         return Profile(
             full_name=self.full_name.text(), social_name=self.social_name.text(), cpf=self.cpf.text(),
-            birth_date=date(d.year(), d.month(), d.day()).isoformat(), phone=self.phone.text(),
+            birth_date=d.isoformat() if d else "", phone=self.phone.text(),
             institution=self.institution.text(), school_network=self.network.currentText(), role=self.role.currentText(),
             education_levels=self.levels.selected(), subjects=self.subjects.text(), city=self.city.text(),
             state=self.state.currentText(), registration=self.registration.text(),
@@ -330,11 +354,10 @@ class ProfileForm(QWidget):
         self.cpf.setText(format_cpf(p.cpf) if p.cpf else "")
         if p.birth_date:
             try:
-                d = date.fromisoformat(p.birth_date)
-                self.birth.setDate(QDate(d.year, d.month, d.day))
+                self.birth.setText(date.fromisoformat(p.birth_date).strftime("%d/%m/%Y"))
             except ValueError:
                 pass
-        self.phone.setText(p.phone)
+        self.phone.setText(format_phone_br(p.phone) if p.phone else "")
         self.institution.setText(p.institution)
         for cb, val in ((self.network, p.school_network), (self.role, p.role), (self.state, p.state)):
             i = cb.findText(val)
