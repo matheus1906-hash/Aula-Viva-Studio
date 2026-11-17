@@ -51,7 +51,7 @@ professores e alunos nunca são enviados à IA.
 
 ### Windows: instalador pronto
 Baixe o `AulaVivaStudio-Setup-x.y.z.exe` na página **Releases** deste repositório e instale. O instalador é
-gerado automaticamente pelo GitHub Actions a cada nova versão (tag `v*`).
+gerado e publicado automaticamente pelo GitHub Actions sempre que uma nova versão (número em `aulaviva/__init__.py`) chega ao branch `main`.
 
 ### Windows: a partir do código
 1. Instale o [Python 3.12](https://www.python.org/downloads/) marcando **"Add python.exe to PATH"**.
@@ -77,7 +77,7 @@ AulaVivaStudio.exe --selftest                       # verifica um executável ge
 ```
 
 Branches: `main` (versões estáveis) e `develop` (desenvolvimento). Os testes rodam no GitHub Actions em Windows e
-Linux a cada push; ao criar uma tag `vX.Y.Z`, o workflow `build` gera e publica os instaladores.
+Linux a cada push; quando uma versão nova chega ao `main`, o workflow `build` gera os instaladores, cria a tag `vX.Y.Z` e publica a release.
 
 ```
 aulaviva/
