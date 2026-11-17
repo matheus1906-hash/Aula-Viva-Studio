@@ -1,0 +1,96 @@
+"""Teste de fumaça da interface (sem tela): percorre o fluxo principal."""
+import os
+
+import pytest
+
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+pytest.importorskip("PySide6.QtWidgets")
+
+
+def _wait(ms):
+    from PySide6.QtCore import QEventLoop, QTimer
+
+    loop = QEventLoop()
+    QTimer.singleShot(ms, loop.quit)
+    loop.exec()
+
+
+def test_full_flow(tmp_path, monkeypatch):
+    import secrets
+
+    from PySide6.QtWidgets import QApplication
+
+    app = QApplication.instance() or QApplication([])
+    from aulaviva.core.config import Preferences
+    from aulaviva.core.database import Database
+    from aulaviva.core.security import Crypto
+    from aulaviva.ui.main_window import MainWindow
+    from aulaviva.ui.widgets import Motion
+
+    Motion.enabled = False
+    db = Database(tmp_path / "ui.db", Crypto(secrets.token_bytes(32)))
+    prefs = Preferences()
+    monkeypatch.setattr(Preferences, "save", lambda self: None)
+    w = MainWindow(db, prefs)
+    w.show()
+    w.stack.currentWidget().finished.emit()          # pula boas-vindas
+    assert w.stack.currentWidget() is w.login
+    w.show_register()
+    reg = w.stack.currentWidget()
+    reg.email.setText("prof@escola.com"); reg.email2.setText("prof@escola.com")
+    reg.pw.setText("Giz&Lousa-2026x"); reg.pw2.setText("Giz&Lousa-2026x")
+    reg._next()
+    f = reg.form
+    f.full_name.setText("Ana Souza"); f.cpf.setText("52998224725"); f.phone.setText("11987654321")
+    reg._next()
+    f.institution.setText("E.E. Machado"); f.network.setCurrentIndex(1); f.role.setCurrentIndex(1)
+    f.levels.set_selected(["Ensino Médio"]); f.subjects.setText("Biologia"); f.city.setText("Campinas")
+    f.state.setCurrentIndex(f.state.findText("SP"))
+    reg._next()
+    reg.accept.setChecked(True); reg.lgpd.setChecked(True)
+    got = []
+    reg.registered.connect(lambda u, c: got.append((u, c)))
+    reg._next()
+    for _ in range(60):
+        if got:
+            break
+        _wait(100)
+    assert got and len(got[0][1]) == 8
+    w.on_login(got[0][0])
+    assert w.shell is not None
+    w.shell.new_from_template("Lista de exercícios")
+    ed = w.editor
+    ed.add_block("qrcode")
+    assert ed.cards[ed.sel].form is not None          # bloco novo abre já em edição
+    ed.doc["blocks"][ed.sel]["url"] = "https://example.com"
+    ed.save()
+    assert w.store.load(w.user.id, ed.pid)["blocks"][ed.sel]["url"] == "https://example.com"
+    n = len(ed.doc["blocks"])
+    ed.duplicate(); ed.move(-1); ed.delete_block()
+    assert len(ed.doc["blocks"]) == n
+    ed.undo()
+    from aulaviva.core.quicklist import EXAMPLE, parse_questions
+    ed.doc["blocks"].extend(parse_questions(EXAMPLE)); ed._rebuild_cards(-1)
+    assert len(ed.cards) == len(ed.doc["blocks"])
+    # telas novas: modelos (com visualização), ferramentas e IA abrem e fecham sem travar
+    from aulaviva.ui.templates_page import open_preview
+    from aulaviva.ui.widgets import Modal
+    w.close_editor()
+    w.shell.navigate("templates")
+    m = open_preview(w.shell, "sistema-solar", w.shell.new_from_sample)
+    _wait(1500)
+    m.close_modal()
+    _wait(300)
+    w.shell.navigate("tools")
+    w.shell.pages["tools"].qr.url.setText("https://example.com")
+    w.shell.pages["tools"].qr._render()
+    assert w.shell.pages["tools"].qr._png
+    w.shell.navigate("settings", tab=2)
+    w.shell.pages["settings"]._select_provider("groq")
+    w.shell.new_material("lista", ai_mode=True)
+    for x in w.findChildren(Modal):
+        x.close_modal()
+    _wait(300)
+    w.do_logout("teste")
+    assert w.user is None and w.stack.currentWidget() is w.login
+    db.close()
