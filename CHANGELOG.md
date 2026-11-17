@@ -1,5 +1,12 @@
 # Histórico de versões
 
+## 2.1.0
+- Nova fonte de interface **Inter** (embutida, licença OFL) e textos com mais contraste e tamanhos maiores.
+- **Modo escuro** (Claro / Escuro / Automático) em *Configurações > Preferências*, aplicado na hora sem sair da conta.
+- **Login com Google** funcionando: botão no padrão oficial, retorno em `http://127.0.0.1:<porta>/` e credenciais
+  fora do Git (arquivo local ignorado ou segredos `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` no GitHub Actions).
+- Miniaturas dos modelos com fundo de papel correto no modo escuro.
+
 ## 2.0.0
 - Novo visual claro, inspirado em papel e caderno, mais limpo e legível.
 - **Criar com IA** qualquer tipo de material (apostila, lista, prova, roteiro) e editar depois.

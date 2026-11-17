@@ -91,6 +91,10 @@ def test_full_flow(tmp_path, monkeypatch):
     for x in w.findChildren(Modal):
         x.close_modal()
     _wait(300)
+    # troca de tema na hora, mantendo a sessão
+    w.apply_theme("dark")
+    assert w.user is not None and w.shell is not None
+    w.apply_theme("light")
     w.do_logout("teste")
     assert w.user is None and w.stack.currentWidget() is w.login
     db.close()

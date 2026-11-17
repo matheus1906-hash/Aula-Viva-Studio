@@ -4,7 +4,9 @@ Aplicativo para **Windows e Linux** que ajuda professores a criar **apostilas, l
 roteiros de aula em PDF interativo**, com QR codes, links, vídeos, documentos Word, exercícios respondíveis no
 próprio PDF e um **assistente de IA** (com opções gratuitas).
 
-![Tela inicial](docs/screenshots/inicio.png)
+| Claro | Escuro |
+|---|---|
+| ![Tela inicial](docs/screenshots/inicio.png) | ![Modo escuro](docs/screenshots/inicio-escuro.png) |
 
 ## Principais recursos
 
@@ -16,6 +18,7 @@ próprio PDF e um **assistente de IA** (com opções gratuitas).
 | **Modelos prontos** | Materiais reais por disciplina (Ciências, Matemática, Português, História, Geografia, Inglês), com ilustrações e prévia da página. |
 | **QR code e links** | Gerador de QR code (PNG/SVG, cores, logo da escola, Wi-Fi) e de links (WhatsApp, e-mail, YouTube no minuto certo, Drive, cópia do Google Docs, Maps, limpeza de rastreadores). |
 | **PDF interativo** | Capa, sumário clicável, QR codes e botões clicáveis, campos de resposta, anexos Office, gabarito, proteção AES-256. Exporta as versões **aluno** e **professor** de uma vez. |
+| **Claro ou escuro** | Tema claro (papel/caderno) ou escuro (lousa), com a fonte Inter, nítida em qualquer tela. |
 | **Segurança** | Argon2id, dados pessoais criptografados (AES-256-GCM), cofre do sistema para chaves, bloqueio por inatividade, LGPD (exportar/excluir dados). |
 
 <table>
@@ -86,6 +89,9 @@ tests/    testes automatizados
 packaging/ PyInstaller, Inno Setup, scripts de build, atalho Linux
 docs/     SECURITY.md · OAUTH.md · capturas de tela · PDFs de exemplo
 ```
+
+Login com Google: crie os segredos `GOOGLE_CLIENT_ID` e `GOOGLE_CLIENT_SECRET` em *Settings > Secrets and variables >
+Actions* para que os instaladores gerados pelo GitHub já venham com o botão funcionando (detalhes em docs/OAUTH.md).
 
 Segurança: [docs/SECURITY.md](docs/SECURITY.md) · Login com Google/Microsoft/gov.br: [docs/OAUTH.md](docs/OAUTH.md) ·
 Histórico de versões: [CHANGELOG.md](CHANGELOG.md)
