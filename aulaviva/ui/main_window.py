@@ -114,37 +114,45 @@ class MainWindow(QMainWindow):
         from aulaviva.ui import theme
         from aulaviva.ui.widgets import Modal
 
+        from PySide6.QtCore import QEvent
+
         self.prefs.theme_mode = mode
         self.prefs.save()
+        self.setUpdatesEnabled(False)
+        pid = self.editor.pid if self.editor else None
+        if self.editor:
+            self.editor.save_silent()
+        # 1) destrói as telas antigas ANTES de trocar o estilo: o Qt não precisa re-estilizar centenas de widgets
+        old = [w for w in (self.login, self.recovery, self.shell, self.editor) if w is not None]
+        old += list(self.findChildren(Modal))
+        for w in old:
+            self.stack.removeWidget(w)
+            w.hide()
+            w.setParent(None)
+            w.deleteLater()
+        self.editor = self.shell = self.login = self.recovery = None
+        QApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+        # 2) troca paleta e estilo com a janela praticamente vazia
         theme.set_mode(mode)
         app = QApplication.instance()
         theme.apply_palette(app)
         app.setStyleSheet(theme.stylesheet(theme.pick_font_family()))
         self.bg._pix = None
         self.bg._regen()
-        for w in self.findChildren(Modal):
-            w.hide()
-            w.deleteLater()
-        pid = self.editor.pid if self.editor else None
-        if self.editor:
-            self.editor.save_silent()
-        old = [self.login, self.recovery, self.shell, self.editor]
-        self.editor = None
+        had_session = self.user is not None
+        # 3) recria só o necessário (páginas do painel são montadas sob demanda)
         self._build_auth_views()
-        if self.user and self.shell:
-            self.shell = None
+        if had_session:
             self._make_shell(self.user)
             if pid is not None:
                 self.open_editor(pid)
+                self.stack.setCurrentWidget(self.editor)
             else:
                 self.shell.navigate("settings", tab=3)
                 self.stack.setCurrentWidget(self.shell)
         else:
             self.stack.setCurrentWidget(self.login)
-        for w in old:
-            if w is not None:
-                self.stack.removeWidget(w)
-                w.deleteLater()
+        self.setUpdatesEnabled(True)
 
     def _make_shell(self, user: User):
         self.shell = Shell(self.auth, self.store, self.prefs, user)

@@ -651,6 +651,30 @@ def _build(document: dict, preview: bool, skip_incomplete: bool, answer_key_opt:
     return _postprocess(buf.getvalue(), meta, attachments, preview)
 
 
+def export_to_file(document: dict, path: str, answer_key: bool | None = None) -> str:
+    """Gera e grava o PDF (usado no processo auxiliar, fora da interface)."""
+    from pathlib import Path
+
+    out = Path(path)
+    data = build_pdf(document, skip_incomplete=True, answer_key=answer_key)
+    tmp = out.with_name(out.name + ".part")
+    try:
+        tmp.write_bytes(data)
+        tmp.replace(out)
+    except PermissionError as exc:
+        tmp.unlink(missing_ok=True)
+        raise ExportError(f"Não foi possível salvar \"{out.name}\". O arquivo pode estar aberto em outro "
+                          "programa (feche o PDF e tente de novo) ou a pasta não permite gravação.") from exc
+    except OSError as exc:
+        tmp.unlink(missing_ok=True)
+        raise ExportError(f"Não foi possível salvar o arquivo ({exc.strerror or 'erro de disco'}).") from exc
+    return str(out)
+
+
+def preview_pdf(document: dict) -> bytes:
+    return build_pdf(document, preview=True)
+
+
 def _postprocess(pdf: bytes, meta: dict, attachments: list[tuple[str, bytes]], preview: bool) -> bytes:
     writer = PdfWriter(clone_from=PdfReader(io.BytesIO(pdf)))
     writer.add_metadata({"/Title": meta["title"], "/Author": meta["author"], "/Subject": meta["subject"],

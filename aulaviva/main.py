@@ -37,12 +37,23 @@ def _selftest() -> int:
     pdf = build_pdf(template_documents()["Apostila de conteúdo"], skip_incomplete=True)
     fields = len(PdfReader(io.BytesIO(pdf)).get_fields() or {})
     c = Crypto(secrets.token_bytes(32))
-    ok = f[0] == "AV" and fields > 0 and c.decrypt(c.encrypt("ok", "t"), "t") == "ok"
-    print(f"fonte={f[0]} campos={fields} pdf={len(pdf)} bytes -> {'OK' if ok else 'FALHOU'}")
+    # processo auxiliar (geração de PDF fora da interface) também precisa funcionar no executável
+    import multiprocessing
+    from concurrent.futures import ProcessPoolExecutor
+
+    from aulaviva.core.pdf_builder import preview_pdf
+
+    with ProcessPoolExecutor(max_workers=1, mp_context=multiprocessing.get_context("spawn")) as ex:
+        proc_pdf = ex.submit(preview_pdf, template_documents()["Lista de exercícios"]).result(timeout=120)
+    ok = f[0] == "AV" and fields > 0 and c.decrypt(c.encrypt("ok", "t"), "t") == "ok" and proc_pdf.startswith(b"%PDF")
+    print(f"fonte={f[0]} campos={fields} pdf={len(pdf)} bytes processo={'ok' if proc_pdf else 'falhou'} -> {'OK' if ok else 'FALHOU'}")
     return 0 if ok else 1
 
 
 def main() -> int:
+    import multiprocessing
+
+    multiprocessing.freeze_support()  # necessário para o processo auxiliar no executável (PyInstaller)
     if "--selftest" in sys.argv:
         return _selftest()
     if sys.platform.startswith("linux") and not os.environ.get("QT_QPA_PLATFORM") and not os.environ.get("DISPLAY") and not os.environ.get("WAYLAND_DISPLAY"):
