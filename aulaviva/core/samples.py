@@ -344,6 +344,22 @@ SAMPLES = {
 }
 
 
+def _register_extra():
+    from aulaviva.core.samples_extra import EXTRA
+
+    SAMPLES.update(EXTRA)
+
+
+_register_extra()
+
+
+def sample_pdf(key: str) -> bytes:
+    """PDF de prévia de um modelo (executado no processo auxiliar)."""
+    from aulaviva.core.pdf_builder import build_pdf
+
+    return build_pdf(_cached(key), preview=True)
+
+
 def sample_document(key: str) -> dict:
     return copy.deepcopy(_cached(key))
 

@@ -14,10 +14,10 @@ from PySide6.QtWidgets import QHBoxLayout, QPushButton, QVBoxLayout, QWidget
 from aulaviva import __version__
 from aulaviva.core.config import data_dir
 from aulaviva.core.pdf_builder import build_pdf
-from aulaviva.core.samples import SAMPLES, sample_document
+from aulaviva.core.samples import SAMPLES, sample_document, sample_pdf
 from aulaviva.ui import theme
 from aulaviva.ui.widgets import Button, GlassCard, Modal, Motion, SmoothScrollArea, Spinner, label
-from aulaviva.ui.workers import run_async
+from aulaviva.ui.workers import run_in_process
 
 THUMB = QSize(220, 311)
 _mem: dict[str, QPixmap] = {}
@@ -46,7 +46,7 @@ def request_thumbnail(key: str, callback) -> None:
     if key in _mem:
         callback(_mem[key])
         return
-    tag = hashlib.sha1(f"{key}-{__version__}-papel-{json.dumps(sample_document(key)['meta'], sort_keys=True)}".encode()).hexdigest()[:12]
+    tag = hashlib.sha1(f"{key}-{__version__}-papel".encode()).hexdigest()[:12]
     folder = data_dir() / "thumbs"
     folder.mkdir(exist_ok=True)
     path = folder / f"{key}-{tag}.png"
@@ -66,7 +66,7 @@ def request_thumbnail(key: str, callback) -> None:
         _mem[key] = pm
         callback(pm)
 
-    run_async(lambda: build_pdf(sample_document(key), preview=True), done, lambda e: None)
+    run_in_process(sample_pdf, key, on_done=done, on_error=lambda e: None)
 
 
 class TemplateCard(QWidget):
@@ -201,7 +201,7 @@ def open_preview(host: QWidget, key: str, on_use) -> Modal:
         spinner.hide()
         pages.setText(f"{doc.pageCount()} página(s) · inclui gabarito para o professor")
 
-    run_async(lambda: build_pdf(sample_document(key), preview=True), loaded, lambda e: alive["ok"] and spinner.hide())
+    run_in_process(sample_pdf, key, on_done=loaded, on_error=lambda e: alive["ok"] and spinner.hide())
     m.open()
     return m
 
@@ -238,7 +238,24 @@ class TemplatesPage(QWidget):
             chips.addWidget(b)
             self.chip_btns.append(b)
         chips.addStretch()
+        from PySide6.QtWidgets import QComboBox
+
+        from aulaviva.ui.widgets import line_edit
+
+        self.search = line_edit("Buscar: frações, Newton, fábula...", 80)
+        self.search.setFixedWidth(240)
+        self.subject = QComboBox()
+        self.subject.setMinimumHeight(38)
+        self.subject.addItem("Todas as disciplinas", "")
+        for subj in sorted({v[2] for v in SAMPLES.values()}):
+            self.subject.addItem(subj, subj)
+        self.search.textChanged.connect(lambda _: self.refresh())
+        self.subject.currentIndexChanged.connect(lambda _: self.refresh())
+        chips.addWidget(self.search)
+        chips.addWidget(self.subject)
         lay.addLayout(chips)
+        self.count = label("", "muted")
+        lay.addWidget(self.count)
         scroll = SmoothScrollArea()
         box = QWidget()
         bl = QVBoxLayout(box)
@@ -258,10 +275,18 @@ class TemplatesPage(QWidget):
 
     def refresh(self):
         cards = []
-        for key, (_, kind, *_rest) in SAMPLES.items():
+        q = self.search.text().strip().lower() if hasattr(self, "search") else ""
+        subj = self.subject.currentData() if hasattr(self, "subject") else ""
+        for key, (title, kind, subject, level, desc, _f) in SAMPLES.items():
             if self.filter != "Todos" and kind != self.filter:
+                continue
+            if subj and subject != subj:
+                continue
+            if q and q not in f"{title} {subject} {level} {desc}".lower():
                 continue
             c = TemplateCard(key)
             c.clicked.connect(lambda k: open_preview(self, k, self.shell.new_from_sample))
             cards.append(c)
         self.grid.set_cards(cards)
+        if hasattr(self, "count"):
+            self.count.setText(f"{len(cards)} modelo(s)" if cards else "Nenhum modelo encontrado. Tente outra busca.")
