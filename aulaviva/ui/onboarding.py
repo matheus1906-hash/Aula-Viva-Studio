@@ -67,7 +67,7 @@ class Dots(QWidget):
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         p.setPen(Qt.PenStyle.NoPen)
         for i in range(self.count):
-            p.setBrush(QColor("#D5DCE8"))
+            p.setBrush(QColor(theme.BORDER_STRONG))
             p.drawEllipse(QRectF(i * 22 + 3, 3, 8, 8))
         p.setBrush(QColor(theme.PRIMARY))
         p.drawRoundedRect(QRectF(self._pos * 22, 2, 30, 10), 5, 5)

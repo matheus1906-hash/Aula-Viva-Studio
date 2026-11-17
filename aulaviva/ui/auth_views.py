@@ -70,7 +70,7 @@ class HeroPanel(QWidget):
             ic = QLabel(icon)
             ic.setFixedSize(30, 30)
             ic.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            ic.setStyleSheet("background: #EAF1FF; color: #2F6FED; border-radius: 9px; font-size: 14px;")
+            ic.setStyleSheet(f"background: {theme.PRIMARY_SOFT}; color: {theme.PRIMARY}; border-radius: 9px; font-size: 14px;")
             row.addWidget(ic)
             row.addWidget(label(txt, "dim"), 1)
             lay.addLayout(row)
@@ -121,7 +121,7 @@ class LoginView(QWidget):
         sep.addWidget(label("ou continue com", "muted"))
         sep.addWidget(hline(), 1)
         c.addLayout(sep)
-        for key, text in (("google", "Google / Gmail"), ("microsoft", "Microsoft / Outlook"), ("govbr", "Conta gov.br")):
+        for key, text in (("google", "Continuar com o Google"), ("microsoft", "Continuar com a Microsoft"), ("govbr", "Entrar com gov.br")):
             b = ProviderButton(key, text)
             b.clicked.connect(lambda _=False, k=key: self._oauth(k))
             c.addWidget(b)
@@ -545,7 +545,7 @@ def show_recovery_codes(host: QWidget, codes: list[str], on_done=None) -> Modal:
         lb = QLabel(code)
         lb.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         lb.setStyleSheet("font-family: 'DejaVu Sans Mono', 'Consolas', monospace; font-size: 16px; font-weight: 700;"
-                         "background: #F3F6FC; border: 1px dashed #CDD5E3; border-radius: 8px; padding: 8px 12px; letter-spacing: 1px;")
+                         f"background: {theme.SURFACE_ALT}; border: 1px dashed {theme.BORDER_STRONG}; border-radius: 8px; padding: 8px 12px; letter-spacing: 1px;")
         lb.setAlignment(Qt.AlignmentFlag.AlignCenter)
         grid.addWidget(lb, i // 2, i % 2)
     m.body.addLayout(grid)

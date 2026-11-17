@@ -90,14 +90,16 @@ def main() -> int:
         QMessageBox.information(None, APP_NAME, f"O {APP_NAME} já está aberto.")
         return 0
 
+    prefs = Preferences.load()
+    theme.load_fonts()
+    theme.set_mode(prefs.theme_mode)
     family = theme.pick_font_family()
     font = QFont(family, 10)
-    font.setHintingPreference(QFont.HintingPreference.PreferNoHinting)
+    font.setStyleStrategy(QFont.StyleStrategy.PreferAntialias)
     app.setFont(font)
     theme.apply_palette(app)
     app.setStyleSheet(theme.stylesheet(family))
 
-    prefs = Preferences.load()
     Motion.enabled = not prefs.reduce_motion
     db = Database()
     win = MainWindow(db, prefs)

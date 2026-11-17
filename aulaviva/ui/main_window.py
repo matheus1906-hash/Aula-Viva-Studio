@@ -60,14 +60,7 @@ class MainWindow(QMainWindow):
         self.stack.raise_()
         self.setCentralWidget(central)
 
-        self.login = LoginView(self.auth, prefs)
-        self.login.logged_in.connect(self.on_login)
-        self.login.wants_register.connect(self.show_register)
-        self.login.wants_recovery.connect(self.show_recovery)
-        self.recovery = RecoveryView(self.auth)
-        self.recovery.done.connect(lambda: self.stack.slide_to(self.login, -1))
-        self.stack.addWidget(self.login)
-        self.stack.addWidget(self.recovery)
+        self._build_auth_views()
 
         self.idle = IdleWatcher()
         QApplication.instance().installEventFilter(self.idle)
@@ -106,6 +99,61 @@ class MainWindow(QMainWindow):
     def show_recovery(self):
         self.stack.slide_to(self.recovery)
 
+    def _build_auth_views(self):
+        self.login = LoginView(self.auth, self.prefs)
+        self.login.logged_in.connect(self.on_login)
+        self.login.wants_register.connect(self.show_register)
+        self.login.wants_recovery.connect(self.show_recovery)
+        self.recovery = RecoveryView(self.auth)
+        self.recovery.done.connect(lambda: self.stack.slide_to(self.login, -1))
+        self.stack.addWidget(self.login)
+        self.stack.addWidget(self.recovery)
+
+    def apply_theme(self, mode: str):
+        """Troca claro/escuro na hora: recria as telas mantendo o usuário logado e o material aberto."""
+        from aulaviva.ui import theme
+        from aulaviva.ui.widgets import Modal
+
+        self.prefs.theme_mode = mode
+        self.prefs.save()
+        theme.set_mode(mode)
+        app = QApplication.instance()
+        theme.apply_palette(app)
+        app.setStyleSheet(theme.stylesheet(theme.pick_font_family()))
+        self.bg._pix = None
+        self.bg._regen()
+        for w in self.findChildren(Modal):
+            w.hide()
+            w.deleteLater()
+        pid = self.editor.pid if self.editor else None
+        if self.editor:
+            self.editor.save_silent()
+        old = [self.login, self.recovery, self.shell, self.editor]
+        self.editor = None
+        self._build_auth_views()
+        if self.user and self.shell:
+            self.shell = None
+            self._make_shell(self.user)
+            if pid is not None:
+                self.open_editor(pid)
+            else:
+                self.shell.navigate("settings", tab=3)
+                self.stack.setCurrentWidget(self.shell)
+        else:
+            self.stack.setCurrentWidget(self.login)
+        for w in old:
+            if w is not None:
+                self.stack.removeWidget(w)
+                w.deleteLater()
+
+    def _make_shell(self, user: User):
+        self.shell = Shell(self.auth, self.store, self.prefs, user)
+        self.shell.logout.connect(self.do_logout)
+        self.shell.open_editor.connect(self.open_editor)
+        self.shell.intro_requested.connect(self.show_intro)
+        self.shell.theme_requested.connect(self.apply_theme)
+        self.stack.addWidget(self.shell)
+
     def on_login(self, user: User):
         self.user = user
         if not user.profile_complete:
@@ -114,11 +162,7 @@ class MainWindow(QMainWindow):
             view.completed.connect(lambda u: (self.on_login(u), view.deleteLater()))
             self.stack.slide_to(view)
             return
-        self.shell = Shell(self.auth, self.store, self.prefs, user)
-        self.shell.logout.connect(self.do_logout)
-        self.shell.open_editor.connect(self.open_editor)
-        self.shell.intro_requested.connect(self.show_intro)
-        self.stack.addWidget(self.shell)
+        self._make_shell(user)
         self.stack.slide_to(self.shell)
         self.idle.last = time.monotonic()
         Toast.show_message(self, f"Bem-vindo(a), {user.first_name}!", "success", 2200)

@@ -29,9 +29,15 @@ def _render_first_page(pdf: bytes, size: QSize) -> QImage:
     buf.open(QIODevice.OpenModeFlag.ReadOnly)
     doc = QPdfDocument()
     doc.load(buf)
-    img = doc.render(0, size)
+    raw = doc.render(0, size)
     doc.close()
     buf.close()
+    # a página é renderizada com fundo transparente: compõe sobre papel branco (fica certo no modo escuro)
+    img = QImage(raw.size(), QImage.Format.Format_RGB32)
+    img.fill(QColor("white"))
+    p = QPainter(img)
+    p.drawImage(0, 0, raw)
+    p.end()
     return img
 
 
@@ -40,7 +46,7 @@ def request_thumbnail(key: str, callback) -> None:
     if key in _mem:
         callback(_mem[key])
         return
-    tag = hashlib.sha1(f"{key}-{__version__}-{json.dumps(sample_document(key)['meta'], sort_keys=True)}".encode()).hexdigest()[:12]
+    tag = hashlib.sha1(f"{key}-{__version__}-papel-{json.dumps(sample_document(key)['meta'], sort_keys=True)}".encode()).hexdigest()[:12]
     folder = data_dir() / "thumbs"
     folder.mkdir(exist_ok=True)
     path = folder / f"{key}-{tag}.png"
@@ -111,14 +117,14 @@ class TemplateCard(QWidget):
         r = QRectF(5, 6 - lift, self.width() - 10, self.height() - 12)
         for i in range(5):
             p.setPen(Qt.PenStyle.NoPen)
-            p.setBrush(QColor(30, 41, 59, int(8 + 6 * self._lift) - i))
+            p.setBrush(QColor(*theme.SHADOW, (int(8 + 6 * self._lift) - i) * (3 if theme.is_dark() else 1)))
             p.drawRoundedRect(r.adjusted(-i + 1, -i + 3 + lift, i - 1, i + 3 + lift), 14 + i, 14 + i)
-        p.setBrush(QColor("white"))
+        p.setBrush(QColor(theme.SURFACE))
         p.setPen(QPen(QColor(theme.PRIMARY) if self._lift > 0.5 else QColor(theme.BORDER), 1))
         p.drawRoundedRect(r, 14, 14)
         page = QRectF(r.left() + (r.width() - THUMB.width()) / 2, r.top() + 12, THUMB.width(), THUMB.height())
         p.setPen(QPen(QColor(theme.BORDER), 1))
-        p.setBrush(QColor("#F3F6FC"))
+        p.setBrush(QColor(theme.SURFACE_ALT))
         p.drawRect(page)
         if self.pix:
             p.drawPixmap(page.toRect(), self.pix)
@@ -225,7 +231,7 @@ class TemplatesPage(QWidget):
             b.setCheckable(True)
             b.setChecked(name == "Todos")
             b.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-            b.setStyleSheet(f"QPushButton {{ background: white; border: 1px solid {theme.BORDER_STRONG}; border-radius: 15px; padding: 6px 14px; color: {theme.TEXT_DIM}; }}"
+            b.setStyleSheet(f"QPushButton {{ background: {theme.SURFACE}; border: 1px solid {theme.BORDER_STRONG}; border-radius: 15px; padding: 6px 14px; color: {theme.TEXT_DIM}; }}"
                             f"QPushButton:hover {{ border-color: {theme.PRIMARY}; }}"
                             f"QPushButton:checked {{ background: {theme.PRIMARY}; border-color: {theme.PRIMARY}; color: white; font-weight: 600; }}")
             b.clicked.connect(lambda _=False, n=name: self.set_filter(n))

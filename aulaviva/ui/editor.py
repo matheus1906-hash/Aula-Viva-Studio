@@ -240,7 +240,7 @@ class BlockForm(QWidget):
         preview = QLabel()
         preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
         preview.setMinimumHeight(140)
-        preview.setStyleSheet("background: #F3F6FC; border: 1px dashed #CDD5E3; border-radius: 10px; color: #8590A3;")
+        preview.setStyleSheet(f"background: {theme.SURFACE_ALT}; border: 1px dashed {theme.BORDER_STRONG}; border-radius: 10px; color: {theme.TEXT_MUTED};")
 
         def refresh():
             if b.get("data"):
@@ -520,7 +520,7 @@ class AddTile(QWidget):
 
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        p.setBrush(QColor("#F7F9FD") if self._hover else QColor("white"))
+        p.setBrush(QColor(theme.HOVER) if self._hover else QColor(theme.SURFACE))
         p.setPen(QPen(QColor(theme.PRIMARY) if self._hover else QColor(theme.BORDER), 1))
         p.drawRoundedRect(QRectF(self.rect()).adjusted(1, 1, -1, -1), 12, 12)
 
@@ -534,7 +534,7 @@ def open_add_menu(host: QWidget, on_pick: Callable[[str], None], on_quick: Calla
     m.body.addWidget(ql)
     for group, kinds in ADD_GROUPS:
         g = label(group.upper(), "muted")
-        g.setStyleSheet("letter-spacing: 1px; font-weight: 700; font-size: 11px; color: #8590A3; margin-top: 6px;")
+        g.setStyleSheet(f"letter-spacing: 1px; font-weight: 700; font-size: 12px; color: {theme.TEXT_MUTED}; margin-top: 6px;")
         m.body.addWidget(g)
         grid = QGridLayout()
         grid.setSpacing(8)
@@ -600,8 +600,8 @@ class BlockCard(QFrame):
 
     def _style(self):
         border = theme.PRIMARY if self.expanded else theme.BORDER
-        self.setStyleSheet(f"QFrame#blockcard {{ background: white; border: {'2px' if self.expanded else '1px'} solid {border}; border-radius: 12px; }}"
-                           f"QFrame#blockcard:hover {{ border-color: {theme.PRIMARY if self.expanded else '#AEB9CC'}; }}")
+        self.setStyleSheet(f"QFrame#blockcard {{ background: {theme.SURFACE}; border: {'2px' if self.expanded else '1px'} solid {border}; border-radius: 12px; }}"
+                           f"QFrame#blockcard:hover {{ border-color: {theme.PRIMARY if self.expanded else theme.BORDER_HOVER}; }}")
 
     def refresh_header(self):
         s = block_summary(self.block)
@@ -647,7 +647,7 @@ class EditorView(QWidget):
         self.title.setMaxLength(200)
         self.title.setPlaceholderText("Título do material")
         self.title.setStyleSheet("QLineEdit { background: transparent; border: 1px solid transparent; font-size: 17px; font-weight: 700; }"
-                                 f"QLineEdit:hover {{ border-color: {theme.BORDER_STRONG}; }} QLineEdit:focus {{ border-color: {theme.PRIMARY}; background: white; }}")
+                                 f"QLineEdit:hover {{ border-color: {theme.BORDER_STRONG}; }} QLineEdit:focus {{ border-color: {theme.PRIMARY}; background: {theme.SURFACE}; }}")
         self.title.textChanged.connect(self._title_changed)
         tl.addWidget(self.title, 1)
         self.save_state = label("", "muted")

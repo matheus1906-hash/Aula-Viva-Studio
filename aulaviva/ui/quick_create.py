@@ -61,7 +61,7 @@ class KindCard(QWidget):
             p.setBrush(QColor(theme.PRIMARY_SOFT))
             p.setPen(QPen(QColor(theme.PRIMARY), 2))
         else:
-            p.setBrush(QColor("#F7F9FD") if self._hover else QColor("white"))
+            p.setBrush(QColor(theme.HOVER) if self._hover else QColor(theme.SURFACE))
             p.setPen(QPen(QColor(theme.PRIMARY) if self._hover else QColor(theme.BORDER_STRONG), 1))
         p.drawRoundedRect(r, 14, 14)
 

@@ -202,8 +202,8 @@ class ProviderTile(QWidget):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         r = QRectF(self.rect()).adjusted(1, 1, -1, -1)
-        p.setBrush(QColor(theme.PRIMARY_SOFT) if self.active else (QColor("#F7F9FD") if self._hover else QColor("white")))
-        p.setPen(QPen(QColor(theme.PRIMARY), 2) if self.active else QPen(QColor("#AEB9CC" if self._hover else theme.BORDER), 1))
+        p.setBrush(QColor(theme.PRIMARY_SOFT) if self.active else (QColor(theme.HOVER) if self._hover else QColor(theme.SURFACE)))
+        p.setPen(QPen(QColor(theme.PRIMARY), 2) if self.active else QPen(QColor(theme.BORDER_HOVER if self._hover else theme.BORDER), 1))
         p.drawRoundedRect(r, 12, 12)
 
 
@@ -249,9 +249,9 @@ class ProjectCard(QWidget):
         # sombra suave pintada (mais leve que QGraphicsDropShadowEffect)
         for i in range(5):
             p.setPen(Qt.PenStyle.NoPen)
-            p.setBrush(QColor(30, 41, 59, int(7 + 6 * self._lift) - i))
+            p.setBrush(QColor(*theme.SHADOW, (int(7 + 6 * self._lift) - i) * (3 if theme.is_dark() else 1)))
             p.drawRoundedRect(r.adjusted(-i + 1, -i + 3 + lift, i - 1, i + 3 + lift), 16 + i, 16 + i)
-        p.setBrush(QColor("white"))
+        p.setBrush(QColor(theme.SURFACE))
         p.setPen(QPen(QColor(theme.PRIMARY) if self._lift > 0.5 else QColor(theme.BORDER), 1))
         p.drawRoundedRect(r, 16, 16)
         # miniatura da "página"
@@ -633,7 +633,7 @@ class SettingsPage(QWidget):
         for group, keys in (("GRATUITAS", ["demo", "ollama", "gemini", "groq", "openrouter", "mistral"]),
                             ("PAGAS", ["claude", "openai", "deepseek"]), ("AVANÇADO", ["custom"])):
             g = label(group, "muted")
-            g.setStyleSheet("letter-spacing: 1px; font-weight: 700; font-size: 11px; color: #8590A3; margin-top: 4px;")
+            g.setStyleSheet(f"letter-spacing: 1px; font-weight: 700; font-size: 12px; color: {theme.TEXT_MUTED}; margin-top: 4px;")
             lay.addWidget(g)
             grid = QGridLayout()
             grid.setSpacing(8)
@@ -840,7 +840,21 @@ class SettingsPage(QWidget):
         lay = QVBoxLayout(box)
         lay.setContentsMargins(0, 14, 10, 14)
         card = GlassCard(radius=16, padding=20, opacity=0.06)
-        card.lay.addWidget(label("Aparência e desempenho", "h3"))
+        card.lay.addWidget(label("Aparência", "h3"))
+        from PySide6.QtWidgets import QButtonGroup, QRadioButton
+
+        mode_row = QHBoxLayout()
+        self.theme_group = QButtonGroup(self)
+        for key, text in (("light", "☀  Claro"), ("dark", "🌙  Escuro"), ("system", "🖥  Automático (igual ao Windows)")):
+            rb = QRadioButton(text)
+            rb.setChecked(self.shell.prefs.theme_mode == key)
+            rb.toggled.connect(lambda on, k=key: on and k != self.shell.prefs.theme_mode and self.shell.theme_requested.emit(k))
+            self.theme_group.addButton(rb)
+            mode_row.addWidget(rb)
+        mode_row.addStretch()
+        card.lay.addLayout(mode_row)
+        card.lay.addSpacing(8)
+        card.lay.addWidget(label("Desempenho", "h3"))
         self.reduce = checkbox("Reduzir animações (recomendado para computadores mais antigos)", self.shell.prefs.reduce_motion)
         self.reduce.toggled.connect(self._toggle_motion)
         card.lay.addWidget(self.reduce)
@@ -912,7 +926,7 @@ class SettingsPage(QWidget):
         has_pw = self.shell.auth.db.query_one("SELECT 1 FROM users WHERE id=? AND password_hash IS NOT NULL", (u.id,))
         self.cur_field.setVisible(bool(has_pw))
         evs = self.shell.auth.recent_security_events(u.id)
-        self.events.setText("<br>".join(f"{EVENT_NAMES.get(e, e)} <span style='color:#8590A3'>· {when(ts)}</span>" for e, ts in evs) or "Sem registros.")
+        self.events.setText("<br>".join(f"{EVENT_NAMES.get(e, e)} <span style='color:{theme.TEXT_MUTED}'>· {when(ts)}</span>" for e, ts in evs) or "Sem registros.")
         self._build_ai_panel(ai_mod.effective_provider(self.shell.prefs, self.shell.auth.c))
 
 
@@ -922,6 +936,7 @@ class Shell(QWidget):
     logout = Signal(str)
     open_editor = Signal(int)
     intro_requested = Signal()
+    theme_requested = Signal(str)
 
     def __init__(self, auth: AuthService, store: ProjectStore, prefs: Preferences, user: User):
         super().__init__()

@@ -61,9 +61,9 @@ class GlassCard(QFrame):
         r = QRectF(self.rect()).adjusted(depth, depth - 1, -depth, -depth - 1)
         p.setPen(Qt.PenStyle.NoPen)
         for i in range(depth, 0, -1):  # sombra suave pintada (barata)
-            p.setBrush(QColor(30, 41, 59, (9 if self.strong else 6) - i))
+            p.setBrush(QColor(*theme.SHADOW, ((9 if self.strong else 6) - i) * (3 if theme.is_dark() else 1)))
             p.drawRoundedRect(r.adjusted(-i, -i + 2, i, i + 2), self.radius + i, self.radius + i)
-        p.setBrush(QColor(255, 255, 255, 250 if self.strong or self.opacity >= 0.05 else 235))
+        p.setBrush(QColor(theme.SURFACE))
         p.setPen(QPen(QColor(theme.BORDER), 1))
         p.drawRoundedRect(r, self.radius, self.radius)
 
@@ -71,14 +71,17 @@ class GlassCard(QFrame):
 class Button(QPushButton):
     """Botão com animação de cor no hover e leve 'pressão' ao clicar."""
 
-    STYLES = {
-        "primary": (QColor(theme.PRIMARY), QColor(theme.PRIMARY_2), QColor("white")),
-        "secondary": (QColor("white"), QColor("white"), QColor(theme.TEXT)),
-        "ghost": (QColor(0, 0, 0, 0), QColor(0, 0, 0, 0), QColor(theme.TEXT_DIM)),
-        "soft": (QColor(theme.PRIMARY_SOFT), QColor(theme.PRIMARY_SOFT), QColor(theme.PRIMARY)),
-        "danger": (QColor(theme.DANGER), QColor("#D9466B"), QColor("white")),
-        "success": (QColor(theme.SUCCESS), QColor("#22A6A0"), QColor("white")),
-    }
+    @staticmethod
+    def styles() -> dict:
+        """Cores calculadas na hora: acompanham o tema claro/escuro."""
+        return {
+            "primary": (QColor(theme.PRIMARY), QColor(theme.PRIMARY_2), QColor("white")),
+            "secondary": (QColor(theme.SURFACE), QColor(theme.SURFACE), QColor(theme.TEXT)),
+            "ghost": (QColor(0, 0, 0, 0), QColor(0, 0, 0, 0), QColor(theme.TEXT_DIM)),
+            "soft": (QColor(theme.PRIMARY_SOFT), QColor(theme.PRIMARY_SOFT), QColor(theme.PRIMARY)),
+            "danger": (QColor(theme.DANGER), QColor("#C2364F"), QColor("white")),
+            "success": (QColor(theme.SUCCESS), QColor("#1F8F8A"), QColor("white")),
+        }
 
     def __init__(self, text: str = "", kind: str = "primary", icon_text: str = "", parent=None, height: int = 42):
         super().__init__(text, parent)
@@ -135,7 +138,8 @@ class Button(QPushButton):
     def paintEvent(self, e):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        c1, c2, fg = self.STYLES.get(self.kind, self.STYLES["primary"])
+        styles = self.styles()
+        c1, c2, fg = styles.get(self.kind, styles["primary"])
         r = QRectF(self.rect()).adjusted(1, 1, -1, -1)
         shrink = self._press * 1.5
         r = r.adjusted(shrink, shrink, -shrink, -shrink)
@@ -147,7 +151,7 @@ class Button(QPushButton):
             p.setBrush(g)
             p.setPen(Qt.PenStyle.NoPen)
         elif self.kind == "secondary":
-            p.setBrush(QColor("#F3F6FC") if self._hover > 0.5 else QColor("white"))
+            p.setBrush(QColor(theme.HOVER) if self._hover > 0.5 else QColor(theme.SURFACE))
             border = QColor(theme.BORDER_STRONG)
             if self._hover:
                 border = QColor(theme.PRIMARY).lighter(100 + int(60 * (1 - self._hover)))
@@ -188,9 +192,26 @@ class ProviderButton(Button):
 
     def paintEvent(self, e):
         super().paintEvent(e)
-        badge, col = self.COLORS[self.provider]
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        cy = self.height() / 2
+        if self.provider == "google":  # "G" nas cores oficiais
+            r, w = 9.0, 3.6
+            rect = QRectF(24 - r, cy - r, 2 * r, 2 * r)
+            for start, span, col in ((45, 105, "#EA4335"), (150, 62, "#FBBC05"), (212, 108, "#34A853"), (320, 40, "#4285F4")):
+                pen = QPen(QColor(col), w)
+                pen.setCapStyle(Qt.PenCapStyle.FlatCap)
+                p.setPen(pen)
+                p.drawArc(rect, start * 16, span * 16)
+            p.setPen(Qt.PenStyle.NoPen)
+            p.setBrush(QColor("#4285F4"))
+            p.drawRect(QRectF(24, cy - w / 2, r + w / 2, w))
+            return
+        if self.provider == "microsoft":  # quatro quadrados
+            for i, col in enumerate(("#F25022", "#7FBA00", "#00A4EF", "#FFB900")):
+                p.fillRect(QRectF(15 + (i % 2) * 10, cy - 9.5 + (i // 2) * 10, 9, 9), QColor(col))
+            return
+        badge, col = self.COLORS[self.provider]
         r = QRectF(12, (self.height() - 24) / 2, 24 if len(badge) == 1 else 34, 24)
         p.setBrush(QColor(col))
         p.setPen(Qt.PenStyle.NoPen)
@@ -209,7 +230,7 @@ class LinkButton(QPushButton):
         self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self.setFlat(True)
         self.setStyleSheet(f"QPushButton {{ color: {theme.PRIMARY}; background: transparent; border: 0; padding: 2px; font-weight: 600; }}"
-                           f"QPushButton:hover {{ color: #1D4FB8; text-decoration: underline; }}")
+                           f"QPushButton:hover {{ color: {theme.TEXT}; text-decoration: underline; }}")
 
 
 # ---------------------------------------------------------------------------
@@ -224,7 +245,7 @@ class Field(QWidget):
         lay.setSpacing(5)
         lb = QLabel(f"{title}{' <span style=\"color:#D9822B\">*</span>' if required else ''}")
         lb.setTextFormat(Qt.TextFormat.RichText)
-        lb.setStyleSheet(f"color: {theme.TEXT_DIM}; font-size: 12px; font-weight: 600;")
+        lb.setStyleSheet(f"color: {theme.TEXT_DIM}; font-size: 13px; font-weight: 600;")
         lay.addWidget(lb)
         lay.addWidget(widget)
         self.err = label("", "error", wrap=True)
@@ -303,7 +324,9 @@ class PasswordInput(QLineEdit):
 
 class StrengthMeter(QWidget):
     LABELS = ["Muito fraca", "Fraca", "Razoável", "Boa", "Forte"]
-    COLORS = [theme.DANGER, theme.DANGER, theme.WARNING, "#7CC36A", theme.SUCCESS]
+    @property
+    def COLORS(self):  # noqa: N802
+        return [theme.DANGER, theme.DANGER, theme.WARNING, "#65A30D", theme.SUCCESS]
 
     def __init__(self):
         super().__init__()
@@ -329,7 +352,7 @@ class StrengthMeter(QWidget):
             r = QRectF(i * (seg + 4), 8, seg, 5)
             fill = max(0.0, min(1.0, self._value - i))
             p.setPen(Qt.PenStyle.NoPen)
-            p.setBrush(QColor("#E5EAF2"))
+            p.setBrush(QColor(theme.TRACK))
             p.drawRoundedRect(r, 2.5, 2.5)
             if fill > 0:
                 p.setBrush(QColor(self.COLORS[self._score]))
@@ -360,7 +383,7 @@ class ChipGroup(QWidget):
             b.setCheckable(True)
             b.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
             b.setStyleSheet(
-                f"QPushButton {{ background: white; border: 1px solid {theme.BORDER_STRONG}; border-radius: 15px;"
+                f"QPushButton {{ background: {theme.SURFACE}; border: 1px solid {theme.BORDER_STRONG}; border-radius: 15px;"
                 f" padding: 6px 10px; color: {theme.TEXT_DIM}; }}"
                 f"QPushButton:hover {{ border-color: {theme.PRIMARY}; }}"
                 f"QPushButton:checked {{ background: {theme.PRIMARY_SOFT}; border-color: {theme.PRIMARY}; color: {theme.PRIMARY}; font-weight: 600; }}"
@@ -492,7 +515,7 @@ class Spinner(QWidget):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         r = QRectF(self.rect()).adjusted(4, 4, -4, -4)
-        p.setPen(QPen(QColor("#E5EAF2"), 4))
+        p.setPen(QPen(QColor(theme.TRACK), 4))
         p.drawEllipse(r)
         pen = QPen(QColor(theme.PRIMARY), 4)
         pen.setCapStyle(Qt.PenCapStyle.RoundCap)
@@ -504,16 +527,14 @@ class Spinner(QWidget):
 class Toast(QLabel):
     """Notificação flutuante que aparece e some suavemente."""
 
-    COLORS = {"info": theme.PRIMARY, "success": theme.SUCCESS, "error": theme.DANGER, "warning": theme.WARNING}
-
     @classmethod
     def show_message(cls, parent: QWidget, text: str, kind: str = "info", ms: int = 3200):
         host = parent.window()
         t = cls(text, host)
-        col = cls.COLORS.get(kind, theme.PRIMARY)
+        col = {"info": theme.PRIMARY, "success": theme.SUCCESS, "error": theme.DANGER, "warning": theme.WARNING}.get(kind, theme.PRIMARY)
         t.setWordWrap(True)
-        t.setStyleSheet(f"QLabel {{ background: white; border: 1px solid {theme.BORDER_STRONG}; border-left: 5px solid {col};"
-                        f" border-radius: 10px; padding: 12px 16px; color: {theme.TEXT}; font-size: 13px; }}")
+        t.setStyleSheet(f"QLabel {{ background: {theme.SURFACE}; border: 1px solid {theme.BORDER_STRONG}; border-left: 5px solid {col};"
+                        f" border-radius: 10px; padding: 12px 16px; color: {theme.TEXT}; font-size: 14px; }}")
         t.setMaximumWidth(420)
         t.adjustSize()
         x = host.width() - t.width() - 24

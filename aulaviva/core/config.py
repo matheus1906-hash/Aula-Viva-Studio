@@ -61,6 +61,7 @@ def resource_path(relative: str) -> Path:
 class Preferences:
     first_run_done: bool = False
     reduce_motion: bool = False
+    theme_mode: str = "light"        # light | dark | system
     idle_lock_minutes: int = IDLE_LOCK_MINUTES_DEFAULT
     ai_provider: str = ""          # demo | ollama | gemini | claude ("" = automático)
     ai_model: str = "claude-opus-5-5"

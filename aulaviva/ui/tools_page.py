@@ -121,7 +121,7 @@ class QRTool(QWidget):
         self.preview = QLabel()
         self.preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.preview.setMinimumSize(QSize(280, 280))
-        self.preview.setStyleSheet("background: #F7F9FD; border: 1px dashed #CDD5E3; border-radius: 12px; color: #8590A3;")
+        self.preview.setStyleSheet(f"background: {theme.SURFACE_ALT}; border: 1px dashed {theme.BORDER_STRONG}; border-radius: 12px; color: {theme.TEXT_MUTED};")
         right.lay.addWidget(self.preview, 1)
         self.err = label("", "error", wrap=True)
         right.lay.addWidget(self.err)

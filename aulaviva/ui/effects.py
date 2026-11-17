@@ -49,10 +49,13 @@ def blurred_snapshot(widget: QWidget, radius: float = 18, darken: float = 0.38) 
     return result
 
 
-def _draw_school_doodles(p: QPainter, w: int, h: int, seed: int = 7) -> None:
-    """Rabiscos escolares em tons pastel (fórmulas, livros, lápis, átomos...)."""
+def _draw_school_doodles(p: QPainter, w: int, h: int, seed: int = 7, dark: bool = False) -> None:
+    """Rabiscos escolares (fórmulas, livros, lápis, átomos...): pastel no claro, giz no escuro."""
     rnd = random.Random(seed)
-    inks = [QColor(47, 111, 237, 46), QColor(242, 165, 22, 60), QColor(22, 163, 74, 40), QColor(124, 92, 230, 42), QColor(220, 53, 69, 34)]
+    if dark:
+        inks = [QColor(255, 255, 255, 58), QColor(245, 184, 61, 70), QColor(120, 180, 255, 66), QColor(170, 140, 255, 60), QColor(110, 231, 183, 50)]
+    else:
+        inks = [QColor(47, 111, 237, 46), QColor(242, 165, 22, 60), QColor(22, 163, 74, 40), QColor(124, 92, 230, 42), QColor(220, 53, 69, 34)]
     font = QFont("DejaVu Sans")
     formulas = ["a² + b² = c²", "E = mc²", "π ≈ 3,14", "H₂O", "x = (-b ± √Δ) / 2a", "ABC", "1 + 1 = 2", "F = m·a",
                 "∑", "√2", "Δ = b² - 4ac", "θ", "7 × 8 = 56", "Olá, turma!", "½ + ¼", "CO₂"]
@@ -128,11 +131,29 @@ def _draw_school_doodles(p: QPainter, w: int, h: int, seed: int = 7) -> None:
 
 
 def render_school_background(size: QSize, seed: int = 7) -> QPixmap:
-    """Folha de caderno clara com pautas e rabiscos escolares suaves."""
+    """Claro: folha de caderno com pautas. Escuro: lousa com rabiscos de giz."""
     w, h = max(2, size.width() // 2), max(2, size.height() // 2)
     img = QImage(w, h, QImage.Format.Format_ARGB32_Premultiplied)
     p = QPainter(img)
     p.setRenderHint(QPainter.RenderHint.Antialiasing)
+    if theme.is_dark():
+        grad = QLinearGradient(0, 0, w, h)
+        grad.setColorAt(0, QColor("#111C30"))
+        grad.setColorAt(0.6, QColor("#0F1F26"))
+        grad.setColorAt(1, QColor("#161532"))
+        p.fillRect(img.rect(), grad)
+        for cx, cy, rad, col in ((0.12, 0.15, 0.55, QColor(91, 140, 245, 55)), (0.9, 0.85, 0.6, QColor(124, 108, 242, 45))):
+            rg = QRadialGradient(QPointF(w * cx, h * cy), max(w, h) * rad)
+            rg.setColorAt(0, col)
+            rg.setColorAt(1, QColor(0, 0, 0, 0))
+            p.fillRect(img.rect(), rg)
+        _draw_school_doodles(p, w, h, seed, dark=True)
+        p.end()
+        img = blur_image(img, 3)
+        p = QPainter(img)
+        p.fillRect(img.rect(), QColor(8, 12, 22, 70))
+        p.end()
+        return QPixmap.fromImage(img.scaled(size, Qt.AspectRatioMode.IgnoreAspectRatio, Qt.TransformationMode.SmoothTransformation))
     grad = QLinearGradient(0, 0, w, h)
     grad.setColorAt(0, QColor("#F8FAFE"))
     grad.setColorAt(1, QColor("#EEF2FA"))
@@ -170,14 +191,14 @@ class SchoolBackground(QWidget):
 
     def _key(self):
         # Arredonda o tamanho para reaproveitar o cache durante o redimensionamento
-        return (math.ceil(self.width() / 200) * 200, math.ceil(self.height() / 200) * 200)
+        return (math.ceil(self.width() / 200) * 200, math.ceil(self.height() / 200) * 200, theme.MODE)
 
     def _regen(self):
         key = self._key()
         if key not in self._cache:
             if len(self._cache) > 4:
                 self._cache.clear()
-            self._cache[key] = render_school_background(QSize(*key))
+            self._cache[key] = render_school_background(QSize(key[0], key[1]))
         self._pix = self._cache[key]
         self.update()
 
