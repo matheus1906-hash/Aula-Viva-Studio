@@ -29,7 +29,7 @@ BLOCK_TYPES: dict[str, tuple[str, str, dict]] = {
     "qrcode":    ("QR Code", "▦", {"url": "", "caption": "Aponte a câmera do celular", "size": 34}),
     "link":      ("Link / botão", "↗", {"label": "Acesse o material", "url": "", "description": ""}),
     "word":      ("Documento Word/Office", "W", {"label": "Lista de exercícios (Word)", "mode": "link", "url": "", "filename": "", "data": ""}),
-    "video":     ("Vídeo (QR + link)", "▶", {"title": "Videoaula", "url": ""}),
+    "video":     ("Vídeo", "▶", {"title": "Videoaula", "url": "", "mode": "link", "media": "", "filename": "", "info": ""}),
     "open_question":   ("Pergunta aberta", "?", {"prompt": "Explique com suas palavras...", "lines": 4, "answer": ""}),
     "choice_question": ("Múltipla escolha", "◉", {"prompt": "Qual alternativa está correta?", "options": ["Alternativa A", "Alternativa B", "Alternativa C", "Alternativa D"], "correct": 0}),
     "true_false":      ("Verdadeiro ou falso", "V/F", {"statements": ["Afirmação 1", "Afirmação 2"], "answers": [True, False]}),
@@ -176,6 +176,14 @@ def sanitize_document(doc: dict) -> dict:
 
 def block_url_problem(block: dict) -> str | None:
     """Retorna a mensagem de erro se o link do bloco for inseguro/inválido."""
+    if block["type"] == "video" and block.get("mode") == "embed":
+        if not (block.get("url") or "").strip():
+            return None  # vídeo anexado: o link é opcional
+        try:
+            validate_url(block.get("url", ""))
+        except SecurityError as exc:
+            return str(exc)
+        return None
     if block["type"] in {"qrcode", "link", "video"} or (block["type"] == "word" and block.get("mode") == "link"):
         try:
             validate_url(block.get("url", ""))
@@ -245,6 +253,22 @@ class ProjectStore:
         with self.db.transaction() as cur:
             cur.execute("DELETE FROM projects WHERE id=? AND user_id=?", (pid, uid))
         self.db.audit("project_deleted", uid, {"project": pid})
+        self.cleanup_media(uid)
+
+    def cleanup_media(self, uid: int) -> None:
+        """Remove vídeos que não pertencem a nenhum material restante."""
+        from aulaviva.core.media import MediaStore, media_ids
+
+        store = MediaStore(self.c, uid)
+        if not store.dir.is_dir():
+            return
+        used: set[str] = set()
+        try:
+            for info in self.list(uid):
+                used |= media_ids(self.load(uid, info.id))
+        except Exception:
+            return  # na dúvida, não apaga nada
+        store.garbage_collect(used)
 
 
 # Modelos prontos para começar rápido

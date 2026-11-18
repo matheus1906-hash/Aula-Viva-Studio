@@ -41,8 +41,12 @@ SUPPORTED = {
     ".docx": "Word", ".doc": "Word 97-2003", ".pptx": "PowerPoint", ".ppt": "PowerPoint 97-2003",
     ".odt": "LibreOffice Writer", ".odp": "LibreOffice Impress", ".pdf": "PDF (inclusive do Canva)",
     ".txt": "Texto", ".md": "Markdown", ".rtf": "Rich Text", ".png": "Imagem", ".jpg": "Imagem", ".jpeg": "Imagem",
+    ".srt": "Legenda de vídeo", ".vtt": "Legenda de vídeo",
+    **{e: "Vídeo" for e in (".mp4", ".m4v", ".mov", ".webm", ".mkv", ".avi", ".wmv", ".mpg", ".mpeg", ".3gp")},
 }
-FILE_FILTER = "Documentos (*.docx *.doc *.pptx *.ppt *.odt *.odp *.pdf *.txt *.md *.rtf *.png *.jpg *.jpeg)"
+FILE_FILTER = ("Documentos e vídeos (*.docx *.doc *.pptx *.ppt *.odt *.odp *.pdf *.txt *.md *.rtf *.png *.jpg *.jpeg "
+               "*.srt *.vtt *.mp4 *.m4v *.mov *.webm *.mkv *.avi *.wmv *.mpg *.mpeg *.3gp);;"
+               "Vídeos (*.mp4 *.m4v *.mov *.webm *.mkv *.avi *.wmv *.mpg *.mpeg *.3gp);;Legendas (*.srt *.vtt)")
 
 W = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
 A = "{http://schemas.openxmlformats.org/drawingml/2006/main}"
@@ -65,13 +69,15 @@ class ImportResult:
     blocks: list[dict]
     source: str
     warnings: list[str] = field(default_factory=list)
+    video_path: str = ""        # vídeo a anexar (guardado criptografado pelo app depois da leitura)
 
     def summary(self) -> str:
         from collections import Counter
 
         names = {"heading": "título(s)", "paragraph": "texto(s)", "bullets": "lista(s)", "table": "tabela(s)",
                  "image": "imagem(ns)", "choice_question": "questão(ões) de múltipla escolha",
-                 "true_false": "questão(ões) V/F", "open_question": "pergunta(s) aberta(s)", "callout": "destaque(s)"}
+                 "true_false": "questão(ões) V/F", "open_question": "pergunta(s) aberta(s)", "callout": "destaque(s)",
+                 "video": "vídeo(s)"}
         c = Counter(b["type"] for b in self.blocks)
         return ", ".join(f"{n} {names.get(t, t)}" for t, n in c.most_common()) or "nenhum conteúdo encontrado"
 
@@ -95,6 +101,8 @@ class ImportResult:
                 out.extend("(V/F) " + s for s in b["statements"])
             elif t == "open_question":
                 out.append("Questão: " + b["prompt"])
+            elif t == "video":
+                out.append("Vídeo: " + b.get("title", ""))
         text = "\n".join(x for x in out if x.strip())
         return text[:limit]
 
@@ -639,6 +647,71 @@ def _import_image(path: Path) -> ImportResult:
     return ImportResult(_title_from(path), [b], path.name)
 
 
+_CUE_TIME = re.compile(r"^\s*(?:\d{1,2}:)?\d{1,2}:\d{2}[.,]\d{1,3}\s*-->")
+
+
+def subtitles_to_text(raw: str) -> str:
+    """Converte legendas SRT/VTT em texto corrido (a fala do vídeo), sem tempos nem marcações."""
+    out: list[str] = []
+    last = ""
+    for line in raw.splitlines():
+        t = line.strip()
+        if not t or t.isdigit() or t.upper().startswith(("WEBVTT", "NOTE", "STYLE", "REGION", "KIND:", "LANGUAGE:")) \
+                or _CUE_TIME.match(t):
+            if out and out[-1] != "":
+                out.append("")
+            continue
+        t = re.sub(r"<[^>]{1,40}>", "", t)          # <i>, <c.cor>, <00:00:01.000>
+        t = re.sub(r"\{\\[^}]{0,40}\}", "", t)      # {\an8}
+        t = clean_text(t, 1000)
+        if t and t != last:                         # legendas "roladas" repetem a linha anterior
+            out.append(t)
+            last = t
+    # junta as falas em parágrafos de tamanho razoável
+    paras, cur = [], []
+    for t in out:
+        if t == "":
+            continue
+        cur.append(t)
+        if sum(len(x) for x in cur) > 600 and t.endswith((".", "!", "?")):
+            paras.append(" ".join(cur))
+            cur = []
+    if cur:
+        paras.append(" ".join(cur))
+    return "\n\n".join(paras)
+
+
+def _import_subtitles(path: Path) -> ImportResult:
+    text = subtitles_to_text(_decode_text(path.read_bytes()))
+    blocks = [{"type": "heading", "text": "Transcrição do vídeo", "level": 1}]
+    blocks += [{"type": "paragraph", "text": p} for p in text.split("\n\n") if p.strip()]
+    return ImportResult(_title_from(path), blocks, path.name)
+
+
+def _import_video(path: Path) -> ImportResult:
+    """Vídeo do computador: vira um bloco 'vídeo anexado'. Se houver legenda com o mesmo nome, a fala vira texto."""
+    from aulaviva.core.media import check_video, human_size
+
+    try:
+        name, size = check_video(path)
+    except SecurityError as exc:
+        raise ImportError_(str(exc)) from exc
+    title = _title_from(path)
+    blocks: list[dict] = [{"type": "video", "mode": "embed", "title": title[:60], "filename": name, "info": human_size(size)}]
+    res = ImportResult(title, blocks, path.name, video_path=str(path))
+    for ext in (".srt", ".vtt", ".pt-BR.srt", ".pt.srt", ".pt-BR.vtt", ".pt.vtt"):
+        side = path.with_name(path.stem + ext)
+        if side.is_file() and side.stat().st_size < 5 * 1024 * 1024:
+            sub = _import_subtitles(side)
+            blocks.extend(sub.blocks)
+            res.warnings.append(f"Legenda encontrada ({side.name}): a fala do vídeo foi transcrita como texto.")
+            break
+    else:
+        res.warnings.append("Dica: se você tiver a legenda do vídeo (.srt ou .vtt) com o mesmo nome na mesma pasta, "
+                            "a fala vira texto e a IA pode criar o material a partir dela.")
+    return res
+
+
 def import_file(path: str | Path) -> ImportResult:
     """Lê o arquivo e devolve blocos editáveis já validados."""
     path = Path(path)
@@ -647,11 +720,15 @@ def import_file(path: str | Path) -> ImportResult:
         raise ImportError_("Esse formato não pode ser lido diretamente. No Canva use Compartilhar > Baixar > PDF (ou PowerPoint); "
                            "no Keynote/Pages exporte como PowerPoint/Word ou PDF.")
     if ext not in SUPPORTED:
-        raise ImportError_("Tipo de arquivo não suportado. Use Word, PowerPoint, PDF, ODT/ODP, TXT, RTF ou imagem.")
+        raise ImportError_("Tipo de arquivo não suportado. Use Word, PowerPoint, PDF, ODT/ODP, TXT, RTF, imagem, vídeo ou legenda.")
     try:
         size = path.stat().st_size
     except OSError as exc:
         raise ImportError_("Não foi possível abrir o arquivo.") from exc
+    if SUPPORTED[ext] == "Vídeo":
+        res = _import_video(path)
+        res.blocks = sanitize_document({"blocks": res.blocks})["blocks"]
+        return res
     if size > MAX_FILE_BYTES:
         raise ImportError_("Arquivo muito grande (máx. 60 MB).")
     try:
@@ -674,6 +751,8 @@ def import_file(path: str | Path) -> ImportResult:
             res = _import_text(path)
         elif ext == ".rtf":
             res = _import_rtf(path)
+        elif ext in (".srt", ".vtt"):
+            res = _import_subtitles(path)
         else:
             res = _import_image(path)
     except (ImportError_, SecurityError):

@@ -215,8 +215,7 @@ class BlockForm(QWidget):
             self._url()
             self._line("description", "Descrição (opcional)", max_len=120)
         elif t == "video":
-            self._line("title", "Título do vídeo", max_len=60)
-            self._url(title="Link do vídeo (YouTube, Vimeo, Drive...)")
+            self._video_controls()
         elif t == "word":
             self._word_controls()
         elif t == "open_question":
@@ -269,6 +268,112 @@ class BlockForm(QWidget):
         self._line("caption", "Legenda", max_len=200)
         self._spin("width", "Largura na página", 20, 100, " %")
         refresh()
+
+    media_store = None   # definido pelo editor aberto (vídeos ficam criptografados fora do documento)
+
+    def _video_controls(self):
+        from aulaviva.core.media import MAX_VIDEO_BYTES, VIDEO_FILTER
+
+        b = self.block
+        self._line("title", "Título do vídeo", max_len=60)
+        grp = QButtonGroup(self)
+        r1 = QRadioButton("Link de um vídeo online (YouTube, Vimeo, Drive...): vira QR code clicável")
+        r2 = QRadioButton("Vídeo do meu computador: anexado dentro do PDF")
+        grp.addButton(r1)
+        grp.addButton(r2)
+        (r2 if b.get("mode") == "embed" else r1).setChecked(True)
+        self.lay.addWidget(r1)
+        self.lay.addWidget(r2)
+        holder = QWidget()
+        hl = QVBoxLayout(holder)
+        hl.setContentsMargins(0, 0, 0, 0)
+        self.lay.addWidget(holder)
+
+        def build():
+            _delete_layout_children(hl)
+            if b.get("mode") == "embed":
+                ok = bool(b.get("media")) and (self.media_store is None or self.media_store.exists(b["media"]))
+                info = label((f"✓ {b['filename']} ({b.get('info', '')})" if ok else
+                              ("O arquivo do vídeo não foi encontrado neste computador. Escolha-o de novo." if b.get("media")
+                               else "Nenhum vídeo escolhido.")), "dim", wrap=True)
+                hl.addWidget(info)
+                btn = Button("Escolher vídeo..." if not ok else "Trocar vídeo...", "secondary", icon_text="▶")
+
+                def choose():
+                    path, _ = QFileDialog.getOpenFileName(self, "Escolher vídeo", "", VIDEO_FILTER)
+                    if not path or self.media_store is None:
+                        return
+                    btn.setEnabled(False)
+                    btn.setText("Guardando o vídeo...")
+
+                    def done(fields):
+                        b.update(fields)
+                        if not b.get("title") or b["title"] == "Videoaula":
+                            b["title"] = Path(path).stem[:60]
+                        self._emit()
+                        try:
+                            self.show_block(b)
+                        except RuntimeError:
+                            pass
+
+                    def fail(exc):
+                        try:
+                            btn.setEnabled(True)
+                            btn.setText("Escolher vídeo...")
+                        except RuntimeError:
+                            pass
+                        Toast.show_message(self.window(), str(exc) if isinstance(exc, SecurityError) else "Não foi possível guardar o vídeo.",
+                                           "error", 7000)
+
+                    run_async(lambda: self.media_store.put(path), done, fail)
+
+                btn.clicked.connect(choose)
+                hl.addWidget(btn, 0, Qt.AlignmentFlag.AlignLeft)
+                hl.addWidget(label(f"MP4, MOV, WEBM, MKV, AVI... até {MAX_VIDEO_BYTES // 1024 // 1024} MB. No PDF aparece um cartão "
+                                   "com o vídeo anexado: o aluno abre pelo painel de anexos (clipe) do leitor de PDF. "
+                                   "O vídeo fica guardado criptografado no seu computador.", "muted", wrap=True))
+                le = line_edit("Opcional: link do mesmo vídeo online, para gerar também um QR code", 2048)
+                le.setText(b.get("url", ""))
+                f = Field("Link online (opcional)", le)
+
+                def upd(v):
+                    b["url"] = v.strip()
+                    if v.strip():
+                        try:
+                            validate_url(v)
+                            f.set_error(None)
+                        except SecurityError as exc:
+                            f.set_error(str(exc))
+                    else:
+                        f.set_error(None)
+                    self._emit()
+
+                le.textChanged.connect(upd)
+                hl.addWidget(f)
+            else:
+                le = line_edit("https://www.youtube.com/watch?v=...", 2048)
+                le.setText(b.get("url", ""))
+                f = Field("Link do vídeo (YouTube, Vimeo, Drive...)", le, True)
+
+                def upd2(v):
+                    b["url"] = v.strip()
+                    try:
+                        validate_url(v)
+                        f.set_error(None)
+                    except SecurityError as exc:
+                        f.set_error(str(exc))
+                    self._emit()
+
+                le.textChanged.connect(upd2)
+                hl.addWidget(f)
+
+        def mode_changed():
+            b["mode"] = "embed" if r2.isChecked() else "link"
+            build()
+            self._emit()
+
+        r1.toggled.connect(lambda _: mode_changed())
+        build()
 
     def _word_controls(self):
         b = self.block
@@ -396,6 +501,7 @@ def _delete_layout_children(lay):
     while lay.count():
         it = lay.takeAt(0)
         if it.widget():
+            it.widget().hide()
             it.widget().deleteLater()
         elif it.layout():
             _delete_layout(it.layout())
@@ -463,7 +569,7 @@ BLOCK_HELP = {
     "table": "Tabela simples com cabeçalho.",
     "qrcode": "O aluno aponta a câmera e abre um site.",
     "link": "Botão clicável para um site ou atividade online.",
-    "video": "QR code + link para um vídeo (YouTube, Drive...).",
+    "video": "Vídeo online (QR code) ou vídeo do computador anexado ao PDF.",
     "word": "Link ou anexo de um arquivo Word, Excel ou PowerPoint.",
     "choice_question": "Alternativas A, B, C... marcáveis no PDF.",
     "true_false": "Afirmações para marcar V ou F.",
@@ -527,7 +633,7 @@ class AddTile(QWidget):
 
 
 def open_add_menu(host: QWidget, on_pick: Callable[[str], None], on_quick: Callable[[], None],
-                  on_file: Callable[[], None] | None = None) -> Modal:
+                  on_file: Callable[[], None] | None = None, on_video: Callable[[], None] | None = None) -> Modal:
     m = Modal(host, 760)
     m.body.addWidget(label("Adicionar ao material", "h2"))
     m.body.addWidget(label("Escolha o que quer inserir. O bloco entra logo abaixo do bloco selecionado.", "dim"))
@@ -540,6 +646,11 @@ def open_add_menu(host: QWidget, on_pick: Callable[[str], None], on_quick: Calla
         fb.setToolTip("Word, PowerPoint, PDF (Canva), LibreOffice, texto...")
         fb.clicked.connect(lambda: (m.close_modal(), on_file()))
         top.addWidget(fb, 1)
+    if on_video is not None:
+        vb = Button("Vídeo do computador", "soft", icon_text="▶", height=44)
+        vb.setToolTip("Anexa um vídeo (MP4, MOV, WEBM...) dentro do PDF")
+        vb.clicked.connect(lambda: (m.close_modal(), on_video()))
+        top.addWidget(vb, 1)
     m.body.addLayout(top)
     for group, kinds in ADD_GROUPS:
         g = label(group.upper(), "muted")
@@ -629,6 +740,10 @@ class EditorView(QWidget):
     def __init__(self, store: ProjectStore, user_id: int, get_assistant: Callable[[], Assistant]):
         super().__init__()
         self.store, self.uid, self.get_assistant = store, user_id, get_assistant
+        from aulaviva.core.media import MediaStore
+
+        self.media = MediaStore(store.c, user_id)
+        BlockForm.media_store = self.media
         self.pid: int | None = None
         self.doc: dict = {}
         self.dirty = False
@@ -860,7 +975,35 @@ class EditorView(QWidget):
         self._mark_dirty()
 
     def open_add(self):
-        open_add_menu(self, self.add_block, self.open_quick_list, self.insert_from_file)
+        open_add_menu(self, self.add_block, self.open_quick_list, self.insert_from_file, self.insert_video)
+
+    def insert_video(self):
+        """Escolhe um vídeo do computador e cria o bloco 'vídeo anexado'."""
+        from aulaviva.core.media import VIDEO_FILTER
+
+        path, _ = QFileDialog.getOpenFileName(self, "Escolher vídeo", "", VIDEO_FILTER)
+        if not path:
+            return
+        busy = Modal(self, 380, dismissable=False)
+        busy.body.addWidget(label("Guardando o vídeo com segurança...", "h3"))
+        busy.body.addWidget(Spinner(), 0, Qt.AlignmentFlag.AlignHCenter)
+        busy.open()
+
+        def ok(fields):
+            busy.close_modal()
+            b = new_block("video")
+            b.update(fields, mode="embed", title=Path(path).stem[:60])
+            pos = self._insert_pos()
+            self.doc["blocks"].insert(pos, b)
+            self._rebuild_cards(pos)
+            self._mark_dirty(True)
+            Toast.show_message(self, "Vídeo anexado. Ele vai dentro do PDF exportado.", "success", 4000)
+
+        def fail(exc):
+            busy.close_modal()
+            Toast.show_message(self, str(exc) if isinstance(exc, SecurityError) else "Não foi possível guardar o vídeo.", "error", 7000)
+
+        run_async(lambda: self.media.put(path), ok, fail)
 
     def insert_from_file(self):
         """Traz títulos, textos, listas, tabelas, imagens e questões de um arquivo para dentro do material."""
@@ -875,7 +1018,18 @@ class EditorView(QWidget):
         busy.open()
 
         def ok(res):
+            if res.video_path:  # vídeo: guarda criptografado antes de inserir
+                from aulaviva.core.media import attach_imported_video
+
+                def stored(_):
+                    res.video_path = ""
+                    ok(res)
+
+                run_async(lambda: attach_imported_video(res, self.media), stored, fail)
+                return
             busy.close_modal()
+            for w in res.warnings[:1]:
+                Toast.show_message(self, w, "info", 6000)
             pos = self._insert_pos()
             self.doc["blocks"][pos:pos] = res.blocks
             self._rebuild_cards(-1)
@@ -884,7 +1038,7 @@ class EditorView(QWidget):
 
         def fail(exc):
             busy.close_modal()
-            Toast.show_message(self, str(exc) if isinstance(exc, ImportError_) else "Não foi possível ler o arquivo.", "error", 7000)
+            Toast.show_message(self, str(exc) if isinstance(exc, (ImportError_, SecurityError)) else "Não foi possível ler o arquivo.", "error", 7000)
 
         run_in_process(import_file, path, on_done=ok, on_error=fail)
 
@@ -1170,6 +1324,7 @@ class EditorView(QWidget):
 
         pending = list(outputs)
         done_files: list[Path] = []
+        media: dict[str, bytes] = {}
 
         def next_file(_=None):
             if not pending:
@@ -1179,14 +1334,17 @@ class EditorView(QWidget):
                 return
             out, with_key = pending.pop(0)
             done_files.append(out)
-            run_in_process(export_to_file, snapshot, str(out), with_key, on_done=next_file, on_error=fail)
+            run_in_process(export_to_file, snapshot, str(out), with_key, media or None, on_done=next_file, on_error=fail)
 
         def fail(e):
             busy.close_modal()
             msg = str(e) if isinstance(e, (SecurityError, ExportError)) else "Não foi possível exportar o PDF."
             Toast.show_message(self, msg, "error", 7000)
 
-        next_file()
+        if any(b["type"] == "video" and b.get("mode") == "embed" and b.get("media") for b in snapshot["blocks"]):
+            run_async(lambda: self.media.collect([snapshot]), lambda m: (media.update(m), next_file()), fail)
+        else:
+            next_file()
 
     def _export_done(self, files: list[Path]):
         from PySide6.QtCore import QUrl

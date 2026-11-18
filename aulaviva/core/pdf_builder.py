@@ -170,6 +170,56 @@ class LinkButton(Flowable):
             c.linkURL(self.url, (0, 0, self.width, h), relative=1, thickness=0)
 
 
+class VideoCard(Flowable):
+    """Cartão de vídeo anexado: miniatura estilizada com botão de play e instruções para assistir."""
+
+    def __init__(self, title: str, filename: str, info: str, color):
+        super().__init__()
+        self.title, self.filename, self.info, self.color = title, filename, info, color
+        self.height = 34 * mm
+
+    def wrap(self, aw, ah):
+        self.width = aw
+        return aw, self.height + 2 * mm
+
+    def draw(self):
+        c, (reg, bold, _) = self.canv, fonts()
+        h, w = self.height, self.width
+        c.setStrokeColor(self.color)
+        c.setFillColor(colors.Color(self.color.red, self.color.green, self.color.blue, alpha=0.06))
+        c.setLineWidth(1)
+        c.roundRect(0, 0, w, h, 3 * mm, stroke=1, fill=1)
+        tw, th = 52 * mm, h - 6 * mm  # "tela" do vídeo
+        c.setFillColor(colors.HexColor("#1F2937"))
+        c.roundRect(3 * mm, 3 * mm, tw, th, 2 * mm, stroke=0, fill=1)
+        c.setFillColor(colors.Color(self.color.red, self.color.green, self.color.blue, alpha=0.55))
+        c.rect(3 * mm, 3 * mm, tw * 0.38, 1.2 * mm, stroke=0, fill=1)  # barra de progresso
+        cx, cy = 3 * mm + tw / 2, 3 * mm + th / 2 + 1 * mm
+        c.setFillColor(colors.white)
+        c.circle(cx, cy, 7 * mm, stroke=0, fill=1)
+        c.setFillColor(self.color)
+        p = c.beginPath()
+        p.moveTo(cx - 2.3 * mm, cy - 3.6 * mm)
+        p.lineTo(cx - 2.3 * mm, cy + 3.6 * mm)
+        p.lineTo(cx + 3.9 * mm, cy)
+        p.close()
+        c.drawPath(p, stroke=0, fill=1)
+        tx = tw + 9 * mm
+        c.setFillColor(colors.HexColor("#1D2433"))
+        c.setFont(bold, 12)
+        c.drawString(tx, h - 9 * mm, self.title[:60])
+        c.setFont(reg, 9)
+        c.setFillColor(colors.HexColor("#5B6475"))
+        c.drawString(tx, h - 14.5 * mm, f"Vídeo anexado ao PDF: {self.filename[:60]}" + (f" ({self.info})" if self.info else ""))
+        c.setFillColor(self.color)
+        c.setFont(bold, 9)
+        c.drawString(tx, h - 21 * mm, "Como assistir:")
+        c.setFont(reg, 8.5)
+        c.setFillColor(colors.HexColor("#3B4252"))
+        c.drawString(tx, h - 25.5 * mm, "abra o painel de anexos (ícone de clipe) no leitor de PDF")
+        c.drawString(tx, h - 29.5 * mm, "e dê dois cliques no vídeo para ele abrir no seu player.")
+
+
 class QRBlock(Flowable):
     def __init__(self, url: str, caption: str, size_mm: float, color, title: str = ""):
         super().__init__()
@@ -491,19 +541,22 @@ def incomplete_blocks(document: dict) -> list[tuple[int, str, str]]:
             out.append((i, name, "nenhuma imagem escolhida"))
         elif b.get("type") == "word" and b.get("mode") == "embed" and not b.get("data"):
             out.append((i, name, "nenhum arquivo anexado"))
+        elif b.get("type") == "video" and b.get("mode") == "embed" and not b.get("media"):
+            out.append((i, name, "nenhum vídeo escolhido"))
     return out
 
 
 def build_pdf(document: dict, preview: bool = False, skip_incomplete: bool = False,
-              answer_key: bool | None = None) -> bytes:
+              answer_key: bool | None = None, media: dict[str, bytes] | None = None) -> bytes:
     """Gera o PDF e retorna os bytes.
 
     preview: prévia rápida (sem criptografia/anexos; mostra avisos no lugar de erros).
     skip_incomplete: ignora blocos sem link/imagem/arquivo em vez de falhar.
     answer_key: força incluir (True) ou omitir (False) o gabarito; None usa o documento.
+    media: vídeos anexados {id: bytes} (só na exportação final).
     """
     try:
-        return _build(document, preview, skip_incomplete, answer_key)
+        return _build(document, preview, skip_incomplete, answer_key, media or {})
     except (SecurityError, ExportError):
         raise
     except LayoutError as exc:
@@ -513,7 +566,9 @@ def build_pdf(document: dict, preview: bool = False, skip_incomplete: bool = Fal
         raise ExportError(f"Não foi possível gerar o PDF ({type(exc).__name__}). Verifique os blocos e tente novamente.") from exc
 
 
-def _build(document: dict, preview: bool, skip_incomplete: bool, answer_key_opt: bool | None) -> bytes:
+def _build(document: dict, preview: bool, skip_incomplete: bool, answer_key_opt: bool | None,
+           media: dict[str, bytes] | None = None) -> bytes:
+    media = media or {}
     doc_data = sanitize_document(document)
     meta, blocks = doc_data["meta"], doc_data["blocks"]
     if skip_incomplete:
@@ -577,6 +632,15 @@ def _build(document: dict, preview: bool, skip_incomplete: bool, answer_key_opt:
             elif t == "qrcode":
                 url = validate_url(b["url"])
                 story += [QRBlock(url, b["caption"], max(22, min(b["size"], 60)), color), Spacer(1, 4 * mm)]
+            elif t == "video" and b.get("mode") == "embed":
+                name = b["filename"] or "video.mp4"
+                if not preview and b["media"] in media:
+                    attachments.append((name, media[b["media"]]))
+                story += [VideoCard(b["title"] or "Vídeo", name, b.get("info", ""), color), Spacer(1, 3 * mm)]
+                if (b.get("url") or "").strip():
+                    url = validate_url(b["url"])
+                    story += [QRBlock(url, "Também disponível online: aponte a câmera ou clique", 26, color,
+                                      title=b["title"]), Spacer(1, 4 * mm)]
             elif t == "video":
                 url = validate_url(b["url"])
                 story += [QRBlock(url, "Assista ao vídeo pelo celular ou clicando aqui", 30, color, title=b["title"]), Spacer(1, 4 * mm)]
@@ -651,12 +715,12 @@ def _build(document: dict, preview: bool, skip_incomplete: bool, answer_key_opt:
     return _postprocess(buf.getvalue(), meta, attachments, preview)
 
 
-def export_to_file(document: dict, path: str, answer_key: bool | None = None) -> str:
+def export_to_file(document: dict, path: str, answer_key: bool | None = None, media: dict[str, bytes] | None = None) -> str:
     """Gera e grava o PDF (usado no processo auxiliar, fora da interface)."""
     from pathlib import Path
 
     out = Path(path)
-    data = build_pdf(document, skip_incomplete=True, answer_key=answer_key)
+    data = build_pdf(document, skip_incomplete=True, answer_key=answer_key, media=media)
     tmp = out.with_name(out.name + ".part")
     try:
         tmp.write_bytes(data)

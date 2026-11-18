@@ -249,6 +249,17 @@ class Crypto:
         raw = self.decrypt_bytes(token, context)
         return None if raw is None else raw.decode("utf-8")
 
+    def encrypt_raw(self, data: bytes, context: str) -> bytes:
+        """Criptografa bytes grandes (vídeos) sem base64: nonce + texto cifrado."""
+        nonce = secrets.token_bytes(12)
+        return nonce + self._enc.encrypt(nonce, data, context.encode())
+
+    def decrypt_raw(self, blob: bytes, context: str) -> bytes:
+        try:
+            return self._enc.decrypt(blob[:12], blob[12:], context.encode())
+        except (ValueError, InvalidTag) as exc:
+            raise SecurityError("Arquivo protegido inválido ou adulterado.") from exc
+
     def blind_index(self, value: str, kind: str) -> str:
         norm = unicodedata.normalize("NFKC", value).strip().lower()
         return hmac.new(self._idx_key, f"{kind}:{norm}".encode(), hashlib.sha256).hexdigest()
