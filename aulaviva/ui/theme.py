@@ -135,9 +135,9 @@ QCheckBox::indicator {{ width: 18px; height: 18px; border-radius: 5px; border: 1
 QCheckBox::indicator:checked {{ background: {PRIMARY}; border-color: {PRIMARY}; image: url("{check}"); }}
 QCheckBox::indicator:hover {{ border-color: {PRIMARY}; }}
 QRadioButton {{ color: {TEXT_DIM}; spacing: 8px; background: transparent; }}
-QRadioButton::indicator {{ width: 16px; height: 16px; border-radius: 9px; border: 1.5px solid {BORDER_HOVER}; background: {SURFACE}; }}
+QRadioButton::indicator {{ width: 16px; height: 16px; border-radius: 10px; border: 2px solid {BORDER_HOVER}; background: {SURFACE}; }}
 QRadioButton::indicator:hover {{ border-color: {PRIMARY}; }}
-QRadioButton::indicator:checked {{ border: 5px solid {PRIMARY}; background: {SURFACE}; }}
+QRadioButton::indicator:checked {{ width: 8px; height: 8px; border: 6px solid {PRIMARY}; border-radius: 10px; background: {SURFACE}; }}
 
 QScrollArea {{ border: 0; }}
 QScrollBar:vertical {{ background: transparent; width: 10px; margin: 4px 2px; }}

@@ -39,9 +39,9 @@ def blur_image(img: QImage, radius: float) -> QImage:
 def blurred_snapshot(widget: QWidget, radius: float = 18, darken: float = 0.38) -> QPixmap:
     """Captura o widget, desfoca em baixa resolução e escurece (para modais)."""
     pm = widget.grab()
-    small = pm.toImage().scaled(max(1, pm.width() // 3), max(1, pm.height() // 3),
+    small = pm.toImage().scaled(max(1, pm.width() // 4), max(1, pm.height() // 4),
                                 Qt.AspectRatioMode.IgnoreAspectRatio, Qt.TransformationMode.SmoothTransformation)
-    blurred = blur_image(small, radius / 3)
+    blurred = blur_image(small, radius / 4)
     result = QPixmap.fromImage(blurred.scaled(pm.size(), Qt.AspectRatioMode.IgnoreAspectRatio, Qt.TransformationMode.SmoothTransformation))
     p = QPainter(result)
     p.fillRect(result.rect(), QColor(22, 32, 54, int(255 * darken)))

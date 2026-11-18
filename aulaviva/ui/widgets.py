@@ -8,7 +8,7 @@ from PySide6.QtCore import (
     QEasingCurve, QEvent, QParallelAnimationGroup, QPoint, QPropertyAnimation, QRectF, QSize, Qt, QTimer,
     QVariantAnimation, Signal,
 )
-from PySide6.QtGui import QColor, QCursor, QLinearGradient, QPainter, QPainterPath, QPen
+from PySide6.QtGui import QColor, QCursor, QLinearGradient, QPainter, QPainterPath, QPen, QPixmap
 from PySide6.QtWidgets import (
     QAbstractButton, QCheckBox, QFrame, QGraphicsOpacityEffect, QHBoxLayout, QLabel, QLineEdit, QPushButton,
     QScrollArea, QSizePolicy, QStackedWidget, QVBoxLayout, QWidget,
@@ -80,8 +80,27 @@ class GlassCard(QFrame):
         self._hover(False)
         super().leaveEvent(e)
 
+    _pm_key = None
+    _pm: QPixmap | None = None
+
     def paintEvent(self, e):
-        p = QPainter(self)
+        # Parado (sem hover), o cartão + sombra é desenhado uma vez num bitmap e só copiado: rolagem bem mais leve
+        if self._h == 0.0:
+            dpr = self.devicePixelRatioF()
+            key = (self.width(), self.height(), dpr, theme.MODE, theme.SURFACE, theme.BORDER, self.radius, self.strong)
+            if key != self._pm_key or self._pm is None:
+                pm = QPixmap(int(self.width() * dpr), int(self.height() * dpr))
+                pm.setDevicePixelRatio(dpr)
+                pm.fill(Qt.GlobalColor.transparent)
+                q = QPainter(pm)
+                self._paint_card(q)
+                q.end()
+                self._pm, self._pm_key = pm, key
+            QPainter(self).drawPixmap(0, 0, self._pm)
+            return
+        self._paint_card(QPainter(self))
+
+    def _paint_card(self, p: QPainter):
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         depth = 5 if self.strong else (5 if self.interactive else 3)
         r = QRectF(self.rect()).adjusted(depth, depth - 1, -depth, -depth - 1).translated(0, -2.5 * self._h)
@@ -489,12 +508,52 @@ class SmoothScrollArea(QScrollArea):
         e.accept()
 
 
-class AnimatedStack(QStackedWidget):
-    """Troca de páginas: a página antiga esmaece (captura) enquanto a nova desliza.
+class _PageTransition(QWidget):
+    """Transição desenhada com duas imagens estáticas (página antiga e nova).
 
-    A página antiga vira uma imagem estática, então não há efeitos gráficos
-    aninhados e o custo de renderização é mínimo.
+    Muito mais leve que mover/esmaecer widgets reais: cada quadro é só a cópia de dois
+    bitmaps, então a animação fica fluida mesmo em computadores simples.
     """
+
+    def __init__(self, parent: QWidget, old: QPixmap, new: QPixmap, direction: int, background: QPixmap | None):
+        super().__init__(parent)
+        self.old, self.new, self.dir, self.bg = old, new, direction, background
+        self.t = 0.0
+        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self.setGeometry(parent.rect())
+        self.anim = QVariantAnimation(self, startValue=0.0, endValue=1.0, duration=Motion.ms(260),
+                                      easingCurve=QEasingCurve.Type.OutCubic)
+        self.anim.valueChanged.connect(self._step)
+        self.anim.finished.connect(self.deleteLater)
+
+    def _step(self, v):
+        self.t = float(v)
+        self.update()
+
+    def paintEvent(self, e):
+        p = QPainter(self)
+        if self.bg is not None and not self.bg.isNull():
+            p.drawPixmap(0, 0, self.bg)
+        else:
+            p.fillRect(self.rect(), QColor(theme.BG))
+        t = self.t
+        p.setOpacity(1.0 - t)
+        p.drawPixmap(int(-24 * self.dir * t), 0, self.old)
+        p.setOpacity(t)
+        p.drawPixmap(int(36 * self.dir * (1.0 - t)), 0, self.new)
+
+
+class AnimatedStack(QStackedWidget):
+    """Troca de páginas suave: as duas páginas viram imagens e a transição é só desenho (barata)."""
+
+    def _background(self) -> QPixmap | None:
+        bg = getattr(self.window(), "bg", None)
+        pm = getattr(bg, "_pix", None)
+        if pm is None or pm.isNull():
+            return None
+        if pm.size() != self.size():  # o fundo é gerado em meia resolução e esticado
+            return pm.scaled(self.size(), Qt.AspectRatioMode.IgnoreAspectRatio, Qt.TransformationMode.FastTransformation)
+        return pm
 
     def slide_to(self, widget: QWidget, direction: int = 1):
         if widget is self.currentWidget():
@@ -505,32 +564,28 @@ class AnimatedStack(QStackedWidget):
         if not Motion.enabled or old is None or not self.isVisible():
             self.setCurrentWidget(widget)
             return
-        snap = QLabel(self)
-        snap.setPixmap(old.grab())
-        snap.setGeometry(old.geometry())
+        old_pm = old.grab()
         self.setCurrentWidget(widget)
-        snap.show()
-        snap.raise_()
-        effect = QGraphicsOpacityEffect(snap)
-        snap.setGraphicsEffect(effect)
-        group = QParallelAnimationGroup(self)
-        fade = QPropertyAnimation(effect, b"opacity", group, duration=220, startValue=1.0, endValue=0.0)
-        fade.setEasingCurve(QEasingCurve.Type.OutCubic)
-        out = QPropertyAnimation(snap, b"pos", group, duration=260, startValue=snap.pos(), endValue=snap.pos() - QPoint(28 * direction, 0))
-        out.setEasingCurve(QEasingCurve.Type.OutCubic)
-        end = widget.pos()
-        move = QPropertyAnimation(widget, b"pos", group, duration=340, startValue=end + QPoint(40 * direction, 0), endValue=end)
-        move.setEasingCurve(QEasingCurve.Type.OutCubic)
-        for a in (fade, out, move):
-            group.addAnimation(a)
-        group.finished.connect(snap.deleteLater)
-        group.start(QPropertyAnimation.DeletionPolicy.DeleteWhenStopped)
+        lay = widget.layout()
+        if lay is not None:
+            lay.activate()
+        new_pm = widget.grab()
+        overlay = _PageTransition(self, old_pm, new_pm, direction, self._background())
+        overlay.show()
+        overlay.raise_()
+        overlay.anim.start()
+
+
+_FADING = [0]
+_MAX_FADING = 8   # efeitos de opacidade são caros: acima disso os itens aparecem direto
 
 
 def fade_in(widget: QWidget, duration: int = 300, delay: int = 0, rise: int = 14) -> None:
     """Entrada com esmaecimento e leve subida (usado em cartões e listas)."""
-    if not Motion.enabled:
+    if not Motion.enabled or _FADING[0] >= _MAX_FADING:
         return
+    _FADING[0] += 1
+    QTimer.singleShot(delay + duration + 60, lambda: _FADING.__setitem__(0, max(0, _FADING[0] - 1)))
     effect = QGraphicsOpacityEffect(widget)
     effect.setOpacity(0.0)
     widget.setGraphicsEffect(effect)
@@ -628,10 +683,12 @@ class Modal(QWidget):
     def __init__(self, host: QWidget, width: int = 520, dismissable: bool = True):
         from aulaviva.ui.effects import blurred_snapshot
 
-        self._host = host.window()
-        super().__init__(self._host)
+        win = host.window()
+        bg = blurred_snapshot(win)  # captura ANTES de existir o modal (ele não entra na própria imagem)
+        super().__init__(win)
+        self._host = win
         self.dismissable = dismissable
-        self._bg = blurred_snapshot(self._host)
+        self._bg = bg
         self.setGeometry(self._host.rect())
         self.card = GlassCard(self, radius=22, strong=True, padding=6)
         self.card.setFixedWidth(min(width, self._host.width() - 40))
@@ -660,44 +717,61 @@ class Modal(QWidget):
         self.card.resize(self.card.width(), h)
         self.card.move((self.width() - self.card.width()) // 2, (self.height() - h) // 2 + offset)
 
+    # Animação leve: o cartão vira uma imagem enquanto entra/sai (sem efeitos gráficos sobre a árvore de widgets)
+    _t = 1.0
+    _card_pm: QPixmap | None = None
+    _anim: QVariantAnimation | None = None
+    _closing = False
+
+    def _animate(self, start: float, end: float, duration: int, on_done):
+        self._place()
+        self._card_pm = self.card.grab()
+        self._card_pos = self.card.pos()
+        self.card.move(-20000, -20000)  # fora da tela (continua "visível": o foco do teclado funciona)
+        self._t = start
+        self._anim = QVariantAnimation(self, startValue=start, endValue=end, duration=duration,
+                                       easingCurve=QEasingCurve.Type.OutCubic)
+        self._anim.valueChanged.connect(lambda v: (setattr(self, "_t", float(v)), self.update()))
+        self._anim.finished.connect(on_done)
+        self._anim.start()
+
     def open(self):
-        self._place(24)
+        self._place()
         self.show()
         self.raise_()
         self.setFocus()
         if Motion.enabled:
-            eff = QGraphicsOpacityEffect(self)
-            self.setGraphicsEffect(eff)
-            grp = QParallelAnimationGroup(self)
-            grp.addAnimation(QPropertyAnimation(eff, b"opacity", grp, duration=220, startValue=0.0, endValue=1.0))
-            end = QPoint((self.width() - self.card.width()) // 2, (self.height() - self.card.height()) // 2)
-            mv = QPropertyAnimation(self.card, b"pos", grp, duration=300, startValue=end + QPoint(0, 24), endValue=end)
-            mv.setEasingCurve(QEasingCurve.Type.OutBack)
-            grp.addAnimation(mv)
-            grp.finished.connect(lambda: self.setGraphicsEffect(None))
-            grp.start(QPropertyAnimation.DeletionPolicy.DeleteWhenStopped)
-        else:
-            self._place()
+            def shown():
+                self._card_pm = None
+                self._place()
+            self._animate(0.0, 1.0, 240, shown)
 
     def close_modal(self):
+        if self._closing:
+            return
+        self._closing = True
+
         def done():
             self._host.removeEventFilter(self)
             self.hide()
             self.closed.emit()
             self.deleteLater()
 
-        if Motion.enabled:
-            eff = QGraphicsOpacityEffect(self)
-            self.setGraphicsEffect(eff)
-            a = QPropertyAnimation(eff, b"opacity", self, duration=160, startValue=1.0, endValue=0.0)
-            a.finished.connect(done)
-            a.start()
+        if Motion.enabled and self.isVisible():
+            if self._anim is not None:
+                self._anim.stop()
+            self._animate(self._t, 0.0, 150, done)
         else:
             done()
 
     def paintEvent(self, e):
         p = QPainter(self)
+        if self._t < 1.0:
+            p.setOpacity(self._t)
         p.drawPixmap(0, 0, self._bg)
+        if self._card_pm is not None:
+            pos = self._card_pos
+            p.drawPixmap(pos.x(), int(pos.y() + 22 * (1.0 - self._t)), self._card_pm)
 
     def mousePressEvent(self, e):
         if self.dismissable and not self.card.geometry().contains(e.position().toPoint()):

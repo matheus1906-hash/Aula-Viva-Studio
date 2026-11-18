@@ -23,7 +23,7 @@ from aulaviva.ui import theme
 from aulaviva.ui.auth_views import ProfileForm, show_recovery_codes
 from aulaviva.ui.effects import logo_pixmap
 from aulaviva.ui.widgets import (
-    AnimatedStack, Button, Field, GlassCard, Modal, Motion, PasswordInput, SmoothScrollArea, StrengthMeter, Toast,
+    AnimatedStack, Button, Field, GlassCard, Modal, Motion, PasswordInput, SmoothScrollArea, Spinner, StrengthMeter, Toast,
     checkbox, confirm, fade_in, label, line_edit,
 )
 from aulaviva.ui.workers import run_async
@@ -181,7 +181,7 @@ class ProviderTile(QWidget):
         self.active = self.has_key = self._hover = False
         name, desc = ai_mod.PROVIDERS[key]
         self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        self.setMinimumHeight(62)
+        self.setMinimumHeight(70)
         lay = QVBoxLayout(self)
         lay.setContentsMargins(14, 9, 12, 9)
         lay.setSpacing(1)
@@ -525,9 +525,16 @@ class SettingsPage(QWidget):
         lay.addWidget(self.tabs, 1)
 
     def _scroll(self, w: QWidget) -> SmoothScrollArea:
+        # A largura máxima fica num invólucro: assim a altura dos textos quebrados é calculada para a largura
+        # real do conteúdo (antes os cartões e textos ficavam sobrepostos na aba de IA)
         w.setMaximumWidth(860)
+        holder = QWidget()
+        hl = QHBoxLayout(holder)
+        hl.setContentsMargins(0, 0, 0, 0)
+        hl.addWidget(w, 1)
+        hl.addStretch(0)
         s = SmoothScrollArea()
-        s.setWidget(w)
+        s.setWidget(holder)
         return s
 
     def _profile_tab(self):
@@ -680,12 +687,23 @@ class SettingsPage(QWidget):
             return
         try:
             self.shell.auth.change_password(self.shell.user.id, self.cur_pw.text(), self.new_pw.text())
+            self._renew_session()  # trocar a senha desconecta os outros computadores; este continua conectado
             for w in (self.cur_pw, self.new_pw, self.new_pw2):
                 w.clear()
             Toast.show_message(self, "Senha alterada com sucesso.", "success")
             self.refresh()
         except AuthError as exc:
             Toast.show_message(self, str(exc), "error", 5000)
+
+    def _renew_session(self):
+        from aulaviva.core import session_store
+
+        if self.shell.prefs.keep_signed_in and session_store.load(self.shell.auth.c):
+            token = self.shell.auth.create_session(self.shell.user.id)
+            session_store.save(token, self.shell.auth.c)
+            win = self.window()
+            if hasattr(win, "_session_token"):
+                win._session_token = token
 
     def _regen_codes(self):
         self._ask_password("Gerar novos códigos", lambda: show_recovery_codes(self, self.shell.auth.regenerate_recovery_codes(self.shell.user.id)))
@@ -700,7 +718,7 @@ class SettingsPage(QWidget):
         lay.addWidget(label("Use a sua preferida. As chaves ficam guardadas no cofre seguro do sistema "
                             "(Gerenciador de Credenciais do Windows) e nunca são exibidas depois de salvas.", "dim", wrap=True))
         self.ai_tiles: dict[str, ProviderTile] = {}
-        for group, keys in (("GRATUITAS", ["demo", "ollama", "gemini", "groq", "openrouter", "mistral"]),
+        for group, keys in (("GRATUITAS", ["gemini", "groq", "cerebras", "openrouter", "mistral", "huggingface", "ollama", "demo"]),
                             ("PAGAS", ["claude", "openai", "deepseek"]), ("AVANÇADO", ["custom"])):
             g = label(group, "muted")
             g.setStyleSheet(f"letter-spacing: 1px; font-weight: 700; font-size: 12px; color: {theme.TEXT_MUTED}; margin-top: 4px;")
@@ -737,11 +755,12 @@ class SettingsPage(QWidget):
 
         c, prefs = self.shell.auth.c, self.shell.prefs
         for k, t in self.ai_tiles.items():
-            t.set_state(k == key, bool(ai_mod.load_api_key(c, k)) if k in ai_mod._KEYRING_USERS else False)
+            t.set_state(k == key, ai_mod.has_api_key(c, k) if k in ai_mod._KEYRING_USERS else False)
         lay = self.ai_panel.lay
         while lay.count():
             it = lay.takeAt(0)
             if it.widget():
+                it.widget().hide()  # some na hora (antes ficava desenhado por cima do painel novo)
                 it.widget().deleteLater()
             elif it.layout():
                 from aulaviva.ui.editor import _delete_layout
@@ -787,7 +806,7 @@ class SettingsPage(QWidget):
             get = Button("Obter chave", "soft", icon_text="↗", height=36)
             get.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(url)))
             lay.addWidget(get, 0, Qt.AlignmentFlag.AlignLeft)
-        if key in ("gemini", "groq", "openrouter", "mistral"):
+        if key in ai_mod.FREE_PROVIDERS:
             warn = label("⚠ Planos gratuitos costumam ter limite de pedidos e podem usar os textos enviados para melhorar "
                          "os serviços. Nunca inclua dados de alunos.", "muted", wrap=True)
             warn.setStyleSheet(f"color: {theme.WARNING}; font-size: 12px;")
@@ -821,17 +840,20 @@ class SettingsPage(QWidget):
             model.currentIndexChanged.connect(lambda i: self._save_model("claude", model.itemData(i)))
         else:
             options = ai_mod.GEMINI_MODELS if key == "gemini" else ai_mod.OPENAI_COMPAT.get(key, ("", []))[1]
-            model.addItems(options)
-            model.setCurrentText(ai_mod.provider_model(prefs, key))
+            cached = prefs.extra.get("model_lists", {}).get(key) if isinstance(prefs.extra.get("model_lists"), dict) else None
+            model.addItems(cached or options)
+            current = ai_mod.provider_model(prefs, key)
+            if current and model.findText(current) < 0:
+                model.insertItem(0, current)
+            model.setCurrentText(current)
             model.currentTextChanged.connect(lambda v: self._save_model(key, v))
-            if key == "gemini":
-                self.gemini_combo = model
-        lay.addWidget(Field("Modelo", model, hint="Você pode digitar outro nome de modelo disponível no serviço."
+            self.model_combo = model
+        lay.addWidget(Field("Modelo", model, hint="Escolhido automaticamente ao salvar a chave. Você pode digitar outro nome."
                             if key != "claude" else ""))
-        if key == "gemini":
+        if key != "claude":
             find = Button("Buscar modelos disponíveis", "secondary", icon_text="↓", height=36)
-            find.setToolTip("Consulta o Google e escolhe automaticamente o melhor modelo para a sua chave")
-            find.clicked.connect(lambda: self._gemini_models(False))
+            find.setToolTip("Consulta o serviço e escolhe automaticamente o melhor modelo para a sua chave")
+            find.clicked.connect(lambda: self._find_models(key, False))
             lay.addWidget(find, 0, Qt.AlignmentFlag.AlignLeft)
         if key == "claude":
             effort = QComboBox()
@@ -899,8 +921,8 @@ class SettingsPage(QWidget):
 
         def ok(msg):
             switched = getattr(assistant.backend, "switched_to", None)
-            if switched and assistant.provider == "gemini":
-                self._save_model("gemini", switched)  # lembra o modelo que funcionou
+            if switched:
+                self._save_model(assistant.provider, switched)  # lembra o modelo que funcionou
             done(msg)
 
         run_async(assistant.test_connection, ok, lambda e: done(str(e) if isinstance(e, ai_mod.AIError) else "Falha no teste.", False))
@@ -917,38 +939,51 @@ class SettingsPage(QWidget):
         except SecurityError as exc:
             Toast.show_message(self, str(exc), "error")
         self._build_ai_panel(provider)
-        if provider == "gemini" and ai_mod.load_api_key(self.shell.auth.c, "gemini"):
-            self._gemini_models(silent=True)
+        if provider not in ("claude", "custom") and ai_mod.has_api_key(self.shell.auth.c, provider):
+            self._find_models(provider, silent=True)
 
-    def _gemini_models(self, silent: bool = False):
-        """Pergunta ao Google quais modelos a conta pode usar e escolhe o melhor automaticamente."""
-        key = ai_mod.load_api_key(self.shell.auth.c, "gemini")
-        if not key:
-            Toast.show_message(self, "Salve a chave do Gemini primeiro.", "warning")
+    def _find_models(self, provider: str, silent: bool = False):
+        """Pergunta ao serviço quais modelos a chave pode usar e escolhe o melhor automaticamente."""
+        key = ai_mod.load_api_key(self.shell.auth.c, provider)
+        base = str(self.shell.prefs.extra.get("custom_url", ""))
+        if not key and provider != "custom":
+            Toast.show_message(self, "Salve a chave primeiro.", "warning")
             return
 
         def ok(names):
-            best = ai_mod.gemini_best_model(names)
-            combo = getattr(self, "gemini_combo", None)
-            if combo is not None:
+            if not names:
+                if not silent:
+                    Toast.show_message(self, "O serviço não informou modelos disponíveis para esta chave.", "warning", 6000)
+                return
+            prefs = self.shell.prefs
+            current = ai_mod.provider_model(prefs, provider)
+            best = ai_mod.best_model(provider, names)
+            lists = prefs.extra.get("model_lists") if isinstance(prefs.extra.get("model_lists"), dict) else {}
+            lists[provider] = names[:200]
+            prefs.extra["model_lists"] = lists
+            combo = getattr(self, "model_combo", None)
+            if combo is not None and ai_mod.effective_provider(prefs, self.shell.auth.c) == provider:
                 try:
                     combo.blockSignals(True)
                     combo.clear()
-                    combo.addItems(names)
-                    combo.setCurrentText(best or self.shell.prefs.gemini_model)
+                    combo.addItems(names[:200])
+                    combo.setCurrentText(best or current)
                     combo.blockSignals(False)
                 except RuntimeError:
                     pass
             if best:
-                self._save_model("gemini", best)
+                self._save_model(provider, best)
+            else:
+                prefs.save()
             if not silent:
                 Toast.show_message(self, f"{len(names)} modelo(s) disponível(is). Selecionado: {best}.", "success", 5000)
 
         def fail(exc):
-            Toast.show_message(self, str(exc) if isinstance(exc, ai_mod.AIError) else "Não foi possível consultar os modelos.",
-                               "error", 8000)
+            if not silent:
+                Toast.show_message(self, str(exc) if isinstance(exc, ai_mod.AIError) else "Não foi possível consultar os modelos.",
+                                   "error", 8000)
 
-        run_async(lambda: ai_mod.gemini_list_models(key), ok, fail)
+        run_async(lambda: ai_mod.list_models(provider, key, base), ok, fail)
 
     def _remove_key(self, provider: str):
         ai_mod.delete_api_key(provider)
@@ -986,7 +1021,11 @@ class SettingsPage(QWidget):
         self.idle.setValue(self.shell.prefs.idle_lock_minutes)
         self.idle.setMinimumHeight(40)
         self.idle.valueChanged.connect(self._save_idle)
-        card.lay.addWidget(Field("Bloquear a sessão após", self.idle))
+        card.lay.addWidget(Field("Bloquear a sessão após", self.idle,
+                                 hint="Não se aplica enquanto 'Manter conectado' estiver ativo."))
+        self.keep = checkbox("Manter conectado neste computador (entrar sem senha por 30 dias)", self.shell.prefs.keep_signed_in)
+        self.keep.toggled.connect(self._toggle_keep)
+        card.lay.addWidget(self.keep)
         intro = Button("Rever a apresentação do aplicativo", "secondary")
         intro.clicked.connect(self.shell.show_intro)
         card.lay.addWidget(intro, 0, Qt.AlignmentFlag.AlignLeft)
@@ -994,6 +1033,23 @@ class SettingsPage(QWidget):
         lay.addWidget(label(f"{APP_NAME} versão {__version__}", "muted"))
         lay.addStretch()
         return self._scroll(box)
+
+    def _toggle_keep(self, on: bool):
+        from aulaviva.core import session_store
+
+        self.shell.prefs.keep_signed_in = on
+        self.shell.prefs.save()
+        win = self.window()
+        if on:
+            if hasattr(win, "_remember_session"):
+                win._remember_session(self.shell.user)
+            Toast.show_message(self, "Pronto: na próxima vez o AulaViva abre direto, sem pedir a senha.", "success", 4000)
+        else:
+            if hasattr(win, "_forget_session"):
+                win._forget_session()
+            else:
+                session_store.clear()
+            Toast.show_message(self, "A senha será pedida sempre que o AulaViva for aberto.", "info", 4000)
 
     def _toggle_motion(self, on: bool):
         self.shell.prefs.reduce_motion = on
@@ -1249,7 +1305,32 @@ class Shell(QWidget):
             self._open_new(doc)
             Toast.show_message(self, f"Arquivo importado: {res.summary()}. Revise e ajuste no editor.", "success", 6000)
 
+        from aulaviva.core.media import MediaStore, attach_imported_video
+
         def create(kind, res, use_ai, info):
+            if res.video_path:  # vídeo: primeiro guarda o arquivo (criptografado), depois segue o fluxo normal
+                busy_v = Modal(self, 380, dismissable=False)
+                busy_v.body.addWidget(label("Guardando o vídeo com segurança...", "h3"))
+                busy_v.body.addWidget(Spinner(), 0, Qt.AlignmentFlag.AlignHCenter)
+                busy_v.open()
+
+                def stored(_):
+                    busy_v.close_modal()
+                    res.video_path = ""
+                    create(kind, res, use_ai, info)
+
+                def store_fail(exc):
+                    busy_v.close_modal()
+                    Toast.show_message(self, str(exc) if isinstance(exc, SecurityError) else "Não foi possível guardar o vídeo.",
+                                       "error", 7000)
+
+                run_async(lambda: attach_imported_video(res, MediaStore(self.auth.c, self.user.id)), stored, store_fail)
+                return
+            videos = [b for b in res.blocks if b.get("type") == "video" and b.get("mode") == "embed"]
+            if use_ai and videos and len(res.as_text()) < 200:
+                Toast.show_message(self, "O vídeo não tem legenda/transcrição: a IA vai criar o material pelo título do vídeo. "
+                                   "Para usar a fala do vídeo, coloque a legenda (.srt/.vtt) com o mesmo nome na pasta.",
+                                   "info", 8000)
             if not use_ai or provider == "demo":
                 if use_ai:
                     Toast.show_message(self, "Modo demonstração: o arquivo foi importado como está. Configure uma IA "
@@ -1271,6 +1352,8 @@ class Shell(QWidget):
 
             def ok(doc):
                 busy.close_modal()
+                if videos:  # o vídeo anexado continua no material criado pela IA
+                    doc["blocks"][0:0] = videos
                 self._open_new(doc)
                 Toast.show_message(self, "Pronto! Material criado a partir do seu arquivo. Revise antes de distribuir.", "success", 5000)
 

@@ -159,3 +159,108 @@ def test_full_flow(tmp_path, monkeypatch):
     w.do_logout("teste")
     assert w.user is None and w.stack.currentWidget() is w.login
     db.close()
+
+
+def test_keep_signed_in_and_video_block(tmp_path, monkeypatch):
+    """'Manter conectado' abre direto no painel; 'Sair' exige a senha de novo. Bloco de vídeo anexado no editor."""
+    import secrets
+
+    from PySide6.QtWidgets import QApplication
+
+    app = QApplication.instance() or QApplication([])
+    from aulaviva.core import session_store
+    from aulaviva.core.auth import AuthService
+    from aulaviva.core.config import Preferences
+    from aulaviva.core.database import Database
+    from aulaviva.core.security import Crypto
+    from aulaviva.ui.main_window import MainWindow
+    from aulaviva.ui.widgets import Motion
+    from tests.test_auth_projects import profile
+
+    monkeypatch.setattr(session_store, "config_dir", lambda: tmp_path)
+    monkeypatch.setattr("aulaviva.core.media.data_dir", lambda: tmp_path)
+    monkeypatch.setattr(Preferences, "save", lambda self: None)
+    Motion.enabled = False
+    db = Database(tmp_path / "k.db", Crypto(secrets.token_bytes(32)))
+    user, _ = AuthService(db).register("k@escola.com", "Giz&Lousa-2026x", profile(), True)
+    prefs = Preferences(first_run_done=True, keep_signed_in=True)
+    w = MainWindow(db, prefs)
+    assert w.stack.currentWidget() is w.login           # ainda sem sessão salva
+    w.on_login(w.auth.login("k@escola.com", "Giz&Lousa-2026x"))
+    assert session_store.load(db.crypto)
+    w.close()
+
+    w2 = MainWindow(db, prefs)                            # reabrir o app: entra direto
+    assert w2.user is not None and w2.stack.currentWidget() is w2.shell
+
+    # vídeo do computador vira bloco anexado
+    w2.shell.new_from_template("Apostila em branco")
+    ed = w2.editor
+    video = tmp_path / "aula.mp4"
+    video.write_bytes(b"\x00\x00\x00\x18ftypmp42" + secrets.token_bytes(30_000))
+    from PySide6.QtWidgets import QFileDialog
+    monkeypatch.setattr(QFileDialog, "getOpenFileName", staticmethod(lambda *a, **k: (str(video), "")))
+    ed.insert_video()
+    for _ in range(50):
+        if any(b["type"] == "video" and b.get("media") for b in ed.doc["blocks"]):
+            break
+        _wait(100)
+    vb = next(b for b in ed.doc["blocks"] if b["type"] == "video")
+    assert vb["mode"] == "embed" and vb["filename"] == "aula.mp4" and ed.media.exists(vb["media"])
+    assert ed.cards[ed.sel].form is not None
+    ed.save()
+
+    # "Criar a partir de um arquivo" com um vídeo: guarda o vídeo e cria o material
+    ed.back_requested.emit()
+    _wait(50)
+    from aulaviva.core.importers import import_file
+    captured = {}
+    monkeypatch.setattr("aulaviva.ui.quick_create.open_import_material",
+                        lambda host, cb, *a, **k: captured.setdefault("cb", cb))
+    w2.shell.import_material()
+    res = import_file(video)
+    captured["cb"]("apostila", res, False, {"title": "Aula", "subject": "", "level": "", "details": "", "amount": 4})
+    for _ in range(50):
+        if w2.editor and any(b.get("media") for b in w2.editor.doc["blocks"]):
+            break
+        _wait(100)
+    assert any(b["type"] == "video" and b.get("media") for b in w2.editor.doc["blocks"])
+
+    w2.do_logout("")                                      # "Sair": a próxima abertura pede a senha
+    assert session_store.load(db.crypto) is None
+    w3 = MainWindow(db, prefs)
+    assert w3.user is None and w3.stack.currentWidget() is w3.login
+    for x in (w, w2, w3):
+        x.deleteLater()
+    db.close()
+
+
+def test_transitions_and_modal_with_motion(tmp_path):
+    """Transições desenhadas (com animação ligada) terminam limpas e o modal fecha."""
+    from PySide6.QtWidgets import QApplication, QLabel
+
+    app = QApplication.instance() or QApplication([])
+    from aulaviva.ui.widgets import AnimatedStack, Modal, Motion, _PageTransition
+
+    Motion.enabled = True
+    st = AnimatedStack()
+    a, b = QLabel("A"), QLabel("B")
+    st.addWidget(a)
+    st.addWidget(b)
+    st.resize(400, 300)
+    st.show()
+    st.slide_to(b)
+    assert st.currentWidget() is b and st.findChildren(_PageTransition)
+    _wait(400)
+    app.processEvents()
+    assert not [t for t in st.findChildren(_PageTransition) if t.isVisible()]
+    m = Modal(st, 300)
+    m.body.addWidget(QLabel("Olá"))
+    m.open()
+    _wait(350)
+    assert m.card.pos().x() >= 0
+    m.close_modal()
+    m.close_modal()  # fechar duas vezes não quebra
+    _wait(300)
+    Motion.enabled = False
+    st.deleteLater()
