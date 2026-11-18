@@ -1,5 +1,29 @@
 # Histórico de versões
 
+## 2.3.0
+- **Manter conectado:** marque a opção no login e o AulaViva abre direto, sem pedir a senha, por 30 dias neste
+  computador. A senha nunca é guardada: o app usa um token aleatório criptografado com a chave do cofre do sistema,
+  trocado a cada abertura. "Sair" desconecta na hora; trocar a senha desconecta os outros computadores. Também pode ser
+  ligado/desligado em Configurações > Preferências.
+- **Chaves e IAs gratuitas corrigidas:** o app agora se identifica corretamente aos serviços (Groq, OpenRouter e outros
+  recusavam o acesso com erro 403, que aparecia como "chave inválida") e usa os certificados atualizados no Windows.
+  Ao salvar uma chave, o app consulta o serviço e escolhe sozinho um modelo disponível e gratuito; se um modelo for
+  aposentado, ele troca automaticamente. Repete sozinho quando o serviço está instável, aceita chave colada com
+  "Bearer" ou "NOME=chave" e mostra mensagens claras para cada erro.
+- **Novas IAs gratuitas:** Cerebras e Hugging Face. No OpenRouter a lista mostra só modelos gratuitos (inclui
+  "openrouter/free", que escolhe um gratuito disponível).
+- **Tela de chaves de IA sem sobreposição:** cartões e textos ficavam encavalados; também foi corrigido o botão de
+  opção (bolinha) que aparecia quadrado.
+- **Importar vídeos:** escolha um vídeo do computador (MP4, MOV, WEBM, MKV, AVI... até 100 MB) e ele vai **anexado
+  dentro do PDF**, com um cartão explicando ao aluno como assistir. Também pelo "Criar a partir de um arquivo" e por
+  "Trazer conteúdo de um arquivo". Se houver a legenda (.srt/.vtt) com o mesmo nome, a fala do vídeo vira texto e a IA
+  cria o material a partir dela. Legendas também podem ser importadas sozinhas. Os vídeos ficam criptografados no
+  computador e são apagados quando nenhum material os usa mais.
+- **Interface mais suave:** trocas de tela e janelas animadas com imagens pré-renderizadas (cada quadro ficou de 4 a
+  10 vezes mais leve), cartões desenhados uma única vez e reaproveitados na rolagem, menos efeitos simultâneos, chaves
+  de IA em cache (antes o cofre do sistema era consultado a cada clique) e o editor/PDF carregados em segundo plano
+  (o app abre mais rápido).
+
 ## 2.2.3
 - **Gemini corrigido:** a chave pode ser colada com o botão direito (antes só Ctrl+V), aspas e espaços colados junto
   são ignorados, salvar a chave já passa a usar o Gemini, botão "Buscar modelos disponíveis" escolhe automaticamente o

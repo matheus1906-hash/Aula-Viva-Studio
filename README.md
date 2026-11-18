@@ -14,13 +14,14 @@ próprio PDF e um **assistente de IA** (com opções gratuitas).
 |---|---|
 | **Criar com IA** | Escolha o tipo (apostila, lista, prova ou roteiro), informe o tema e a turma: a IA escreve o material completo e você modifica o que quiser no editor. |
 | **Criar manualmente** | Editor em cartões: cada bloco é editado direto no documento. Botão **＋ Adicionar** com todos os tipos de bloco explicados. |
-| **A partir de um arquivo** | Importe Word, PowerPoint, PDF (Canva), ODT, TXT ou RTF: o conteúdo vira blocos editáveis ou serve de base para a IA montar o material. |
+| **A partir de um arquivo** | Importe Word, PowerPoint, PDF (Canva), ODT, TXT, RTF, legendas (.srt/.vtt) ou **vídeos**: o conteúdo vira blocos editáveis ou serve de base para a IA montar o material. |
+| **Vídeos no PDF** | Anexe vídeos do computador (até 100 MB) dentro do PDF, ou use links do YouTube/Drive com QR code. |
 | **Lista rápida** | Digite ou cole as questões em texto comum e elas viram questões interativas (múltipla escolha, V/F, abertas), com gabarito. |
 | **30 modelos prontos** | Apostilas, listas, provas e roteiros reais de várias disciplinas e anos, com ilustrações, prévia da página, busca e filtro. |
 | **QR code e links** | Gerador de QR code (PNG/SVG, cores, logo da escola, Wi-Fi) e de links (WhatsApp, e-mail, YouTube no minuto certo, Drive, cópia do Google Docs, Maps, limpeza de rastreadores). |
 | **PDF interativo** | Capa, sumário clicável, QR codes e botões clicáveis, campos de resposta, anexos Office, gabarito, proteção AES-256. Exporta as versões **aluno** e **professor** de uma vez. |
 | **Claro ou escuro** | Tema claro (papel/caderno) ou escuro (lousa), com as fontes Nunito e Nunito Sans e animações suaves. |
-| **Segurança** | Argon2id, dados pessoais criptografados (AES-256-GCM), cofre do sistema para chaves, bloqueio por inatividade, LGPD (exportar/excluir dados). |
+| **Segurança** | Argon2id, dados pessoais criptografados (AES-256-GCM), cofre do sistema para chaves, "manter conectado" com token rotativo (nunca a senha), bloqueio por inatividade, LGPD (exportar/excluir dados). |
 
 <table>
 <tr><td><img src="docs/screenshots/criar-com-ia.png" alt="Criar com IA"></td><td><img src="docs/screenshots/editor.png" alt="Editor"></td></tr>
@@ -37,14 +38,16 @@ Mais telas em [`docs/screenshots`](docs/screenshots). Exemplos de PDFs gerados e
 | **Ollama** (IA local) | grátis, 100% privado | sem chave: instale em ollama.com e rode `ollama pull qwen2.5:7b` |
 | **Google Gemini** | plano gratuito | aistudio.google.com |
 | **Groq** | plano gratuito | console.groq.com |
-| **OpenRouter** | modelos gratuitos e pagos | openrouter.ai |
+| **Cerebras** | plano gratuito | cloud.cerebras.ai |
+| **OpenRouter** | modelos gratuitos (só eles aparecem na lista) | openrouter.ai |
 | **Mistral** | plano gratuito experimental | console.mistral.ai |
+| **Hugging Face** | créditos gratuitos mensais | huggingface.co/settings/tokens |
 | Claude (Anthropic) | pago | console.anthropic.com |
 | ChatGPT (OpenAI) | pago | platform.openai.com |
 | DeepSeek | pago (barato) | platform.deepseek.com |
 | Outro compatível com OpenAI | variável | LM Studio, servidores próprios... |
 
-Configure em *Configurações > Inteligência Artificial* e use **Testar conexão**. As chaves ficam no cofre do
+Configure em *Configurações > Inteligência Artificial*: cole a chave, clique em **Salvar chave** (o melhor modelo disponível é escolhido sozinho) e use **Testar conexão**. As chaves ficam no cofre do
 sistema operacional. Nenhuma chave vem embutida no app (seria extraível do executável). Dados pessoais de
 professores e alunos nunca são enviados à IA.
 

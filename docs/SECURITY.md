@@ -15,6 +15,11 @@ o conteúdo do material) e durante o login com provedores externos.
   porque o app não depende de servidor.
 - **Bloqueio automático** da sessão por inatividade (configurável, padrão de 15 min). Ao bloquear, o app descarta
   as telas que contêm dados pessoais.
+- **Manter conectado** (opcional, 30 dias): a senha nunca é guardada. O app cria um token aleatório de 256 bits;
+  no banco fica só o HMAC dele, e no computador ele fica criptografado (AES-256-GCM) com a chave mestra do cofre do
+  sistema. O token é trocado a cada abertura (o anterior deixa de valer), expira em 30 dias, é revogado ao clicar em
+  "Sair" e todos os tokens da conta são revogados ao trocar ou redefinir a senha. Com a opção ativa, o bloqueio por
+  inatividade não se aplica, por escolha do professor; recomendado apenas em computador pessoal.
 - Reautenticação com senha antes de ações sensíveis: exportar dados, excluir conta, gerar novos códigos.
 - Campos de senha não permitem copiar/recortar nem arrastar, e desativam a predição de texto.
 - Login social (OAuth 2.0/OpenID Connect para apps nativos, RFC 8252): PKCE S256, `state` e `nonce`,
@@ -35,6 +40,8 @@ o conteúdo do material) e durante o login com provedores externos.
 - Logs não registram dados pessoais, senhas, tokens nem códigos OAuth. Bibliotecas HTTP ficam em nível WARNING.
 
 ## Conteúdo e arquivos
+- **Vídeos** anexados aos materiais: extensão, tamanho (máx. 100 MB) e assinatura binária conferidos; guardados
+  criptografados (AES-256-GCM, amarrados ao dono) fora do banco e apagados quando nenhum material os usa mais.
 - Links (blocos, textos e respostas da IA) aceitam apenas `https://`, `http://` e `mailto:`. São bloqueados
   `javascript:`, `file:`, `data:`, credenciais embutidas e caracteres de controle ou bidirecionais.
 - Imagens: limite de 12 MB, proteção contra *decompression bomb* e reprocessamento que **remove EXIF/GPS**.
