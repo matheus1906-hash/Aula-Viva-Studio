@@ -27,32 +27,41 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, ValidationError
 
-from aulaviva import APP_ID
+from aulaviva import APP_ID, __version__
 from aulaviva.core.config import config_dir
 from aulaviva.core.projects import new_block, new_document, sanitize_document
 from aulaviva.core.security import Crypto, SecurityError, clean_text, validate_url
 
 PROVIDERS = {
-    "demo": ("Modo demonstração", "Grátis · sem internet · conteúdo de exemplo para testar o fluxo (não é IA real)"),
+    "demo": ("Modo demonstração", "Grátis · sem internet · conteúdo de exemplo (não é IA real)"),
     "ollama": ("Ollama · IA local", "Grátis · 100% privado · roda no seu computador, sem chave"),
     "gemini": ("Google Gemini", "Plano gratuito · chave grátis do Google AI Studio"),
     "groq": ("Groq", "Plano gratuito · muito rápido · chave grátis em console.groq.com"),
-    "openrouter": ("OpenRouter", "Modelos gratuitos e pagos de vários fornecedores · chave em openrouter.ai"),
+    "openrouter": ("OpenRouter", "Vários modelos gratuitos · chave grátis em openrouter.ai"),
     "openai": ("ChatGPT (OpenAI)", "Pago · chave em platform.openai.com"),
     "claude": ("Claude (Anthropic)", "Pago · melhor qualidade de texto e de exercícios"),
     "deepseek": ("DeepSeek", "Pago e barato · chave em platform.deepseek.com"),
     "mistral": ("Mistral AI", "Plano gratuito experimental · chave em console.mistral.ai"),
+    "cerebras": ("Cerebras", "Plano gratuito · ultrarrápido · chave em cloud.cerebras.ai"),
+    "huggingface": ("Hugging Face", "Créditos grátis por mês · modelos abertos · huggingface.co"),
     "custom": ("Outro serviço (compatível com OpenAI)", "LM Studio, Azure, servidores próprios... informe o endereço"),
 }
 
 # Provedores que usam a API no padrão "chat/completions" da OpenAI
 OPENAI_COMPAT = {
-    "openai": ("https://api.openai.com/v1", ["gpt-4o-mini", "gpt-4.1-mini", "gpt-4o"], "https://platform.openai.com/api-keys"),
-    "groq": ("https://api.groq.com/openai/v1", ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"], "https://console.groq.com/keys"),
-    "openrouter": ("https://openrouter.ai/api/v1", ["meta-llama/llama-3.3-70b-instruct:free", "google/gemma-3-27b-it:free",
+    "openai": ("https://api.openai.com/v1", ["gpt-4.1-mini", "gpt-4o-mini", "gpt-4.1"], "https://platform.openai.com/api-keys"),
+    "groq": ("https://api.groq.com/openai/v1", ["llama-3.3-70b-versatile", "openai/gpt-oss-120b", "llama-3.1-8b-instant"],
+             "https://console.groq.com/keys"),
+    # "openrouter/free" escolhe sozinho um modelo gratuito disponível; a lista é atualizada pelo botão "Buscar modelos"
+    "openrouter": ("https://openrouter.ai/api/v1", ["openrouter/free", "meta-llama/llama-3.3-70b-instruct:free",
                                                     "deepseek/deepseek-chat-v3-0324:free"], "https://openrouter.ai/keys"),
     "deepseek": ("https://api.deepseek.com/v1", ["deepseek-chat"], "https://platform.deepseek.com/api_keys"),
-    "mistral": ("https://api.mistral.ai/v1", ["mistral-small-latest", "mistral-large-latest"], "https://console.mistral.ai/api-keys"),
+    "mistral": ("https://api.mistral.ai/v1", ["mistral-small-latest", "mistral-medium-latest", "mistral-large-latest"],
+                "https://console.mistral.ai/api-keys"),
+    "cerebras": ("https://api.cerebras.ai/v1", ["llama-3.3-70b", "gpt-oss-120b", "qwen-3-32b", "llama3.1-8b"],
+                 "https://cloud.cerebras.ai/platform/"),
+    "huggingface": ("https://router.huggingface.co/v1", ["meta-llama/Llama-3.3-70B-Instruct", "openai/gpt-oss-120b",
+                                                         "Qwen/Qwen2.5-72B-Instruct"], "https://huggingface.co/settings/tokens"),
     "custom": ("", [], ""),
 }
 KEY_URLS = {"claude": "https://console.anthropic.com/settings/keys", "gemini": "https://aistudio.google.com/apikey",
@@ -64,6 +73,7 @@ MODELS = {
     "claude-haiku-5-5": "Claude Haiku 5.5 (mais rápido e barato)",
 }
 GEMINI_MODELS = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.5-pro"]
+FREE_PROVIDERS = ["gemini", "groq", "openrouter", "cerebras", "mistral", "huggingface"]
 OLLAMA_MODELS = ["qwen2.5:7b", "llama3.2", "gemma3:4b", "llama3.1:8b"]
 _FALLBACK_OK = {"claude-opus-5-5", "claude-sonnet-5-5"}
 _KEYRING_USERS = {"claude": "anthropic-api-key", "gemini": "gemini-api-key",
@@ -123,8 +133,21 @@ def _key_file(provider: str):
     return config_dir() / f"ai-{provider}.key"
 
 
+_KEY_CACHE: dict[str, str | None] = {}   # evita consultar o cofre do sistema a cada clique (era lento)
+
+
+def _clean_pasted_key(key: str) -> str:
+    """Tolera o que costuma vir junto ao colar: aspas, espaços, quebras de linha, 'Bearer ', 'KEY=...'."""
+    key = (key or "").replace("\u200b", "").replace("\ufeff", "").strip()
+    key = re.sub(r"^(?:authorization:\s*)?bearer\s+", "", key, flags=re.I)
+    m = re.match(r"^[A-Z_]{3,40}\s*[=:]\s*(.+)$", key)  # ex.: GROQ_API_KEY=gsk_...
+    if m:
+        key = m.group(1)
+    return key.strip().strip('"').strip("'").strip()
+
+
 def _validate_key(provider: str, key: str) -> str:
-    key = key.strip().strip('"').strip("'").strip()  # tolera aspas/espaços colados junto
+    key = _clean_pasted_key(key)
     if not key or len(key) > 300 or any(c.isspace() for c in key):
         raise SecurityError("Chave de API com formato inválido.")
     if provider == "claude" and not key.startswith("sk-ant-"):
@@ -147,6 +170,7 @@ def save_api_key(key: str, crypto: Crypto, provider: str = "claude") -> None:
         keyring.set_password(APP_ID, user, key)
         if keyring.get_password(APP_ID, user) == key:
             _key_file(provider).unlink(missing_ok=True)
+            _KEY_CACHE[provider] = key
             return
     except Exception:
         pass
@@ -154,11 +178,22 @@ def save_api_key(key: str, crypto: Crypto, provider: str = "claude") -> None:
     path.write_text(crypto.encrypt(key, f"ai.key.{provider}"), encoding="utf-8")
     if os.name != "nt":
         os.chmod(path, 0o600)
+    _KEY_CACHE[provider] = key
 
 
 def load_api_key(crypto: Crypto, provider: str = "claude") -> str | None:
     if provider not in _KEYRING_USERS:
         return None
+    if provider not in _KEY_CACHE:
+        _KEY_CACHE[provider] = _load_api_key_uncached(crypto, provider)
+    return _KEY_CACHE[provider]
+
+
+def has_api_key(crypto: Crypto, provider: str) -> bool:
+    return bool(load_api_key(crypto, provider))
+
+
+def _load_api_key_uncached(crypto: Crypto, provider: str) -> str | None:
     try:
         if not _use_keyring():
             raise RuntimeError("cofre desativado")
@@ -166,7 +201,7 @@ def load_api_key(crypto: Crypto, provider: str = "claude") -> str | None:
 
         val = keyring.get_password(APP_ID, _KEYRING_USERS[provider])
         if val:
-            return val
+            return _clean_pasted_key(val)
     except Exception:
         pass
     try:
@@ -176,6 +211,7 @@ def load_api_key(crypto: Crypto, provider: str = "claude") -> str | None:
 
 
 def delete_api_key(provider: str = "claude") -> None:
+    _KEY_CACHE[provider] = None
     try:
         if not _use_keyring():
             raise RuntimeError("cofre desativado")
@@ -193,6 +229,12 @@ def _schema_instructions(schema: type[BaseModel]) -> str:
             "seguindo exatamente este JSON Schema:\n" + json.dumps(schema.model_json_schema(), ensure_ascii=False))
 
 
+def _strip_think(text: str) -> str:
+    """Remove o 'raciocínio' que alguns modelos abertos escrevem antes da resposta (<think>...</think>)."""
+    text = re.sub(r"<think>.*?</think>", "", text or "", flags=re.S | re.I)
+    return re.sub(r"^.*?</think>", "", text, flags=re.S | re.I)
+
+
 def _extract_json(text: str) -> str:
     text = text.strip()
     if text.startswith("```"):
@@ -201,12 +243,103 @@ def _extract_json(text: str) -> str:
     return text[i:j + 1] if i >= 0 and j > i else text
 
 
+USER_AGENT = f"AulaVivaStudio/{__version__} (+https://github.com/matheus1906-hash/Aula-Viva-Studio)"
+_SSL_CTX = None
+
+
+def _ssl_context():
+    """Certificados do sistema + do pacote certifi (no Windows, alguns PCs/escolas não têm a cadeia completa)."""
+    global _SSL_CTX
+    if _SSL_CTX is None:
+        import ssl
+
+        ctx = ssl.create_default_context()
+        try:
+            import certifi
+
+            ctx.load_verify_locations(certifi.where())
+        except Exception:
+            pass
+        _SSL_CTX = ctx
+    return _SSL_CTX
+
+
+def _opener(direct: bool = False):
+    handlers = [urllib.request.HTTPSHandler(context=_ssl_context())]
+    if direct:
+        handlers.append(urllib.request.ProxyHandler({}))
+    return urllib.request.build_opener(*handlers)
+
+
+def _err_body(exc: urllib.error.HTTPError) -> str:
+    """Corpo do erro HTTP (lido uma única vez e guardado)."""
+    body = getattr(exc, "_aulaviva_body", None)
+    if body is None:
+        try:
+            body = exc.read(8000).decode("utf-8", "replace")
+        except Exception:
+            body = ""
+        exc._aulaviva_body = body
+    return body
+
+
+def _retry_delay(exc: urllib.error.HTTPError, attempt: int) -> float:
+    try:
+        ra = float(exc.headers.get("Retry-After", "") or 0)
+    except (TypeError, ValueError):
+        ra = 0
+    return min(max(ra, 1.5 * (attempt + 1)), 12.0)
+
+
+def _request(url: str, payload: dict | None, headers: dict, timeout: float, direct: bool = False, retries: int = 2) -> dict:
+    """POST (ou GET sem payload) de JSON. Repete sozinho em instabilidades passageiras (429/5xx sem cota zerada).
+
+    O User-Agent próprio é necessário: vários serviços (Groq, OpenRouter, Cerebras...) ficam atrás do Cloudflare,
+    que bloqueia o agente padrão "Python-urllib" com erro 403, parecendo chave inválida.
+    """
+    import time
+
+    data = json.dumps(payload).encode() if payload is not None else None
+    hdrs = {"User-Agent": USER_AGENT, "Accept": "application/json", **headers}
+    if data is not None:
+        hdrs["Content-Type"] = "application/json"
+    for attempt in range(retries + 1):
+        req = urllib.request.Request(url, data=data, method="POST" if data is not None else "GET", headers=hdrs)
+        try:
+            with _opener(direct).open(req, timeout=timeout) as resp:  # noqa: S310 - URLs validadas
+                return json.loads(resp.read(20_000_000) or b"{}")
+        except urllib.error.HTTPError as exc:
+            if attempt < retries and exc.code in (429, 500, 502, 503, 504, 529):
+                low = _err_body(exc).lower()
+                if exc.code == 429 and ("limit: 0" in low or "exceeded your current quota" in low or "insufficient" in low):
+                    raise  # cota zerada: repetir não adianta
+                time.sleep(_retry_delay(exc, attempt))
+                continue
+            raise
+        except urllib.error.URLError as exc:
+            if attempt < retries and isinstance(getattr(exc, "reason", None), (TimeoutError, ConnectionResetError)):
+                time.sleep(1.0)
+                continue
+            raise
+    raise AIError("Sem resposta do serviço de IA.")
+
+
 def _http_json(url: str, payload: dict, headers: dict, timeout: float, direct: bool = False) -> dict:
-    req = urllib.request.Request(url, data=json.dumps(payload).encode(), method="POST",
-                                 headers={"Content-Type": "application/json", **headers})
-    opener = urllib.request.build_opener(urllib.request.ProxyHandler({})) if direct else urllib.request.build_opener()
-    with opener.open(req, timeout=timeout) as resp:  # noqa: S310 - URLs validadas
-        return json.loads(resp.read(20_000_000))
+    return _request(url, payload, headers, timeout, direct)
+
+
+def _net_error(exc: Exception, name: str) -> AIError:
+    """Mensagem clara para falhas de rede (inclui o motivo real, útil para o suporte)."""
+    reason = getattr(exc, "reason", exc)
+    txt = str(reason)
+    if "CERTIFICATE_VERIFY_FAILED" in txt or "SSL" in txt.upper():
+        return AIError(f"Falha de segurança (certificado) ao falar com o {name}. Se estiver na rede da escola, ela pode "
+                       "estar bloqueando ou inspecionando o acesso; tente outra rede (ex.: o roteador do celular).")
+    if isinstance(reason, TimeoutError) or "timed out" in txt:
+        return AIError(f"O {name} demorou demais para responder. Tente de novo ou peça um material menor.")
+    if "getaddrinfo" in txt or "Name or service" in txt or "nodename" in txt:
+        return AIError(f"Sem internet (não encontrei o endereço do {name}). Verifique sua conexão.")
+    return AIError(f"Sem conexão com o {name}. Verifique sua internet. ({txt[:120]})")
 
 
 class _ClaudeBackend:
@@ -254,7 +387,7 @@ GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta"
 
 def _gemini_error(exc: urllib.error.HTTPError, model: str) -> AIError:
     """Traduz os erros do Gemini em mensagens claras (com o que fazer)."""
-    raw = exc.read(8000).decode("utf-8", "replace")
+    raw = _err_body(exc)
     try:
         err = json.loads(raw).get("error", {})
     except ValueError:
@@ -290,14 +423,12 @@ def _gemini_error(exc: urllib.error.HTTPError, model: str) -> AIError:
 
 def gemini_list_models(key: str) -> list[str]:
     """Modelos da conta que aceitam geração de texto (para escolher automaticamente ou exibir na lista)."""
-    req = urllib.request.Request(f"{GEMINI_BASE}/models?pageSize=200", headers={"x-goog-api-key": key})
     try:
-        with urllib.request.build_opener().open(req, timeout=30) as resp:  # noqa: S310
-            data = json.loads(resp.read(5_000_000))
+        data = _request(f"{GEMINI_BASE}/models?pageSize=200", None, {"x-goog-api-key": key.strip()}, timeout=30)
     except urllib.error.HTTPError as exc:
         raise _gemini_error(exc, "") from exc
     except (urllib.error.URLError, TimeoutError) as exc:
-        raise AIError("Sem conexão com o Google Gemini. Verifique sua internet.") from exc
+        raise _net_error(exc, "Google Gemini") from exc
     names = []
     for m in data.get("models", []):
         name = str(m.get("name", "")).removeprefix("models/")
@@ -355,16 +486,18 @@ class _GeminiBackend:
             try:
                 data = self._call(payload)
             except urllib.error.HTTPError as exc:
-                if exc.code == 404 and not tried_discovery:
-                    # modelo aposentado/renomeado: escolhe automaticamente um disponível na conta e tenta de novo
+                zero_quota = exc.code == 429 and "limit: 0" in _err_body(exc).lower()
+                if (exc.code == 404 or zero_quota) and not tried_discovery:
+                    # modelo aposentado/renomeado ou fora do plano gratuito: escolhe outro disponível na conta
                     tried_discovery = True
-                    best = gemini_best_model(gemini_list_models(self.key))
-                    if best and best != self.model:
+                    names = [n for n in gemini_list_models(self.key) if n != self.model and not (zero_quota and "pro" in n)]
+                    best = gemini_best_model(names)
+                    if best:
                         self.model = self.switched_to = best
                         continue
                 raise _gemini_error(exc, self.model) from exc
             except (urllib.error.URLError, TimeoutError) as exc:
-                raise AIError("Sem conexão com o Google Gemini (ou ele demorou demais). Verifique sua internet.") from exc
+                raise _net_error(exc, "Google Gemini") from exc
             block = (data.get("promptFeedback") or {}).get("blockReason")
             cands = data.get("candidates") or []
             if block or not cands:
@@ -373,7 +506,7 @@ class _GeminiBackend:
             if finish in ("SAFETY", "PROHIBITED_CONTENT", "BLOCKLIST", "RECITATION", "SPII"):
                 raise AIError("O Gemini não pôde atender este pedido. Tente reformulá-lo.")
             parts = cands[0].get("content", {}).get("parts", [])
-            text = "".join(p.get("text", "") for p in parts if not p.get("thought"))  # ignora o "raciocínio"
+            text = _strip_think("".join(p.get("text", "") for p in parts if not p.get("thought")))  # ignora o "raciocínio"
             try:
                 return schema.model_validate_json(_extract_json(text))
             except ValidationError:
@@ -394,55 +527,191 @@ def validate_base_url(url: str) -> str:
     return f"{parts.scheme}://{parts.netloc}{parts.path}"
 
 
+_PREFERRED = {
+    # ordem de preferência para materiais em português (o primeiro disponível na conta é usado)
+    "groq": ["llama-3.3-70b-versatile", "openai/gpt-oss-120b", "meta-llama/llama-4-maverick", "qwen/qwen3-32b",
+             "moonshotai/kimi-k2", "openai/gpt-oss-20b", "llama-3.1-8b-instant"],
+    "openrouter": ["openrouter/free", "deepseek/deepseek-chat", "meta-llama/llama-3.3-70b-instruct", "google/gemma-3-27b-it",
+                   "qwen/qwen-2.5-72b-instruct", "mistralai/mistral-small", "openai/gpt-oss"],
+    "cerebras": ["llama-3.3-70b", "gpt-oss-120b", "qwen-3-235b", "qwen-3-32b", "llama-4", "llama3.1-8b"],
+    "mistral": ["mistral-small-latest", "mistral-medium-latest", "mistral-large-latest", "open-mistral-nemo"],
+    "huggingface": ["meta-llama/Llama-3.3-70B-Instruct", "openai/gpt-oss-120b", "Qwen/Qwen2.5-72B-Instruct",
+                    "deepseek-ai/DeepSeek-V3"],
+    "openai": ["gpt-4.1-mini", "gpt-4o-mini", "gpt-5-mini", "gpt-4.1", "gpt-4o"],
+    "deepseek": ["deepseek-chat"],
+}
+_NOT_CHAT = ("whisper", "tts", "embed", "guard", "moderation", "audio", "image", "dall-e", "vision-preview", "transcri",
+             "realtime", "search", "ocr", "playai", "distil", "rerank", "codestral-embed", "prompt-guard")
+
+
+def list_models(provider: str, key: str | None, base_url: str = "") -> list[str]:
+    """Modelos de conversa disponíveis para a chave (no OpenRouter, apenas os gratuitos aparecem primeiro)."""
+    if provider == "gemini":
+        return gemini_list_models(key or "")
+    if provider not in OPENAI_COMPAT:
+        return []
+    base = validate_base_url(OPENAI_COMPAT[provider][0] or base_url)
+    local = urllib.parse.urlsplit(base).hostname in ("127.0.0.1", "localhost", "::1")
+    headers = {"Authorization": f"Bearer {key}"} if key else {}
+    name = PROVIDERS[provider][0]
+    try:
+        data = _request(base + "/models", None, headers, timeout=30, direct=local, retries=1)
+    except urllib.error.HTTPError as exc:
+        if exc.code in (401, 403):
+            raise AIError(f"Chave do {name} inválida ou sem permissão. Gere uma nova chave e salve de novo.") from exc
+        raise AIError(f"O {name} não informou a lista de modelos (erro {exc.code}).") from exc
+    except (urllib.error.URLError, TimeoutError, ConnectionError) as exc:
+        raise _net_error(exc, name) from exc
+    items = data.get("data") if isinstance(data, dict) else data
+    out, free = [], []
+    for m in items or []:
+        mid = str(m.get("id", "")) if isinstance(m, dict) else str(m)
+        if not mid or not _MODEL_NAME_RE.match(mid) or any(x in mid.lower() for x in _NOT_CHAT):
+            continue
+        if isinstance(m, dict) and m.get("active") is False:
+            continue
+        if provider == "openrouter":
+            pricing = m.get("pricing") or {}
+            is_free = mid.endswith(":free") or (str(pricing.get("prompt")) in ("0", "0.0") and str(pricing.get("completion")) in ("0", "0.0"))
+            (free if is_free else out).append(mid)
+        else:
+            out.append(mid)
+    if provider == "openrouter":
+        return (["openrouter/free"] if free else []) + sorted(free)  # só os gratuitos: evita cobranças surpresa
+    return sorted(set(out))
+
+
+def best_model(provider: str, names: list[str]) -> str | None:
+    """Escolhe o modelo mais adequado entre os disponíveis na conta."""
+    if not names:
+        return None
+    if provider == "gemini":
+        return gemini_best_model(names)
+    low = {n.lower(): n for n in names}
+    for pref in _PREFERRED.get(provider, []):
+        if pref.lower() in low:
+            return low[pref.lower()]
+        for n in names:  # nomes com sufixo (ex.: ":free", datas, "-instruct")
+            if n.lower().startswith(pref.lower()):
+                return n
+    return names[0]
+
+
 class _OpenAICompatBackend:
     def __init__(self, provider: str, key: str | None, model: str, base_url: str = ""):
         self.provider = provider
         base = OPENAI_COMPAT[provider][0] or base_url
         self.base = validate_base_url(base)
+        self.base_url = base_url
         self.local = urllib.parse.urlsplit(self.base).hostname in ("127.0.0.1", "localhost", "::1")
-        self.key = key
+        self.key = (key or "").strip() or None
         self.model = model if _MODEL_NAME_RE.match(model or "") else (OPENAI_COMPAT[provider][1] or ["gpt-4o-mini"])[0]
         self.name = PROVIDERS[provider][0]
+        self.switched_to: str | None = None
+
+    def _reasoning_model(self) -> bool:
+        m = self.model.lower()
+        return self.provider == "openai" and (m.startswith(("o1", "o3", "o4", "gpt-5")))
+
+    def _discover(self) -> bool:
+        """Troca para um modelo disponível na conta (modelos gratuitos mudam de nome com frequência)."""
+        try:
+            names = [n for n in list_models(self.provider, self.key, self.base_url) if n != self.model]
+        except AIError:
+            return False
+        best = best_model(self.provider, names)
+        if best:
+            self.model = self.switched_to = best
+            return True
+        return False
 
     def parse(self, prompt: str, schema: type[BaseModel], max_tokens: int):
         headers = {"Authorization": f"Bearer {self.key}"} if self.key else {}
         if self.provider == "openrouter":
-            headers.update({"X-Title": "AulaViva Studio"})
-        note, json_mode = "", True
-        for attempt in range(3):
+            headers.update({"X-Title": "AulaViva Studio", "HTTP-Referer": "https://github.com/matheus1906-hash/Aula-Viva-Studio"})
+        note, json_mode, discovered = "", True, False
+        limit = min(max_tokens, 16000)
+        for attempt in range(5):
             payload = {
-                "model": self.model, "temperature": 0.6, "max_tokens": min(max_tokens, 16000),
+                "model": self.model,
                 "messages": [{"role": "system", "content": SYSTEM_PROMPT},
                              {"role": "user", "content": prompt + _schema_instructions(schema) + note}],
             }
+            if self._reasoning_model():
+                payload["max_completion_tokens"] = max(limit, 4000)  # parte do limite vai para o "raciocínio"
+            else:
+                payload["max_tokens"] = limit
+                payload["temperature"] = 0.6
             if json_mode:
                 payload["response_format"] = {"type": "json_object"}
             try:
                 data = _http_json(self.base + "/chat/completions", payload, headers, timeout=300, direct=self.local)
             except urllib.error.HTTPError as exc:
-                body = exc.read(4000).decode("utf-8", "replace").lower()
-                if exc.code == 400 and json_mode and "response_format" in body:
+                body = _err_body(exc).lower()
+                if exc.code in (400, 404, 422) and json_mode and ("response_format" in body or "json" in body and "support" in body
+                                                                  or "requested parameters" in body):
                     json_mode = False  # o modelo não aceita modo JSON: tenta sem ele
                     continue
-                if exc.code in (401, 403):
-                    raise AIError(f"Chave do {self.name} inválida ou sem permissão. Verifique em Configurações.") from exc
-                if exc.code == 404:
-                    raise AIError(f"Modelo '{self.model}' não encontrado no {self.name}. Escolha outro em Configurações.") from exc
-                if exc.code == 402 or "insufficient" in body or "credit" in body or "quota" in body:
-                    raise AIError(f"Sua conta no {self.name} está sem créditos ou cota. Verifique no site do serviço.") from exc
+                if exc.code in (400, 422) and ("max_tokens" in body or "max_completion_tokens" in body or "context" in body) \
+                        and limit > 4096:
+                    limit = 4096 if limit > 8192 else 2048  # limite de saída menor neste modelo
+                    continue
+                model_gone = exc.code == 404 or ("model" in body and any(w in body for w in (
+                    "not found", "does not exist", "decommissioned", "deprecated", "not a valid model", "no endpoints",
+                    "invalid model", "unknown model", "not supported", "model_not_found")))
+                if model_gone and not discovered and self.provider != "custom":
+                    discovered = True
+                    if self._discover():
+                        continue
+                if exc.code == 401 or (exc.code == 403 and ("key" in body or "auth" in body or "token" in body)):
+                    raise AIError(f"Chave do {self.name} inválida ou expirada. Gere uma nova no site do serviço, cole em "
+                                  "Configurações > Inteligência Artificial e clique em 'Salvar chave'.") from exc
+                if exc.code == 403:
+                    raise AIError(f"O {self.name} recusou o acesso (403). A rede (escola/empresa) pode estar bloqueando "
+                                  "o serviço, ou a conta precisa ser verificada no site.") from exc
+                if model_gone:
+                    raise AIError(f"O modelo '{self.model}' não está disponível no {self.name}. Clique em "
+                                  "'Buscar modelos disponíveis' em Configurações.") from exc
+                if exc.code == 402 or "insufficient" in body or "credit" in body or "exceeded your current quota" in body:
+                    hint = " Escolha um modelo gratuito (terminado em ':free') ou 'openrouter/free'." if self.provider == "openrouter" else ""
+                    raise AIError(f"Sua conta no {self.name} está sem créditos ou cota.{hint}") from exc
                 if exc.code == 429:
-                    raise AIError(f"Limite de uso do {self.name} atingido. Aguarde alguns minutos e tente novamente.") from exc
-                raise AIError(f"O {self.name} retornou um erro ({exc.code}). Tente novamente.") from exc
+                    raise AIError(f"Limite gratuito do {self.name} atingido por agora. Aguarde 1 minuto e tente de novo, "
+                                  "ou use outra IA gratuita (Groq, Gemini, Cerebras...).") from exc
+                if exc.code == 413:
+                    raise AIError(f"O texto enviado é grande demais para o {self.name}. Use um arquivo menor ou outra IA.") from exc
+                if exc.code >= 500:
+                    raise AIError(f"O {self.name} está instável agora (erro {exc.code}). Tente novamente em instantes.") from exc
+                detail = ""
+                try:
+                    detail = str(json.loads(_err_body(exc)).get("error", {}).get("message", ""))[:160]
+                except (ValueError, AttributeError):
+                    pass
+                raise AIError(f"O {self.name} recusou o pedido ({exc.code}). {detail}".strip()) from exc
             except (urllib.error.URLError, TimeoutError, ConnectionError) as exc:
-                raise AIError(f"Sem conexão com o {self.name}. Verifique sua internet (ou o endereço do serviço).") from exc
+                raise _net_error(exc, self.name) from exc
+            if isinstance(data.get("error"), dict):  # alguns serviços devolvem erro com status 200
+                msg = str(data["error"].get("message", ""))[:160]
+                if not discovered and "model" in msg.lower():
+                    discovered = True
+                    if self._discover():
+                        continue
+                raise AIError(f"O {self.name} retornou um erro: {msg}")
             choice = (data.get("choices") or [{}])[0]
-            text = (choice.get("message") or {}).get("content") or ""
+            content = (choice.get("message") or {}).get("content") or ""
+            if isinstance(content, list):  # formato em partes
+                content = "".join(c.get("text", "") for c in content if isinstance(c, dict))
+            text = _strip_think(content)
             try:
                 return schema.model_validate_json(_extract_json(text))
             except ValidationError:
                 if choice.get("finish_reason") == "length":
+                    if limit < 16000 and not text:
+                        limit = 16000
+                        continue
                     raise AIError("A resposta ficou longa demais. Peça menos seções ou exercícios.")
                 note = "\n\nATENÇÃO: responda apenas com o JSON válido, sem nenhum texto extra."
+                json_mode = json_mode and attempt < 1
         raise AIError(f"O {self.name} respondeu em um formato inesperado. Tente novamente ou escolha outro modelo.")
 
 
@@ -457,9 +726,8 @@ class _OllamaBackend:
 
     def list_models(self) -> list[str]:
         try:
-            opener = urllib.request.build_opener(urllib.request.ProxyHandler({})) if self.local else urllib.request.build_opener()
-            with opener.open(self.base + "/api/tags", timeout=5) as resp:  # noqa: S310
-                return [m["name"] for m in json.loads(resp.read(2_000_000)).get("models", [])]
+            data = _request(self.base + "/api/tags", None, {}, timeout=5, direct=self.local, retries=0)
+            return [m["name"] for m in data.get("models", [])]
         except Exception as exc:
             raise AIError("Não encontrei o Ollama. Instale em ollama.com e deixe-o aberto.") from exc
 
@@ -546,7 +814,7 @@ class Assistant:
         if self.provider == "claude":
             if not api_key:
                 raise AIError("Informe sua chave da Anthropic em Configurações > Inteligência Artificial, "
-                              "ou escolha uma opção gratuita (Ollama, Gemini ou demonstração).")
+                              "ou escolha uma opção gratuita (Gemini, Groq, Cerebras, OpenRouter, Ollama...).")
             self.backend = _ClaudeBackend(api_key, model or "claude-opus-5-5", effort)
         elif self.provider == "gemini":
             if not api_key:
@@ -573,7 +841,7 @@ class Assistant:
             ok: bool
             mensagem: str
 
-        r = self._parse('Responda com ok=true e mensagem="Conexão funcionando".', Ping, 300)
+        r = self._parse('Responda com ok=true e mensagem="Conexão funcionando".', Ping, 2048)
         model = getattr(self.backend, "model", "")
         extra = f" (modelo: {model})" if model else ""
         if getattr(self.backend, "switched_to", None):
@@ -621,7 +889,8 @@ class Assistant:
 
     # limite de texto do documento por provedor (janelas de contexto e planos gratuitos diferentes)
     DOC_LIMITS = {"claude": 120_000, "gemini": 120_000, "openai": 60_000, "openrouter": 40_000, "deepseek": 40_000,
-                  "mistral": 40_000, "custom": 30_000, "groq": 20_000, "ollama": 12_000}
+                  "mistral": 40_000, "custom": 30_000, "groq": 20_000, "cerebras": 20_000, "huggingface": 30_000,
+                  "ollama": 12_000}
 
     def generate_from_document(self, kind: str, document_text: str, title: str = "", subject: str = "", level: str = "",
                                details: str = "", amount: int = 8) -> AIApostila:
@@ -727,7 +996,10 @@ def make_assistant(prefs, crypto: Crypto) -> Assistant:
 def effective_provider(prefs, crypto: Crypto) -> str:
     if prefs.ai_provider in PROVIDERS:
         return prefs.ai_provider
-    return "claude" if load_api_key(crypto, "claude") else "demo"
+    for p in ("claude", *FREE_PROVIDERS, "openai", "deepseek"):  # automático: a primeira IA com chave salva
+        if load_api_key(crypto, p):
+            return p
+    return "demo"
 
 
 def convert_blocks(ai_blocks: list[AIBlock]) -> list[dict]:
