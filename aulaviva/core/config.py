@@ -71,6 +71,7 @@ class Preferences:
     ollama_url: str = "http://127.0.0.1:11434"
     last_email_hint: str = ""          # nunca armazenamos senha; só o e-mail opcionalmente
     remember_email: bool = False
+    keep_signed_in: bool = True        # "Manter conectado": token seguro, nunca a senha
     extra: dict = field(default_factory=dict)
 
     @classmethod

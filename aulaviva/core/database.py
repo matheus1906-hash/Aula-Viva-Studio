@@ -20,7 +20,7 @@ from typing import Any, Iterator
 from aulaviva.core.config import data_dir
 from aulaviva.core.security import Crypto
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
@@ -95,6 +95,19 @@ CREATE TABLE IF NOT EXISTS audit_log (
 CREATE INDEX IF NOT EXISTS idx_audit_user ON audit_log(user_id, ts DESC);
 """
 
+# v2: sessões "manter conectado" (só o HMAC do token fica no banco)
+_SCHEMA_V2 = """
+CREATE TABLE IF NOT EXISTS sessions (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token_idx   TEXT NOT NULL UNIQUE,
+    created_at  REAL NOT NULL,
+    expires_at  REAL NOT NULL,
+    last_used_at REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
+"""
+
 
 class Database:
     def __init__(self, path: Path | None = None, crypto: Crypto | None = None):
@@ -113,6 +126,8 @@ class Database:
             "PRAGMA secure_delete = ON",      # sobrescreve dados apagados
             "PRAGMA trusted_schema = OFF",
             "PRAGMA temp_store = MEMORY",
+            "PRAGMA cache_size = -16000",     # 16 MB de cache de páginas
+            "PRAGMA busy_timeout = 4000",
         ):
             self._conn.execute(pragma)
         self._migrate()
@@ -122,7 +137,9 @@ class Database:
             version = self._conn.execute("PRAGMA user_version").fetchone()[0]
             if version < 1:
                 # executescript gerencia a própria transação
-                self._conn.executescript("BEGIN;" + _SCHEMA + f"PRAGMA user_version = {SCHEMA_VERSION}; COMMIT;")
+                self._conn.executescript("BEGIN;" + _SCHEMA + _SCHEMA_V2 + f"PRAGMA user_version = {SCHEMA_VERSION}; COMMIT;")
+            elif version < 2:
+                self._conn.executescript("BEGIN;" + _SCHEMA_V2 + "PRAGMA user_version = 2; COMMIT;")
 
     @contextmanager
     def transaction(self) -> Iterator[sqlite3.Cursor]:

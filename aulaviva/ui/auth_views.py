@@ -212,7 +212,9 @@ class LoginView(QWidget):
         self.f_pw = Field("Senha", self.password)
         c.addWidget(self.f_pw)
         row = QHBoxLayout()
-        self.remember = checkbox("Lembrar meu e-mail", prefs.remember_email)
+        self.remember = checkbox("Manter conectado", prefs.keep_signed_in)
+        self.remember.setToolTip("Entra direto ao abrir o AulaViva neste computador, sem pedir a senha, por 30 dias.\n"
+                                 "Use apenas no seu computador pessoal. 'Sair' desconecta na hora.")
         row.addWidget(self.remember)
         row.addStretch()
         forgot = LinkButton("Esqueci minha senha")
@@ -258,6 +260,13 @@ class LoginView(QWidget):
         self.notice.setText(text)
         self.notice.setVisible(bool(text))
 
+    def _remember_choice(self, email: str):
+        keep = self.remember.isChecked()
+        self.prefs.keep_signed_in = keep
+        self.prefs.remember_email = True
+        self.prefs.last_email_hint = email
+        self.prefs.save()
+
     def _login(self):
         email, pw = self.email.text().strip(), self.password.text()
         self.f_email.set_error(None if is_valid_email(email) else "Informe um e-mail válido.")
@@ -269,9 +278,7 @@ class LoginView(QWidget):
         def ok(user: User):
             _busy(self.btn, False, "Entrar")
             self.password.clear()
-            self.prefs.remember_email = self.remember.isChecked()
-            self.prefs.last_email_hint = email if self.remember.isChecked() else ""
-            self.prefs.save()
+            self._remember_choice(email)
             self.show_notice("")
             self.logged_in.emit(user)
 
@@ -311,6 +318,7 @@ class LoginView(QWidget):
         def ok(user):
             if m.isVisible():
                 m.close_modal()
+            self._remember_choice(user.email)
             self.logged_in.emit(user)
 
         def fail(exc):

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import secrets
 import time
 from dataclasses import asdict, dataclass, field
 from datetime import date
@@ -30,6 +31,7 @@ from aulaviva.core.security import (
 MAX_FAILED_BEFORE_LOCK = 5
 BASE_LOCK_SECONDS = 60
 MAX_LOCK_SECONDS = 30 * 60
+REMEMBER_DAYS = 30
 GENERIC_LOGIN_ERROR = "E-mail ou senha incorretos. Se você criou a conta com Google, Microsoft ou gov.br, use o botão correspondente."
 
 SCHOOL_NETWORKS = ["Pública municipal", "Pública estadual", "Pública federal", "Privada", "Filantrópica/Comunitária"]
@@ -314,6 +316,54 @@ class AuthService:
                 cur.execute("INSERT INTO oauth_identities(user_id,provider,subject_idx,created_at) VALUES (?,?,?,?)", (uid, provider, sub_idx, time.time()))
         self.db.audit("oauth_linked", uid, {"provider": provider})
 
+    # -- manter conectado ----------------------------------------------------
+    def _token_idx(self, token: str) -> str:
+        return self.c.blind_index(token, "session")
+
+    def create_session(self, uid: int, days: int = REMEMBER_DAYS) -> str:
+        """Cria um token aleatório de 256 bits para entrar sem senha neste computador.
+
+        Só o HMAC do token fica no banco; o token em si fica no cofre do sistema.
+        """
+        token = secrets.token_urlsafe(32)
+        now = time.time()
+        with self.db.transaction() as cur:
+            cur.execute("DELETE FROM sessions WHERE expires_at < ?", (now,))
+            cur.execute("INSERT INTO sessions(user_id, token_idx, created_at, expires_at, last_used_at) VALUES (?,?,?,?,?)",
+                        (uid, self._token_idx(token), now, now + days * 86400, now))
+        self.db.audit("session_remembered", uid)
+        return token
+
+    def resume_session(self, token: str) -> tuple[User, str]:
+        """Entra com um token salvo. Gira o token a cada uso (o antigo deixa de valer)."""
+        if not token or len(token) > 200:
+            raise AuthError("Sessão inválida.")
+        now = time.time()
+        idx = self._token_idx(token)
+        row = self.db.query_one("SELECT s.id, s.user_id, s.expires_at, u.is_active FROM sessions s JOIN users u ON u.id = s.user_id "
+                                "WHERE s.token_idx=?", (idx,))
+        if not row or row["expires_at"] < now or not row["is_active"]:
+            if row:
+                with self.db.transaction() as cur:
+                    cur.execute("DELETE FROM sessions WHERE id=?", (row["id"],))
+            raise AuthError("Sua sessão expirou. Entre novamente.")
+        new = secrets.token_urlsafe(32)
+        with self.db.transaction() as cur:
+            cur.execute("UPDATE sessions SET token_idx=?, last_used_at=? WHERE id=?", (self._token_idx(new), now, row["id"]))
+            cur.execute("UPDATE users SET last_login_at=? WHERE id=?", (now, row["user_id"]))
+        self.db.audit("login_success", row["user_id"], {"provider": "remembered"})
+        return self._load_user(row["user_id"]), new
+
+    def end_session(self, token: str | None) -> None:
+        if token:
+            with self.db.transaction() as cur:
+                cur.execute("DELETE FROM sessions WHERE token_idx=?", (self._token_idx(token),))
+
+    def end_all_sessions(self, uid: int) -> None:
+        with self.db.transaction() as cur:
+            cur.execute("DELETE FROM sessions WHERE user_id=?", (uid,))
+        self.db.audit("sessions_revoked", uid)
+
     # -- senha -------------------------------------------------------------
     def change_password(self, uid: int, current: str | None, new: str) -> None:
         user = self._load_user(uid)
@@ -325,6 +375,7 @@ class AuthService:
             raise AuthError(" ".join(problems))
         with self.db.transaction() as cur:
             cur.execute("UPDATE users SET password_hash=?, updated_at=? WHERE id=?", (hash_password(new), time.time(), uid))
+            cur.execute("DELETE FROM sessions WHERE user_id=?", (uid,))  # desconecta os outros computadores
         self.db.audit("password_changed", uid)
 
     def reset_with_recovery_code(self, email: str, code: str, new_password: str) -> None:
@@ -355,6 +406,7 @@ class AuthService:
         with self.db.transaction() as cur:
             cur.execute("UPDATE recovery_codes SET used_at=? WHERE id=?", (now, match_id))
             cur.execute("UPDATE users SET password_hash=?, failed_attempts=0, locked_until=0, updated_at=? WHERE id=?", (hash_password(new_password), now, row["id"]))
+            cur.execute("DELETE FROM sessions WHERE user_id=?", (row["id"],))
         self.db.audit("password_reset_recovery_code", row["id"])
 
     def regenerate_recovery_codes(self, uid: int) -> list[str]:
@@ -388,6 +440,9 @@ class AuthService:
             cur.execute("DELETE FROM users WHERE id=?", (uid,))
             cur.execute("UPDATE audit_log SET user_id=NULL WHERE user_id=?", (uid,))
         self.db.audit("account_deleted", None)
+        from aulaviva.core.media import MediaStore
+
+        MediaStore(self.c, uid).delete_all()
         try:
             self.db.query("VACUUM")
         except Exception:

@@ -8,13 +8,13 @@ from PySide6.QtCore import QEvent, QObject, QTimer
 from PySide6.QtWidgets import QApplication, QMainWindow, QStackedLayout, QWidget
 
 from aulaviva import APP_NAME
-from aulaviva.core.auth import AuthService, User
+from aulaviva.core import session_store
+from aulaviva.core.auth import AuthError, AuthService, User
 from aulaviva.core.config import Preferences
 from aulaviva.core.database import Database
 from aulaviva.core.projects import ProjectStore
 from aulaviva.ui.auth_views import LoginView, RecoveryView, RegisterView, show_recovery_codes
 from aulaviva.ui.dashboard import Shell
-from aulaviva.ui.editor import EditorView
 from aulaviva.ui.effects import SchoolBackground, app_icon
 from aulaviva.ui.onboarding import OnboardingView
 from aulaviva.ui.widgets import AnimatedStack, Motion, Toast
@@ -42,8 +42,9 @@ class MainWindow(QMainWindow):
         self.auth = AuthService(db)
         self.store = ProjectStore(db)
         self.user: User | None = None
+        self._session_token: str | None = None
         self.shell: Shell | None = None
-        self.editor: EditorView | None = None
+        self.editor = None  # EditorView (importado sob demanda: abre o app mais rápido)
         self.setWindowTitle(APP_NAME)
         self.setWindowIcon(app_icon())
         self.setMinimumSize(1080, 700)
@@ -66,11 +67,54 @@ class MainWindow(QMainWindow):
         QApplication.instance().installEventFilter(self.idle)
         self._idle_timer = QTimer(self, interval=15_000, timeout=self._check_idle)
         self._idle_timer.start()
+        QTimer.singleShot(1500, self._warm_imports)  # carrega o editor/PDF em segundo plano, quando o app está ocioso
 
         if prefs.first_run_done:
-            self.stack.setCurrentWidget(self.login)
+            if not self._resume_session():
+                self.stack.setCurrentWidget(self.login)
         else:
             self.show_intro(first=True)
+
+    @staticmethod
+    def _warm_imports():
+        try:
+            import aulaviva.ui.editor  # noqa: F401
+        except Exception:
+            pass
+
+    # -- manter conectado ------------------------------------------------------
+    def _resume_session(self) -> bool:
+        """Entra direto com o token salvo (\"Manter conectado\"). Retorna True se entrou."""
+        if not self.prefs.keep_signed_in:
+            session_store.clear()
+            return False
+        token = session_store.load(self.db.crypto)
+        if not token:
+            return False
+        try:
+            user, new_token = self.auth.resume_session(token)
+        except AuthError:
+            session_store.clear()
+            return False
+        session_store.save(new_token, self.db.crypto)
+        self._session_token = new_token
+        self.on_login(user, animate=False)
+        return self.user is not None and self.shell is not None
+
+    def _remember_session(self, user: User):
+        if not self.prefs.keep_signed_in or getattr(self, "_session_token", None):
+            return
+        try:
+            token = self.auth.create_session(user.id)
+            session_store.save(token, self.db.crypto)
+            self._session_token = token
+        except Exception:  # sem cofre/disco: apenas não lembra
+            self._session_token = None
+
+    def _forget_session(self):
+        self.auth.end_session(getattr(self, "_session_token", None) or session_store.load(self.db.crypto))
+        session_store.clear()
+        self._session_token = None
 
     # -- fluxo ---------------------------------------------------------------
     def show_intro(self, first: bool = False):
@@ -162,7 +206,7 @@ class MainWindow(QMainWindow):
         self.shell.theme_requested.connect(self.apply_theme)
         self.stack.addWidget(self.shell)
 
-    def on_login(self, user: User):
+    def on_login(self, user: User, animate: bool = True):
         self.user = user
         if not user.profile_complete:
             view = RegisterView(self.auth, complete_user=user)
@@ -170,12 +214,18 @@ class MainWindow(QMainWindow):
             view.completed.connect(lambda u: (self.on_login(u), view.deleteLater()))
             self.stack.slide_to(view)
             return
+        self._remember_session(user)
         self._make_shell(user)
-        self.stack.slide_to(self.shell)
+        if animate:
+            self.stack.slide_to(self.shell)
+        else:
+            self.stack.setCurrentWidget(self.shell)
         self.idle.last = time.monotonic()
         Toast.show_message(self, f"Bem-vindo(a), {user.first_name}!", "success", 2200)
 
     def open_editor(self, pid: int):
+        from aulaviva.ui.editor import EditorView
+
         if self.editor:
             self.editor.deleteLater()
         self.editor = EditorView(self.store, self.user.id, self.shell.get_assistant)
@@ -197,6 +247,7 @@ class MainWindow(QMainWindow):
             self.editor.save_silent()
         if self.user and message != "Sua conta foi excluída.":
             self.db.audit("logout" if not message.startswith("Sessão") else "session_locked", self.user.id)
+        self._forget_session()  # "Sair" (ou bloqueio) sempre exige a senha na próxima vez
         self.user = None
         # Fecha modais abertos e descarta telas com dados pessoais
         for w in self.findChildren(QWidget):
@@ -212,6 +263,8 @@ class MainWindow(QMainWindow):
         self.login.show_notice(message)
 
     def _check_idle(self):
+        if getattr(self, "_session_token", None):
+            return  # "Manter conectado" ativo: o professor escolheu não ser desconectado neste computador
         if self.user and time.monotonic() - self.idle.last > self.prefs.idle_lock_minutes * 60:
             self.do_logout("Sessão bloqueada por inatividade. Entre novamente para continuar.")
 
