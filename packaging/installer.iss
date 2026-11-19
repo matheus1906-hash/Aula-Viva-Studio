@@ -1,6 +1,6 @@
 ; Instalador Windows (Inno Setup 6): iscc packaging\installer.iss
 #define AppName "AulaViva Studio"
-#define AppVersion "2.3.0"
+#define AppVersion "2.3.1"
 
 [Setup]
 AppId={{6C1E2B5A-8F0D-4B7E-9A51-3F2D7C9E0A11}

@@ -1,5 +1,14 @@
 # Histórico de versões
 
+## 2.3.1
+- **Corrigido "Informe sua chave gratuita do Gemini" mesmo depois de colar a chave:**
+  - a chave agora é **salva sozinha** ao colar (e também ao apertar Enter ou "Testar conexão");
+  - fica guardada em dois lugares (cofre do sistema + arquivo criptografado), então não "some" se o cofre do Windows
+    não devolver a chave ao reabrir o app;
+  - clicar no cartão de uma IA sem chave só abre o painel dela, sem trocar a IA que já funciona;
+  - se a IA escolhida estiver sem chave, o app usa automaticamente outra que tenha chave salva;
+  - o teste de conexão mostra qual IA foi testada, e as mensagens dizem exatamente o que fazer.
+
 ## 2.3.0
 - **Manter conectado:** marque a opção no login e o AulaViva abre direto, sem pedir a senha, por 30 dias neste
   computador. A senha nunca é guardada: o app usa um token aleatório criptografado com a chave do cofre do sistema,

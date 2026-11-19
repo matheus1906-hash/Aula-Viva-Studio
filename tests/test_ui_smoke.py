@@ -264,3 +264,44 @@ def test_transitions_and_modal_with_motion(tmp_path):
     _wait(300)
     Motion.enabled = False
     st.deleteLater()
+
+
+def test_ai_key_autosave_and_tile_selection(tmp_path, monkeypatch):
+    import secrets
+
+    from PySide6.QtWidgets import QApplication
+
+    app = QApplication.instance() or QApplication([])
+    from aulaviva.core import ai
+    from aulaviva.core.auth import AuthService
+    from aulaviva.core.config import Preferences
+    from aulaviva.core.database import Database
+    from aulaviva.core.security import Crypto
+    from aulaviva.ui.dashboard import SettingsPage
+    from aulaviva.ui.main_window import MainWindow
+    from aulaviva.ui.widgets import Motion
+    from tests.test_auth_projects import profile
+
+    monkeypatch.setattr(ai, "config_dir", lambda: tmp_path)
+    monkeypatch.setattr(ai, "list_models", lambda *a, **k: [])
+    monkeypatch.setattr(Preferences, "save", lambda self: None)
+    Motion.enabled = False
+    db = Database(tmp_path / "a.db", Crypto(secrets.token_bytes(32)))
+    AuthService(db).register("ia@escola.com", "Giz&Lousa-2026x", profile(), True)
+    prefs = Preferences(first_run_done=True, keep_signed_in=False)
+    w = MainWindow(db, prefs)
+    w.on_login(w.auth.login("ia@escola.com", "Giz&Lousa-2026x"), animate=False)
+    w.shell.navigate("settings", tab=2)
+    page = w.shell.findChildren(SettingsPage)[0]
+    page._select_provider("groq")
+    assert prefs.ai_provider != "groq"                  # sem chave: não troca a IA em uso
+    page.key_field.setText("gsk_" + "a" * 40)           # colar a chave: salva sozinha
+    for _ in range(30):
+        if prefs.ai_provider == "groq":
+            break
+        _wait(100)
+    assert prefs.ai_provider == "groq" and ai.load_api_key(db.crypto, "groq") == "gsk_" + "a" * 40
+    page._select_provider("gemini")                     # olhar outra IA sem chave não quebra a que funciona
+    assert ai.effective_provider(prefs, db.crypto) == "groq"
+    w.deleteLater()
+    db.close()

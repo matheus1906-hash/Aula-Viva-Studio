@@ -160,24 +160,23 @@ def _validate_key(provider: str, key: str) -> str:
 
 
 def save_api_key(key: str, crypto: Crypto, provider: str = "claude") -> None:
-    key = _validate_key(provider, key)
-    user = _KEYRING_USERS[provider]
-    try:
-        if not _use_keyring():
-            raise RuntimeError("cofre desativado")
-        import keyring
+    """Guarda a chave em DOIS lugares: no cofre do sistema e num arquivo criptografado (AES-256-GCM).
 
-        keyring.set_password(APP_ID, user, key)
-        if keyring.get_password(APP_ID, user) == key:
-            _key_file(provider).unlink(missing_ok=True)
-            _KEY_CACHE[provider] = key
-            return
-    except Exception:
-        pass
+    Antes, se o cofre do Windows aceitava a chave mas não a devolvia ao reabrir o app (acontece em alguns PCs e no
+    executável empacotado), a chave "sumia" e aparecia "Informe sua chave...". Com a cópia criptografada isso não ocorre.
+    """
+    key = _validate_key(provider, key)
     path = _key_file(provider)
     path.write_text(crypto.encrypt(key, f"ai.key.{provider}"), encoding="utf-8")
     if os.name != "nt":
         os.chmod(path, 0o600)
+    if _use_keyring():
+        try:
+            import keyring
+
+            keyring.set_password(APP_ID, _KEYRING_USERS[provider], key)
+        except Exception:
+            pass
     _KEY_CACHE[provider] = key
 
 
@@ -205,9 +204,12 @@ def _load_api_key_uncached(crypto: Crypto, provider: str) -> str | None:
     except Exception:
         pass
     try:
-        return crypto.decrypt(_key_file(provider).read_text(encoding="utf-8"), f"ai.key.{provider}")
-    except (OSError, SecurityError):
-        return os.environ.get({"claude": "ANTHROPIC_API_KEY", "gemini": "GEMINI_API_KEY"}.get(provider, f"{provider.upper()}_API_KEY"))
+        val = crypto.decrypt(_key_file(provider).read_text(encoding="utf-8").strip(), f"ai.key.{provider}")
+        if val:
+            return val
+    except (OSError, SecurityError, ValueError):
+        pass
+    return os.environ.get({"claude": "ANTHROPIC_API_KEY", "gemini": "GEMINI_API_KEY"}.get(provider, f"{provider.upper()}_API_KEY"))
 
 
 def delete_api_key(provider: str = "claude") -> None:
@@ -808,7 +810,8 @@ class Assistant:
         self.provider = provider if provider in PROVIDERS else "demo"
         if self.provider in OPENAI_COMPAT:
             if not api_key and self.provider != "custom":
-                raise AIError(f"Informe sua chave do {PROVIDERS[self.provider][0]} em Configurações > Inteligência Artificial.")
+                raise AIError(f"O {PROVIDERS[self.provider][0]} está escolhido, mas nenhuma chave foi salva. Em Configurações > "
+                              f"Inteligência Artificial > {PROVIDERS[self.provider][0]}, cole a chave e clique em 'Salvar chave'.")
             self.backend = _OpenAICompatBackend(self.provider, api_key, model, base_url)
             return
         if self.provider == "claude":
@@ -818,8 +821,8 @@ class Assistant:
             self.backend = _ClaudeBackend(api_key, model or "claude-opus-5-5", effort)
         elif self.provider == "gemini":
             if not api_key:
-                raise AIError("Informe sua chave gratuita do Gemini em Configurações > Inteligência Artificial "
-                              "(crie em aistudio.google.com).")
+                raise AIError("O Gemini está escolhido, mas nenhuma chave foi salva. Em Configurações > Inteligência "
+                              "Artificial > Google Gemini, cole a chave (aistudio.google.com/apikey) e clique em 'Salvar chave'.")
             self.backend = _GeminiBackend(api_key, model or GEMINI_MODELS[0])
         elif self.provider == "ollama":
             self.backend = _OllamaBackend(ollama_url, model or OLLAMA_MODELS[0])
@@ -993,8 +996,21 @@ def make_assistant(prefs, crypto: Crypto) -> Assistant:
                      prefs.ollama_url, str(prefs.extra.get("custom_url", "")))
 
 
+NEEDS_KEY = {"claude", "gemini", *(k for k in OPENAI_COMPAT if k != "custom")}
+
+
+def provider_ready(prefs, crypto: Crypto, provider: str) -> bool:
+    return provider not in NEEDS_KEY or bool(load_api_key(crypto, provider))
+
+
 def effective_provider(prefs, crypto: Crypto) -> str:
     if prefs.ai_provider in PROVIDERS:
+        if provider_ready(prefs, crypto, prefs.ai_provider):
+            return prefs.ai_provider
+        # a IA escolhida está sem chave: usa outra que já tenha chave salva (em vez de dar erro)
+        for p in (*FREE_PROVIDERS, "claude", "openai", "deepseek"):
+            if p != prefs.ai_provider and load_api_key(crypto, p):
+                return p
         return prefs.ai_provider
     for p in ("claude", *FREE_PROVIDERS, "openai", "deepseek"):  # automático: a primeira IA com chave salva
         if load_api_key(crypto, p):

@@ -189,3 +189,22 @@ def test_auto_provider_uses_first_saved_free_key(monkeypatch):
     c = Crypto(secrets.token_bytes(32))
     monkeypatch.setattr(ai, "load_api_key", lambda crypto, provider="claude": "gsk_x" if provider == "groq" else None)
     assert ai.effective_provider(Preferences(), c) == "groq"
+
+
+def test_key_saved_twice_survives_empty_keyring(tmp_path, monkeypatch):
+    """Se o cofre do sistema 'perder' a chave, a cópia criptografada continua valendo."""
+    monkeypatch.setattr(ai, "config_dir", lambda: tmp_path)
+    c = Crypto(secrets.token_bytes(32))
+    ai.save_api_key("AIza" + "y" * 35, c, "gemini")
+    ai._KEY_CACHE.clear()
+    assert ai.load_api_key(c, "gemini") == "AIza" + "y" * 35
+
+
+def test_selected_provider_without_key_falls_back(monkeypatch):
+    c = Crypto(secrets.token_bytes(32))
+    monkeypatch.setattr(ai, "load_api_key", lambda crypto, provider="claude": "gsk_x123456789" if provider == "groq" else None)
+    prefs = Preferences(ai_provider="gemini")
+    assert ai.effective_provider(prefs, c) == "groq"
+    assert ai.make_assistant(prefs, c).provider == "groq"
+    prefs.ai_provider = "ollama"
+    assert ai.effective_provider(prefs, c) == "ollama"

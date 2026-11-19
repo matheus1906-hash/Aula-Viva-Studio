@@ -6,7 +6,7 @@ import json
 import time
 from datetime import datetime
 
-from PySide6.QtCore import QEasingCurve, QPropertyAnimation, QRectF, QSize, Qt, Signal
+from PySide6.QtCore import QEasingCurve, QPropertyAnimation, QRectF, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QColor, QCursor, QLinearGradient, QPainter, QPen
 from PySide6.QtWidgets import (
     QComboBox, QFileDialog, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QMenu, QSpinBox, QTabWidget, QVBoxLayout,
@@ -193,9 +193,15 @@ class ProviderTile(QWidget):
         lay.addLayout(top)
         lay.addWidget(label(desc, "muted", wrap=True))
 
+    _open = False
+
+    def set_open(self, on: bool):
+        self._open = on
+        self.update()
+
     def set_state(self, active: bool, has_key: bool):
         self.active, self.has_key = active, has_key
-        self.badge.setText("✓ chave salva" if has_key else ("em uso" if active else ""))
+        self.badge.setText("✓ em uso" if active else ("chave salva" if has_key else ""))
         self.badge.setVisible(bool(self.badge.text()))
         self.update()
 
@@ -216,7 +222,14 @@ class ProviderTile(QWidget):
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         r = QRectF(self.rect()).adjusted(1, 1, -1, -1)
         p.setBrush(QColor(theme.PRIMARY_SOFT) if self.active else (QColor(theme.HOVER) if self._hover else QColor(theme.SURFACE)))
-        p.setPen(QPen(QColor(theme.PRIMARY), 2) if self.active else QPen(QColor(theme.BORDER_HOVER if self._hover else theme.BORDER), 1))
+        if self.active:
+            p.setPen(QPen(QColor(theme.PRIMARY), 2))
+        elif self._open:
+            pen = QPen(QColor(theme.PRIMARY), 1.5)
+            pen.setStyle(Qt.PenStyle.DashLine)
+            p.setPen(pen)
+        else:
+            p.setPen(QPen(QColor(theme.BORDER_HOVER if self._hover else theme.BORDER), 1))
         p.drawRoundedRect(r, 12, 12)
 
 
@@ -744,8 +757,11 @@ class SettingsPage(QWidget):
         return self._scroll(box)
 
     def _select_provider(self, key: str):
-        self.shell.prefs.ai_provider = key
-        self.shell.prefs.save()
+        # só passa a usar a IA se ela já puder funcionar (chave salva, ou não precisa de chave);
+        # senão abre o painel para colar a chave, sem trocar a IA que está funcionando
+        if ai_mod.provider_ready(self.shell.prefs, self.shell.auth.c, key):
+            self.shell.prefs.ai_provider = key
+            self.shell.prefs.save()
         self.test_result.setText("")
         self._build_ai_panel(key)
 
@@ -754,8 +770,11 @@ class SettingsPage(QWidget):
         from PySide6.QtGui import QDesktopServices
 
         c, prefs = self.shell.auth.c, self.shell.prefs
+        self._panel_key = key
+        in_use = ai_mod.effective_provider(prefs, c)
         for k, t in self.ai_tiles.items():
-            t.set_state(k == key, ai_mod.has_api_key(c, k) if k in ai_mod._KEYRING_USERS else False)
+            t.set_state(k == in_use, ai_mod.has_api_key(c, k) if k in ai_mod._KEYRING_USERS else False)
+            t.set_open(k == key)
         lay = self.ai_panel.lay
         while lay.count():
             it = lay.takeAt(0)
@@ -820,8 +839,29 @@ class SettingsPage(QWidget):
         if has_key:
             status.setStyleSheet(f"color: {theme.SUCCESS}; font-size: 12px; font-weight: 600;")
         lay.addWidget(status)
-        keyf = PasswordInput("Cole aqui a sua chave" + (" (opcional para servidores locais)" if key == "custom" else ""))
+        keyf = PasswordInput("Cole aqui a sua chave (ela é salva sozinha)" + (" (opcional para servidores locais)" if key == "custom" else ""))
         lay.addWidget(Field("Chave de API", keyf))
+        self.key_field = keyf
+        # salva sozinho ao colar/digitar uma chave válida (antes era preciso lembrar de clicar em "Salvar chave")
+        autosave = QTimer(keyf, singleShot=True, interval=700)
+
+        def try_autosave():
+            txt = keyf.text().strip()
+            if len(txt) >= 16:
+                try:
+                    ai_mod._validate_key(key, txt)
+                except SecurityError:
+                    return
+                self._save_key(key, keyf)
+
+        autosave.timeout.connect(try_autosave)
+        keyf.textChanged.connect(lambda _t: autosave.start())
+        keyf.returnPressed.connect(lambda: self._save_key(key, keyf))
+        if not has_key and key in ai_mod.NEEDS_KEY and in_use != key:
+            note = label(f"Ainda sem chave: a IA em uso continua sendo {ai_mod.PROVIDERS[in_use][0]}. "
+                         "Cole a chave acima para passar a usar esta.", "muted", wrap=True)
+            note.setStyleSheet(f"color: {theme.WARNING}; font-size: 12px;")
+            lay.addWidget(note)
         row = QHBoxLayout()
         sv, rm = Button("Salvar chave", "primary"), Button("Remover chave", "ghost")
         sv.clicked.connect(lambda: self._save_key(key, keyf))
@@ -904,6 +944,13 @@ class SettingsPage(QWidget):
                   lambda e: Toast.show_message(self, str(e), "error", 6000))
 
     def _test_ai(self):
+        kf = getattr(self, "key_field", None)
+        try:
+            pending = kf is not None and kf.isVisible() and kf.text().strip()
+        except RuntimeError:
+            pending = False
+        if pending:  # chave colada e ainda não salva: salva antes de testar
+            self._save_key(self._panel_key, kf)
         self.test_btn.setEnabled(False)
         self.test_result.setText("Testando...")
         self.test_result.setStyleSheet("")
@@ -919,17 +966,29 @@ class SettingsPage(QWidget):
             done(str(exc), False)
             return
 
+        name = ai_mod.PROVIDERS[assistant.provider][0]
+
         def ok(msg):
             switched = getattr(assistant.backend, "switched_to", None)
             if switched:
                 self._save_model(assistant.provider, switched)  # lembra o modelo que funcionou
-            done(msg)
+            done(f"{name}: {msg}")
 
-        run_async(assistant.test_connection, ok, lambda e: done(str(e) if isinstance(e, ai_mod.AIError) else "Falha no teste.", False))
+        def fail(e):
+            if isinstance(e, ai_mod.AIError):
+                done(f"{name}: {e}", False)
+            else:
+                done(f"{name}: falha inesperada ({type(e).__name__}: {str(e)[:120]})", False)
+
+        run_async(assistant.test_connection, ok, fail)
 
     def _save_key(self, provider: str, field):
         try:
+            if not field.text().strip():
+                Toast.show_message(self, "Cole a chave no campo antes de salvar.", "warning")
+                return
             ai_mod.save_api_key(field.text(), self.shell.auth.c, provider)
+            field.blockSignals(True)
             field.clear()
             # salvar a chave já passa a usar esse provedor (antes era preciso clicar no cartão também)
             self.shell.prefs.ai_provider = provider
