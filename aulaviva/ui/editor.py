@@ -799,6 +799,10 @@ class EditorView(QWidget):
         export.clicked.connect(self.export_pdf)
         tl.addWidget(export)
         top.lay.addLayout(tl)
+        self.title.setMinimumWidth(160)
+        self._toolbar = [(back, "Meus materiais"), (settings, "Capa e opções"), (ai, "IA"),
+                         (self.preview_btn, "Prévia"), (export, "Exportar PDF")]
+        self._compact = False
         root.addWidget(top)
 
         # Corpo: documento editável + prévia
@@ -852,6 +856,21 @@ class EditorView(QWidget):
         self._reload_ui(-1)
         self.dirty = False
         self.save_state.setText("Salvo")
+
+    def resizeEvent(self, e):
+        super().resizeEvent(e)
+        compact = self.width() < 1180  # notebook: botões só com ícone, o título ganha espaço
+        if compact != self._compact:
+            self._compact = compact
+            for b, text in self._toolbar:
+                keep = b is self._toolbar[-1][0]
+                b.setText(("PDF" if keep else "") if compact else text)
+                b.setToolTip(text if compact else b.toolTip())
+                if compact and not keep:
+                    b.setFixedWidth(44)
+                else:
+                    b.setMinimumWidth(0)
+                    b.setMaximumWidth(16777215)
 
     def showEvent(self, e):
         super().showEvent(e)
@@ -1297,7 +1316,8 @@ class EditorView(QWidget):
     def _run_export(self, versions: list[tuple[str, bool]]):
         from aulaviva.core.config import Preferences
 
-        prefs = Preferences.load()
+        # usa as preferências já abertas no app (antes um arquivo era relido e regravado à parte, desfazendo ajustes)
+        prefs = getattr(self.window(), "prefs", None) or Preferences.load()
         base_dir = prefs.extra.get("last_export_dir") or str(Path.home() / "Documents")
         if not Path(base_dir).is_dir():
             base_dir = str(Path.home())

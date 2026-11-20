@@ -197,6 +197,7 @@ class LoginView(QWidget):
         root.addWidget(self.hero, 5)
         card = GlassCard(radius=24, padding=34, opacity=0.08)
         card.setFixedWidth(430)
+        self._card = card
         c = card.lay
         c.setSpacing(14)
         c.addWidget(label("Entrar", "h2"))
@@ -241,6 +242,12 @@ class LoginView(QWidget):
         bottom.addWidget(reg)
         bottom.addStretch()
         c.addLayout(bottom)
+        from aulaviva import __version__
+
+        ver = label(f"versão {__version__}", "muted")
+        ver.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        ver.setStyleSheet("font-size: 11px;")
+        c.addWidget(ver)
         root.addWidget(card, 0, Qt.AlignmentFlag.AlignVCenter)
         self.password.returnPressed.connect(self._login)
         self.email.returnPressed.connect(self.password.setFocus)
@@ -254,6 +261,10 @@ class LoginView(QWidget):
 
     def resizeEvent(self, e):
         self.hero.setVisible(self.width() > 980)
+        small = self.height() < 700  # notebook: menos margem para o cartão de login caber inteiro
+        self.layout().setContentsMargins(*(28, 10, 28, 10) if small else (60, 40, 60, 40))
+        self._card.lay.setSpacing(9 if small else 14)
+        self._card.lay.setContentsMargins(*(26, 18, 26, 18) if small else (34, 34, 34, 34))
         super().resizeEvent(e)
 
     def show_notice(self, text: str):

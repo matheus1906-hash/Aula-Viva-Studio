@@ -16,7 +16,7 @@ from aulaviva.core.config import data_dir
 from aulaviva.core.pdf_builder import build_pdf
 from aulaviva.core.samples import SAMPLES, sample_document, sample_pdf
 from aulaviva.ui import theme
-from aulaviva.ui.widgets import Button, GlassCard, Modal, Motion, SmoothScrollArea, Spinner, label
+from aulaviva.ui.widgets import Button, FlowLayout, GlassCard, Modal, Motion, SmoothScrollArea, Spinner, label
 from aulaviva.ui.workers import run_in_process
 
 THUMB = QSize(220, 311)
@@ -223,7 +223,8 @@ class TemplatesPage(QWidget):
         blank.clicked.connect(lambda: shell.new_material("branco"))
         head.addWidget(blank)
         lay.addLayout(head)
-        chips = QHBoxLayout()
+        chips_box = QWidget()
+        chips = FlowLayout(chips_box, 8)  # quebra linha em telas menores (antes os nomes ficavam cortados)
         self.filter = "Todos"
         self.chip_btns = []
         for name in ("Todos", "Apostila", "Lista de exercícios", "Avaliação / Prova", "Roteiro com QR codes"):
@@ -237,7 +238,6 @@ class TemplatesPage(QWidget):
             b.clicked.connect(lambda _=False, n=name: self.set_filter(n))
             chips.addWidget(b)
             self.chip_btns.append(b)
-        chips.addStretch()
         from PySide6.QtWidgets import QComboBox
 
         from aulaviva.ui.widgets import line_edit
@@ -251,9 +251,10 @@ class TemplatesPage(QWidget):
             self.subject.addItem(subj, subj)
         self.search.textChanged.connect(lambda _: self.refresh())
         self.subject.currentIndexChanged.connect(lambda _: self.refresh())
+        self.search.setFixedWidth(220)
         chips.addWidget(self.search)
         chips.addWidget(self.subject)
-        lay.addLayout(chips)
+        lay.addWidget(chips_box)
         self.count = label("", "muted")
         lay.addWidget(self.count)
         scroll = SmoothScrollArea()

@@ -87,6 +87,9 @@ def main() -> int:
     app.setOrganizationName(ORG_NAME)
     app.setApplicationVersion(__version__)
     app.setStyle("Fusion")
+    from aulaviva.ui.effects import app_icon
+
+    app.setWindowIcon(app_icon())  # logotipo na barra de tarefas e em todas as janelas
 
     def excepthook(exc_type, exc, tb):
         log.error("Erro não tratado: %s", "".join(traceback.format_exception(exc_type, exc, tb)))

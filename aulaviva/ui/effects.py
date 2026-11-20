@@ -268,8 +268,22 @@ def logo_pixmap(size: int) -> QPixmap:
     return pm
 
 
+_APP_ICON: QIcon | None = None
+
+
 def app_icon() -> QIcon:
-    icon = QIcon()
-    for s in (16, 24, 32, 48, 64, 128, 256):
-        icon.addPixmap(logo_pixmap(s))
-    return icon
+    """Ícone do app em vários tamanhos (o Windows escolhe o certo para a barra de tarefas, Alt+Tab, etc.)."""
+    global _APP_ICON
+    if _APP_ICON is None:
+        from aulaviva.core.config import resource_path
+
+        icon = QIcon()
+        ico = resource_path("aulaviva/assets/icon.ico")
+        png = resource_path("aulaviva/assets/icon.png")
+        for f in (ico, png):
+            if f.exists():
+                icon.addFile(str(f))
+        for s in (16, 20, 24, 32, 40, 48, 64, 128, 256):
+            icon.addPixmap(logo_pixmap(s))
+        _APP_ICON = icon
+    return _APP_ICON

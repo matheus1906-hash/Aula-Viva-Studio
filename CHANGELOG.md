@@ -1,5 +1,20 @@
 # Histórico de versões
 
+## 2.4.0
+- **Feito para notebook:** a janela não exigia mais altura do que a tela tem (1366x768 com zoom de 125%), abre no
+  tamanho certo (maximizada em telas pequenas), a barra lateral recolhe para só os ícones, os cartões do Início ficam
+  em 2 colunas, botões e filtros quebram de linha em vez de sair da tela, a barra do editor fica só com ícones e o
+  título aparece inteiro, e o cartão de login cabe inteiro.
+- **Botão "Importar vídeo"** no Início e no menu Importar de Meus materiais: cria um material com o vídeo anexado ao PDF
+  (e a transcrição, se a legenda .srt/.vtt estiver junto).
+- **Ícone na barra de tarefas:** o logotipo aparece no lugar do ícone genérico (atalhos com o mesmo identificador do app
+  e ícone definido para todas as janelas).
+- **IAs:** botão "Testar todas as IAs salvas" mostra o resultado de cada uma com a mensagem exata.
+- **Exportação de PDF:** um segundo processo auxiliar evita que a geração de miniaturas atrase a exportação; a pasta
+  escolhida é lembrada sem desfazer outros ajustes.
+- **Atualização limpa:** o instalador fecha o app aberto e remove os arquivos internos da versão anterior.
+- A versão instalada aparece na tela de login.
+
 ## 2.3.1
 - **Corrigido "Informe sua chave gratuita do Gemini" mesmo depois de colar a chave:**
   - a chave agora é **salva sozinha** ao colar (e também ao apertar Enter ou "Testar conexão");

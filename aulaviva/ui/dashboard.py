@@ -23,7 +23,7 @@ from aulaviva.ui import theme
 from aulaviva.ui.auth_views import ProfileForm, show_recovery_codes
 from aulaviva.ui.effects import logo_pixmap
 from aulaviva.ui.widgets import (
-    AnimatedStack, Button, Field, GlassCard, Modal, Motion, PasswordInput, SmoothScrollArea, Spinner, StrengthMeter, Toast,
+    AnimatedStack, Button, Field, FlowLayout, GlassCard, Modal, Motion, PasswordInput, SmoothScrollArea, Spinner, StrengthMeter, Toast,
     checkbox, confirm, fade_in, label, line_edit,
 )
 from aulaviva.ui.workers import run_async
@@ -59,6 +59,7 @@ class NavButton(QWidget):
     def __init__(self, icon: str, text: str):
         super().__init__()
         self.icon, self.text, self.active, self._hover, self._act = icon, text, False, 0.0, 0.0
+        self.compact = False
         self.setFixedHeight(44)
         self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         from PySide6.QtCore import QVariantAnimation
@@ -111,6 +112,9 @@ class NavButton(QWidget):
             h = (self.height() - 22) * self._act
             p.drawRoundedRect(QRectF(2, (self.height() - h) / 2, 4, h), 2, 2)
         col = QColor(theme.PRIMARY) if self.active else QColor(theme.TEXT_DIM)
+        if self.compact:  # barra lateral recolhida (notebook): só o ícone, centralizado
+            line_icon(p, QRectF((self.width() - 20) / 2, (self.height() - 20) / 2 - 1 * self._hover, 20, 20), self.icon, col)
+            return
         line_icon(p, QRectF(16 + 2 * self._hover, (self.height() - 20) / 2, 20, 20), self.icon, col)
         f = self.font()
         f.setPixelSize(14)
@@ -140,6 +144,7 @@ class Sidebar(GlassCard):
         nm.addWidget(label("Studio", "muted"))
         head.addLayout(nm)
         head.addStretch()
+        self._name_box = (nm.itemAt(0).widget(), nm.itemAt(1).widget())
         self.lay.addLayout(head)
         self.lay.addSpacing(14)
         self.buttons: dict[str, NavButton] = {}
@@ -157,9 +162,30 @@ class Sidebar(GlassCard):
         prof.lay.addWidget(self.user_inst)
         out = Button("Sair", "ghost", icon_text="⎋", height=34)  # ícone desenhado (logout)
         out.clicked.connect(self.logout)
+        out.setToolTip("Sair da conta")
         prof.lay.addWidget(out)
         self.lay.addWidget(prof)
+        self._prof, self._out = prof, out
+        self.compact = False
         self.set_user(user)
+
+    def set_compact(self, on: bool):
+        """Notebook: recolhe a barra lateral para só os ícones (mais espaço para o conteúdo)."""
+        if on == self.compact:
+            return
+        self.compact = on
+        self.setFixedWidth(84 if on else 232)
+        self.lay.setContentsMargins(*(10, 16, 10, 16) if on else (16, 16, 16, 16))
+        for w in self._name_box:
+            w.setVisible(not on)
+        self.user_name.setVisible(not on)
+        self.user_inst.setVisible(not on)
+        self._out.setText("" if on else "Sair")
+        self._prof.lay.setContentsMargins(*(4, 6, 4, 6) if on else (12, 12, 12, 12))
+        for b in self.buttons.values():
+            b.compact = on
+            b.setToolTip(b.text if on else "")
+            b.update()
 
     def set_user(self, user: User):
         self.user_name.setText(user.first_name)
@@ -377,6 +403,7 @@ class HomePage(SmoothScrollArea):
         lay.addWidget(label("O que vamos preparar para a turma hoje?", "dim"))
         qa = QGridLayout()
         qa.setSpacing(14)
+        self.qa_grid = qa
         actions = [("✦", "Criar com IA", "Escolha o tipo e o tema: a IA escreve tudo e você ajusta depois.", lambda: shell.new_material("apostila", ai_mode=True)),
                    ("📘", "Nova apostila", "Conteúdo em seções com capa, sumário, destaques e atividades.", lambda: shell.new_material("apostila")),
                    ("📝", "Lista de exercícios", "Cole suas questões em texto e elas viram questões interativas.", lambda: shell.new_material("lista")),
@@ -387,18 +414,19 @@ class HomePage(SmoothScrollArea):
             c.clicked.connect(fn)
             qa.addWidget(c, 0, i)
             self.qa_cards.append(c)
+        self._qa_cols = 4
         lay.addLayout(qa)
-        tools = QHBoxLayout()
-        tools.setSpacing(10)
+        tools_box = QWidget()
+        tools = FlowLayout(tools_box, 10)  # quebra linha em telas de notebook (antes os botões saíam da tela)
         for txt, icon, fn in (("Gerar QR code", "▦", lambda: shell.navigate("tools", tab=0)),
                               ("Gerar link (WhatsApp, Drive, YouTube...)", "🔗", lambda: shell.navigate("tools", tab=1)),
                               ("Importar Word, PowerPoint ou PDF", "📄", shell.import_material),
+                              ("Importar vídeo", "▶", shell.import_video),
                               ("Ver modelos prontos", "❏", lambda: shell.navigate("templates"))):
             b = Button(txt, "secondary", icon_text=icon, height=40)
             b.clicked.connect(fn)
             tools.addWidget(b)
-        tools.addStretch()
-        lay.addLayout(tools)
+        lay.addWidget(tools_box)
         row = QHBoxLayout()
         row.addWidget(label("Continuar de onde parou", "h2"))
         row.addStretch()
@@ -419,6 +447,16 @@ class HomePage(SmoothScrollArea):
         lay.addWidget(tips)
         lay.addStretch()
         self.setWidget(inner)
+
+    def resizeEvent(self, e):
+        super().resizeEvent(e)
+        cols = 4 if self.viewport().width() >= 940 else 2  # notebook: 2 colunas de cartões
+        if cols != self._qa_cols:
+            self._qa_cols = cols
+            for c in self.qa_cards:
+                self.qa_grid.removeWidget(c)
+            for i, c in enumerate(self.qa_cards):
+                self.qa_grid.addWidget(c, i // cols, i % cols)
 
     def refresh(self):
         self.hello.setText(f"{greeting()}, {self.shell.user.first_name}!")
@@ -447,6 +485,7 @@ class ProjectsPage(QWidget):
         def import_menu():
             menu = QMenu(self)
             menu.addAction("Arquivo do professor (Word, PowerPoint, PDF, Canva...)", shell.import_material)
+            menu.addAction("Vídeo do computador (anexado ao PDF)", shell.import_video)
             menu.addAction("Projeto do AulaViva (.aulaviva)", shell.import_project)
             menu.exec(imp.mapToGlobal(imp.rect().bottomLeft()))
 
@@ -751,6 +790,10 @@ class SettingsPage(QWidget):
         self.test_btn.clicked.connect(self._test_ai)
         self.test_result = label("", "dim", wrap=True)
         test_row.addWidget(self.test_btn)
+        all_btn = Button("Testar todas as IAs salvas", "ghost", height=40)
+        all_btn.setToolTip("Testa cada IA que tem chave salva e mostra o resultado de cada uma")
+        all_btn.clicked.connect(self._test_all)
+        test_row.addWidget(all_btn)
         test_row.addWidget(self.test_result, 1)
         lay.addLayout(test_row)
         lay.addStretch()
@@ -982,6 +1025,50 @@ class SettingsPage(QWidget):
 
         run_async(assistant.test_connection, ok, fail)
 
+    def _test_all(self):
+        """Diagnóstico: testa todas as IAs com chave salva (e o Ollama) e lista o resultado de cada uma."""
+        c, prefs = self.shell.auth.c, self.shell.prefs
+        providers = [p for p in ai_mod.PROVIDERS if p in ai_mod.NEEDS_KEY and ai_mod.has_api_key(c, p)] + ["ollama"]
+        m = Modal(self, 620)
+        m.body.addWidget(label("Diagnóstico das IAs", "h2"))
+        m.body.addWidget(label("Cada IA com chave salva recebe um pedido curto de teste.", "dim", wrap=True))
+        rows = {}
+        for p in providers:
+            r = label(f"⏳ {ai_mod.PROVIDERS[p][0]}: testando...", "dim", wrap=True)
+            m.body.addWidget(r)
+            rows[p] = r
+        if len(providers) == 1:
+            m.body.addWidget(label("Nenhuma chave salva ainda. Escolha uma IA gratuita acima, cole a chave e pronto.", "muted", wrap=True))
+        close = Button("Fechar", "secondary")
+        close.clicked.connect(m.close_modal)
+        m.body.addWidget(close, 0, Qt.AlignmentFlag.AlignRight)
+        m.open()
+
+        for p in providers:
+            def work(p=p):
+                a = ai_mod.Assistant(p, ai_mod.load_api_key(c, p), ai_mod.provider_model(prefs, p), prefs.ai_effort,
+                                     prefs.ollama_url, str(prefs.extra.get("custom_url", "")))
+                return a.test_connection(), getattr(a.backend, "switched_to", None)
+
+            def ok(res, p=p):
+                msg, switched = res
+                if switched:
+                    self._save_model(p, switched)
+                try:
+                    rows[p].setText(f"✓ {ai_mod.PROVIDERS[p][0]}: {msg}")
+                    rows[p].setStyleSheet(f"color: {theme.SUCCESS}; font-weight: 600;")
+                except RuntimeError:
+                    pass
+
+            def fail(e, p=p):
+                try:
+                    rows[p].setText(f"✗ {ai_mod.PROVIDERS[p][0]}: {e if isinstance(e, ai_mod.AIError) else type(e).__name__ + ': ' + str(e)[:120]}")
+                    rows[p].setStyleSheet(f"color: {theme.DANGER};")
+                except RuntimeError:
+                    pass
+
+            run_async(work, ok, fail)
+
     def _save_key(self, provider: str, field):
         try:
             if not field.text().strip():
@@ -1199,6 +1286,7 @@ class Shell(QWidget):
         root = QHBoxLayout(self)
         root.setContentsMargins(16, 16, 16, 16)
         root.setSpacing(16)
+        self._root = root
         self.sidebar = Sidebar(user)
         self.sidebar.navigate.connect(self.navigate)
         self.sidebar.logout.connect(lambda: self.logout.emit(""))
@@ -1232,6 +1320,14 @@ class Shell(QWidget):
         if tab is not None and hasattr(page, "tabs"):
             page.tabs.setCurrentIndex(tab)
         self.stack.slide_to(page, direction)
+
+    def resizeEvent(self, e):
+        super().resizeEvent(e)
+        narrow = self.width() < 1200
+        self.sidebar.set_compact(narrow)
+        m = 10 if narrow else 16
+        self._root.setContentsMargins(m, m, m, m)
+        self._root.setSpacing(m)
 
     def refresh_current(self):
         page = self.pages[self.current]
@@ -1345,6 +1441,45 @@ class Shell(QWidget):
         doc = template_documents()[name]
         pid = self.store.create(self.user.id, self._author_defaults(doc))
         self.open_editor.emit(pid)
+
+    def import_video(self):
+        """Importar vídeo: cria um material com o vídeo anexado (e a transcrição, se houver legenda junto)."""
+        from PySide6.QtWidgets import QFileDialog
+
+        from aulaviva.core.importers import ImportError_, import_file
+        from aulaviva.core.media import VIDEO_FILTER, MediaStore, attach_imported_video
+        from aulaviva.core.projects import document_for_kind
+
+        path, _ = QFileDialog.getOpenFileName(self, "Importar vídeo", "", VIDEO_FILTER + ";;Todos os arquivos (*)")
+        if not path:
+            return
+        busy = Modal(self, 400, dismissable=False)
+        busy.body.addWidget(label("Guardando o vídeo com segurança...", "h3"))
+        busy.body.addWidget(label("Vídeos grandes podem levar alguns segundos.", "dim"))
+        busy.body.addWidget(Spinner(), 0, Qt.AlignmentFlag.AlignHCenter)
+        busy.open()
+        p = self.user.profile
+        author, school = (p.display_name, p.institution) if p else ("", "")
+        store = MediaStore(self.auth.c, self.user.id)
+
+        def work():
+            res = import_file(path)
+            attach_imported_video(res, store)
+            return res
+
+        def ok(res):
+            busy.close_modal()
+            doc = document_for_kind("apostila", res.title, p.subjects.split(",")[0].strip() if p else "", "", author, school)
+            doc["blocks"] = list(res.blocks)
+            self._open_new(doc)
+            Toast.show_message(self, " ".join(["Vídeo anexado ao material."] + res.warnings[:1]), "success", 8000)
+
+        def fail(exc):
+            busy.close_modal()
+            Toast.show_message(self, str(exc) if isinstance(exc, (ImportError_, SecurityError)) else "Não foi possível importar o vídeo.",
+                               "error", 8000)
+
+        run_async(work, ok, fail)
 
     def import_material(self, preselect: str = "apostila"):
         """Cria um material a partir de um arquivo do professor (Word, PowerPoint, PDF...), com ou sem IA."""

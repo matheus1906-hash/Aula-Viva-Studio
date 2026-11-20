@@ -5,12 +5,12 @@ from __future__ import annotations
 from typing import Callable
 
 from PySide6.QtCore import (
-    QEasingCurve, QEvent, QParallelAnimationGroup, QPoint, QPropertyAnimation, QRectF, QSize, Qt, QTimer,
+    QEasingCurve, QEvent, QParallelAnimationGroup, QPoint, QPropertyAnimation, QRect, QRectF, QSize, Qt, QTimer,
     QVariantAnimation, Signal,
 )
 from PySide6.QtGui import QColor, QCursor, QLinearGradient, QPainter, QPainterPath, QPen, QPixmap
 from PySide6.QtWidgets import (
-    QAbstractButton, QCheckBox, QFrame, QGraphicsOpacityEffect, QHBoxLayout, QLabel, QLineEdit, QPushButton,
+    QAbstractButton, QCheckBox, QFrame, QGraphicsOpacityEffect, QHBoxLayout, QLabel, QLayout, QLineEdit, QPushButton,
     QScrollArea, QSizePolicy, QStackedWidget, QVBoxLayout, QWidget,
 )
 
@@ -116,6 +116,65 @@ class GlassCard(QFrame):
                             int(border.blue() + (pc.blue() - border.blue()) * self._h))
         p.setPen(QPen(border, 1 + 0.5 * self._h))
         p.drawRoundedRect(r, self.radius, self.radius)
+
+
+class FlowLayout(QLayout):
+    """Itens lado a lado que quebram para a linha de baixo quando falta espaço (telas de notebook)."""
+
+    def __init__(self, parent=None, spacing: int = 10):
+        super().__init__(parent)
+        self._items = []
+        self._sp = spacing
+        self.setContentsMargins(0, 0, 0, 0)
+
+    def addItem(self, item):  # noqa: N802
+        self._items.append(item)
+
+    def count(self):
+        return len(self._items)
+
+    def itemAt(self, i):  # noqa: N802
+        return self._items[i] if 0 <= i < len(self._items) else None
+
+    def takeAt(self, i):  # noqa: N802
+        return self._items.pop(i) if 0 <= i < len(self._items) else None
+
+    def expandingDirections(self):  # noqa: N802
+        return Qt.Orientation(0)
+
+    def hasHeightForWidth(self):  # noqa: N802
+        return True
+
+    def heightForWidth(self, w):  # noqa: N802
+        return self._do(QRect(0, 0, w, 0), True)
+
+    def setGeometry(self, r):  # noqa: N802
+        super().setGeometry(r)
+        self._do(r, False)
+
+    def sizeHint(self):  # noqa: N802
+        return self.minimumSize()
+
+    def minimumSize(self):  # noqa: N802
+        sz = QSize()
+        for it in self._items:
+            sz = sz.expandedTo(it.minimumSize())
+        return sz
+
+    def _do(self, r, test: bool) -> int:
+        x, y, line_h = r.x(), r.y(), 0
+        for it in self._items:
+            if it.widget() is not None and not it.widget().isVisibleTo(it.widget().parentWidget()):
+                continue
+            hint = it.sizeHint()
+            w = min(hint.width(), r.width())
+            if x + w > r.right() + 1 and line_h > 0:
+                x, y, line_h = r.x(), y + line_h + self._sp, 0
+            if not test:
+                it.setGeometry(QRect(QPoint(x, y), QSize(w, hint.height())))
+            x += w + self._sp
+            line_h = max(line_h, hint.height())
+        return y + line_h - r.y()
 
 
 class Button(QPushButton):
@@ -668,9 +727,12 @@ class Toast(QLabel):
         grp.start()
 
         def fade_out():
-            out = QPropertyAnimation(eff, b"opacity", t, duration=Motion.ms(300), startValue=1.0, endValue=0.0)
-            out.finished.connect(t.deleteLater)
-            out.start()
+            try:
+                out = QPropertyAnimation(eff, b"opacity", t, duration=Motion.ms(300), startValue=1.0, endValue=0.0)
+                out.finished.connect(t.deleteLater)
+                out.start()
+            except RuntimeError:  # aviso já foi fechado/destruído
+                pass
 
         QTimer.singleShot(ms, fade_out)
 
@@ -835,7 +897,7 @@ def checkbox(text: str, checked: bool = False) -> QCheckBox:
 
 
 __all__ = [
-    "Motion", "GlassCard", "Button", "ProviderButton", "LinkButton", "Field", "line_edit", "PasswordInput",
+    "Motion", "FlowLayout", "GlassCard", "Button", "ProviderButton", "LinkButton", "Field", "line_edit", "PasswordInput",
     "StrengthMeter", "ChipGroup", "SmoothScrollArea", "AnimatedStack", "fade_in", "Spinner", "Toast", "Modal",
     "confirm", "label", "hline", "hbox", "checkbox", "QAbstractButton",
 ]

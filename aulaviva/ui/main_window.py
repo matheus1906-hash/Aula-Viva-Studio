@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import time
 
-from PySide6.QtCore import QEvent, QObject, QTimer
+from PySide6.QtCore import QEvent, QObject, Qt, QTimer
 from PySide6.QtWidgets import QApplication, QMainWindow, QStackedLayout, QWidget
 
 from aulaviva import APP_NAME
@@ -47,8 +47,8 @@ class MainWindow(QMainWindow):
         self.editor = None  # EditorView (importado sob demanda: abre o app mais rápido)
         self.setWindowTitle(APP_NAME)
         self.setWindowIcon(app_icon())
-        self.setMinimumSize(1080, 700)
-        self.resize(1360, 860)
+        self.setMinimumSize(900, 560)  # cabe em notebook 1366x768 com zoom de 125% (1093x614)
+        self._fit_to_screen()
 
         central = QWidget()
         layout = QStackedLayout(central)
@@ -74,6 +74,18 @@ class MainWindow(QMainWindow):
                 self.stack.setCurrentWidget(self.login)
         else:
             self.show_intro(first=True)
+
+    def _fit_to_screen(self):
+        """Abre num tamanho que cabe na tela (antes 1360x860 fixo: em notebook a janela passava da tela)."""
+        scr = QApplication.primaryScreen()
+        if scr is None:
+            self.resize(1360, 860)
+            return
+        avail = scr.availableGeometry()
+        w, h = min(1360, int(avail.width() * 0.94)), min(860, int(avail.height() * 0.92))
+        self.resize(max(900, w), max(560, h))
+        if avail.width() < 1300 or avail.height() < 760:
+            self.setWindowState(self.windowState() | Qt.WindowState.WindowMaximized)
 
     @staticmethod
     def _warm_imports():

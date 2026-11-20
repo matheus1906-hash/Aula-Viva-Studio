@@ -65,7 +65,8 @@ def _get_executor():
         import multiprocessing
         from concurrent.futures import ProcessPoolExecutor
 
-        _executor = ProcessPoolExecutor(max_workers=1, mp_context=multiprocessing.get_context("spawn"))
+        _executor = ProcessPoolExecutor(max_workers=2,  # 2: miniaturas de modelos não atrasam a exportação
+                                         mp_context=multiprocessing.get_context("spawn"))
         atexit.register(lambda: _executor.shutdown(wait=False, cancel_futures=True))
     return _executor
 

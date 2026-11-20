@@ -305,3 +305,50 @@ def test_ai_key_autosave_and_tile_selection(tmp_path, monkeypatch):
     assert ai.effective_provider(prefs, db.crypto) == "groq"
     w.deleteLater()
     db.close()
+
+
+def test_notebook_layout_and_import_video(tmp_path, monkeypatch):
+    """Tela de notebook (1093x614): janela cabe, barra lateral recolhe, cartões em 2 colunas; botão Importar vídeo."""
+    import secrets
+
+    from PySide6.QtWidgets import QApplication, QFileDialog
+
+    app = QApplication.instance() or QApplication([])
+    from aulaviva.core.auth import AuthService
+    from aulaviva.core.config import Preferences
+    from aulaviva.core.database import Database
+    from aulaviva.core.security import Crypto
+    from aulaviva.ui.dashboard import HomePage
+    from aulaviva.ui.main_window import MainWindow
+    from aulaviva.ui.widgets import Motion
+    from tests.test_auth_projects import profile
+
+    monkeypatch.setattr("aulaviva.core.media.data_dir", lambda: tmp_path)
+    monkeypatch.setattr(Preferences, "save", lambda self: None)
+    Motion.enabled = False
+    db = Database(tmp_path / "n.db", Crypto(secrets.token_bytes(32)))
+    AuthService(db).register("nb@escola.com", "Giz&Lousa-2026x", profile(), True)
+    w = MainWindow(db, Preferences(first_run_done=True, keep_signed_in=False))
+    assert w.minimumSize().height() <= 614 and w.minimumSize().width() <= 1093
+    w.on_login(w.auth.login("nb@escola.com", "Giz&Lousa-2026x"), animate=False)
+    w.showNormal()
+    w.resize(1093, 614)
+    _wait(100)
+    assert w.shell.sidebar.compact and w.shell.sidebar.width() < 100
+    home = w.shell.findChildren(HomePage)[0]
+    home.resize(900, 500)
+    _wait(50)
+    assert home._qa_cols == 2
+    video = tmp_path / "experimento.mp4"
+    video.write_bytes(b"\x00\x00\x00\x18ftypmp42" + secrets.token_bytes(20_000))
+    monkeypatch.setattr(QFileDialog, "getOpenFileName", staticmethod(lambda *a, **k: (str(video), "")))
+    w.shell.import_video()
+    for _ in range(50):
+        if w.editor is not None:
+            break
+        _wait(100)
+    assert any(b["type"] == "video" and b.get("media") for b in w.editor.doc["blocks"])
+    w.shell.sidebar.set_compact(False)
+    assert w.shell.sidebar.width() == 232
+    w.deleteLater()
+    db.close()
