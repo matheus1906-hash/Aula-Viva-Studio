@@ -39,5 +39,9 @@ const inline = "globalThis.AV=globalThis.AV||{};AV.MODELOS_INLINE=" + JSON.strin
 const solo = shellSrc.replace("<!--ICONS-->", () => icons).replace("/*CSS*/", () => css).replace("/*JS*/", () => inline + js)
   .replace("<title>", '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>').replace("<style>", "<style>body{margin:0}") + "</body></html>";
 fs.writeFileSync("dist/aulaviva-studio-standalone.html", solo.replace('<svg width="0"', '</head><body><svg width="0"'));
+// site pronto para hospedar (GitHub Pages, Vercel, Netlify): dist/site/index.html
+fs.mkdirSync("dist/site", { recursive: true });
+fs.copyFileSync("dist/aulaviva-studio-standalone.html", "dist/site/index.html");
+fs.writeFileSync("dist/site/.nojekyll", "");
 console.log("modelos", modelos.length, "obras", obras.length, "livros", livros.length);
 console.log("dist/aulaviva-studio.html", (html.length / 1024).toFixed(0) + " KB", "missing:", order.filter((f) => !fs.existsSync("src/" + f)));

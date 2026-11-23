@@ -21,14 +21,9 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
-      - name: Montar o site
-        run: |
-          mkdir -p site
-          cp dist/aulaviva-studio-standalone.html site/index.html
-          touch site/.nojekyll
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: site
+          path: dist/site
   deploy:
     needs: build
     runs-on: ubuntu-latest
