@@ -43,7 +43,7 @@ begin
  end if;
  v_week:=date_trunc('week',now() at time zone 'utc')::date;
  select count(*)::integer into v_used from public.av_ai_usage where user_id=p_user_id and week_start=v_week
- and (state='completed' or (state='reserved' and expires_at>now()));
+ and reserved_at>=p.trial_ends_at and reserved_at>=p.trial_ends_at and (state='completed' or (state='reserved' and expires_at>now()));
  v_trial:=now()<p.trial_ends_at;
  return jsonb_build_object('userId',p_user_id,'plan',case when v_trial then 'welcome' else 'free' end,
  'trialStartedAt',p.trial_started_at,'trialEndsAt',p.trial_ends_at,'trialActive',v_trial,
