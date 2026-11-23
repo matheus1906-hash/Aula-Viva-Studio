@@ -1,0 +1,48 @@
+const { chromium } = require("playwright"); const path = require("path");
+const root = path.join(__dirname, "..");
+(async () => {
+  const b = await chromium.launch(); const errs = [];
+  const ctx = await b.newContext({ viewport: { width: 1280, height: 860 }, acceptDownloads: true });
+  await ctx.route("https://fonts.**", (r) => r.abort());
+  const map = { "docx@8.5.0/build/index.umd.js": "node_modules/docx/build/index.umd.js", "jspdf@2.5.1/dist/jspdf.umd.min.js": "node_modules/jspdf/dist/jspdf.umd.min.js" };
+  await ctx.route("https://cdn.jsdelivr.net/npm/**", (rt) => { const k = Object.keys(map).find((k) => rt.request().url().endsWith(k)); k ? rt.fulfill({ path: path.join(root, map[k]), contentType: "application/javascript" }) : rt.abort(); });
+  let calls = [];
+  await ctx.route("https://api.groq.com/**", async (r) => {
+    const u = r.request().url(); calls.push(u.replace(/.*groq.com/, ""));
+    if (u.endsWith("/models")) return r.fulfill({ json: { data: [{ id: "whisper-large-v3" }, { id: "llama-3.3-70b-versatile" }, { id: "llama-3.1-8b-instant" }] } });
+    const body = JSON.parse(r.request().postData() || "{}");
+    const wantsJson = !!body.response_format;
+    const content = wantsJson ? JSON.stringify({ title: "Frações", subtitle: "via Groq", blocks: [{ type: "heading", text: "Parte 1", level: 1 }, { type: "open_question", prompt: "O que é fração?", lines: 3, answer: "parte" }] }) : "OK";
+    r.fulfill({ json: { choices: [{ message: { content } }] } });
+  });
+  await ctx.addInitScript(() => { if (!localStorage.getItem("av:profile")) localStorage.setItem("av:profile", JSON.stringify({ lang: "pt" })); });
+  const p = await ctx.newPage();
+  p.on("pageerror", (e) => errs.push(e.message)); p.on("console", (m) => m.type() === "error" && !/fonts|ERR_FAILED/.test(m.text()) && errs.push(m.text()));
+  await p.goto("file://" + path.join(root, "dist/aulaviva-studio-standalone.html")); await p.waitForTimeout(400);
+  await p.evaluate(() => (location.hash = "config")); await p.waitForTimeout(400);
+  await p.screenshot({ path: path.join(root, "tests/shot-config.png"), fullPage: false });
+  const groqKey = p.locator('input[aria-label="Chave de Groq"]');
+  await groqKey.fill("gsk_teste_123"); await groqKey.dispatchEvent("change"); await p.waitForTimeout(500);
+  console.log("model chosen:", await p.locator('select[aria-label="Modelo de Groq"]').inputValue());
+  console.log("active label:", await p.locator("#ai-active").inputValue(), await p.evaluate(() => AV.AI.label()));
+  await p.click("text=Testar todas as IAs salvas"); await p.waitForTimeout(800);
+  console.log("test all:", (await p.locator("#cfg-ia .list").innerText()).replace(/\n/g, " | "));
+  await p.evaluate(() => (location.hash = "inicio")); await p.waitForTimeout(200);
+  await p.click("text=Criar com IA"); await p.fill("#ai-topic", "Frações"); await p.click("text=Gerar material"); await p.waitForSelector(".ed-title");
+  console.log("doc via groq:", await p.inputValue(".ed-title"), await p.locator(".blk").count(), "blocks");
+  const [dl] = await Promise.all([p.waitForEvent("download"), (async () => { await p.click("text=Exportar"); await p.locator(".dlg .menu button", { hasText: "Word" }).click(); })()]);
+  console.log("download:", dl.suggestedFilename());
+  await p.keyboard.press("Escape");
+  await p.evaluate(() => (location.hash = "modelos")); await p.waitForSelector("text=Usar modelo"); console.log("modelos inline:", await p.locator("text=Usar modelo").count());
+  // tema
+  await p.evaluate(() => (location.hash = "inicio")); await p.waitForTimeout(200);
+  await p.screenshot({ path: path.join(root, "tests/shot-home-light.png") });
+  await p.click("[data-theme-btn]"); await p.waitForTimeout(200);
+  console.log("theme after toggle:", await p.evaluate(() => document.documentElement.getAttribute("data-theme")));
+  await p.screenshot({ path: path.join(root, "tests/shot-home-dark.png") });
+  await p.evaluate(() => (location.hash = "estudio")); await p.waitForTimeout(300); await p.screenshot({ path: path.join(root, "tests/shot-studio-dark.png") });
+  await p.evaluate(() => (location.hash = "atividades")); await p.waitForTimeout(300); await p.screenshot({ path: path.join(root, "tests/shot-act-dark.png") });
+  console.log("groq calls:", calls.join(", "));
+  console.log("ERRORS:", JSON.stringify(errs));
+  await b.close();
+})().catch((e) => { console.error(e); process.exit(1); });
