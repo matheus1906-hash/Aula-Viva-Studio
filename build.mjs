@@ -1,5 +1,5 @@
 import fs from "node:fs";
-const order = ["core.js", "i18n.js", "i18n-dict.js", "i18n-extra.js", "importers.js", "exporters.js", "atividades.js", "biblioteca-data.js", "providers.js", "ai.js", "ai-live.js", "ai-settings.js", "preview.js", "editor.js", "views.js", "chat-studio.js", "animacao.js", "animacao-modelos.js", "views2.js", "main.js"];
+const order = ["core.js", "vault.js", "i18n.js", "i18n-dict.js", "i18n-extra.js", "importers.js", "exporters.js", "atividades.js", "biblioteca-data.js", "providers.js", "ai.js", "ai-live.js", "ai-settings.js", "preview.js", "editor.js", "views.js", "chat-studio.js", "animacao.js", "animacao-modelos.js", "views2.js", "auth.js", "main.js"];
 const js = order.filter((f) => fs.existsSync("src/" + f)).map((f) => "/* " + f + " */\n" + fs.readFileSync("src/" + f, "utf8")).join("\n;\n");
 const css = fs.readFileSync("src/app.css", "utf8") + "\n" + fs.readFileSync("src/theme-v4.css", "utf8");
 const v4 = fs.existsSync("src/icons-v4.html") ? fs.readFileSync("src/icons-v4.html", "utf8") : "";
@@ -35,9 +35,12 @@ const livros = fs.existsSync("data/livros.json") ? JSON.parse(fs.readFileSync("d
 fs.writeFileSync("dist/data/livros.json", JSON.stringify(livros));
 fs.writeFileSync("dist/data/acervo.json", JSON.stringify(acervo));
 // versão para hospedar: arquivo único, modelos embutidos
-const inline = "globalThis.AV=globalThis.AV||{};AV.MODELOS_INLINE=" + JSON.stringify(modelos).replace(/<\//g, "<\\/") + ";AV.ACERVO_INLINE=" + JSON.stringify(acervo).replace(/<\//g, "<\\/") + ";AV.LIVROS_INLINE=" + JSON.stringify(livros).replace(/<\//g, "<\\/") + ";\n";
+const shots = fs.existsSync("data/login-shots.json") ? fs.readFileSync("data/login-shots.json", "utf8") : "[]";
+const CSP = "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; worker-src 'self' blob: https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; connect-src 'self' https: data: blob: http://localhost:11434 http://127.0.0.1:11434; frame-src https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com https://archive.org; object-src 'none'; base-uri 'none'; form-action 'none'; upgrade-insecure-requests";
+fs.writeFileSync("dist/csp.txt", CSP);
+const inline = "globalThis.AV=globalThis.AV||{};AV.STANDALONE=true;AV.LOGIN_SHOTS=" + shots + ";AV.MODELOS_INLINE=" + JSON.stringify(modelos).replace(/<\//g, "<\\/") + ";AV.ACERVO_INLINE=" + JSON.stringify(acervo).replace(/<\//g, "<\\/") + ";AV.LIVROS_INLINE=" + JSON.stringify(livros).replace(/<\//g, "<\\/") + ";\n";
 const solo = shellSrc.replace("<!--ICONS-->", () => icons).replace("/*CSS*/", () => css).replace("/*JS*/", () => inline + js)
-  .replace("<title>", '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>').replace("<style>", "<style>body{margin:0}") + "</body></html>";
+  .replace("<title>", '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta http-equiv="Content-Security-Policy" content="' + CSP + '"><meta name="referrer" content="no-referrer"><title>').replace("<style>", "<style>body{margin:0}") + "</body></html>";
 fs.writeFileSync("dist/aulaviva-studio-standalone.html", solo.replace('<svg width="0"', '</head><body><svg width="0"'));
 // site pronto para hospedar (GitHub Pages, Vercel, Netlify): dist/site/index.html
 fs.mkdirSync("dist/site", { recursive: true });

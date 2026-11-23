@@ -84,9 +84,22 @@ Em **Ajustes → Inteligência artificial**, escolha uma IA e cole a **sua** cha
 
 Nenhuma chave vem embutida no app. Dados pessoais de alunos nunca são enviados às IAs.
 
+## Segurança e privacidade
+
+O site abre com uma tela de boas-vindas e login. A conta é **local**: nada vai para servidores.
+
+![Tela de boas-vindas e login](docs/screenshots/login.webp)
+
+- **Criptografia de verdade:** materiais, conversas, fontes, chaves de IA e perfil ficam cifrados no navegador com **AES-256-GCM**. A chave é protegida pela senha com **PBKDF2-SHA-256 (600 mil iterações)**; a senha nunca é guardada nem enviada.
+- **Código de recuperação** para redefinir a senha sem perder os materiais.
+- **Bloqueio progressivo** após 5 senhas erradas e **bloqueio automático** por inatividade (5 a 60 min).
+- **"Manter conectado"** opcional, com chave não exportável guardada no próprio aparelho por 7 dias.
+- **Modo visitante** para explorar sem conta, sem gravar nada.
+- **Cabeçalhos de segurança:** Content-Security-Policy, proteção contra abertura em iframe (clickjacking), `no-referrer`, HSTS, `nosniff` e Permissions-Policy (no Vercel, via `vercel.json`).
+
 ## Privacidade e acessibilidade
 
-- Sem cadastro, sem anúncios e sem rastreadores.
+- Sem anúncios e sem rastreadores.
 - Arquivos importados são lidos no seu aparelho; macros são bloqueadas.
 - Interface auditada com axe (WCAG 2.1 AA) nos temas claro e escuro, navegável por teclado.
 
@@ -100,6 +113,7 @@ npm run build     # gera dist/aulaviva-studio-standalone.html (o site completo, 
 npm test          # testes de importação, exportação e atividades
 npm run test:e2e  # testes no navegador (Playwright + Chromium)
 npm run test:a11y # auditoria de acessibilidade
+node tests/auth.cjs   # login, criptografia, bloqueio e recuperação
 node tests/screenshots.cjs   # atualiza as imagens deste README
 ```
 

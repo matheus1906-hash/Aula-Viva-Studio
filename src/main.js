@@ -1,8 +1,9 @@
 (function (AV) {
   "use strict";
   const h = AV.h;
-  function boot() {
+  async function boot() {
     AV.applyTheme();
+    if (AV.Auth) { AV.startI18n && AV.startI18n(); try { await AV.Auth.gate(); } catch (e) { return; } AV.applyTheme(); }
     document.getElementById("fab-wa").addEventListener("click", () => {
       const cur = (location.hash === "#editor") ? AV.Store.get(AV.LS.get("lastDoc")) : null;
       AV.whatsSheet(cur);

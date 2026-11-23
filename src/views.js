@@ -420,6 +420,7 @@
           h("div", { class: "seg", role: "group", "aria-label": "Idioma", "data-notr": "" }, Object.keys(AV.LANGS).map((k) => h("button", { type: "button", "aria-pressed": k === AV.lang() ? "true" : "false", onclick: () => AV.setLang(k) }, AV.LANGS[k][2] + " " + AV.LANGS[k][0]))),
           h("p", { class: "muted small" }, "O idioma muda a interface e é o idioma padrão dos novos materiais. Cada material pode ter o seu idioma."), theme),
         h("section", { class: "card", id: "cfg-ia", style: { display: "grid", gap: "12px" } }, h("h2", null, "Inteligência artificial"), AV.aiSettingsPanel()),
+        AV.securityPanel ? AV.securityPanel() : null,
         h("section", { class: "card", style: { display: "grid", gap: "12px" } }, h("h2", null, "Seus dados (LGPD)"),
           h("p", { class: "muted small" }, "Seus materiais ficam na sua conta, visíveis só para você, e uma cópia fica neste navegador."),
           h("div", { class: "row" },

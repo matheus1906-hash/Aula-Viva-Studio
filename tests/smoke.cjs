@@ -21,7 +21,7 @@ const srv = http.createServer((q, r) => { const f = path.join(root, "dist", deco
     window.__saved = []; try { localStorage.setItem("av:profile", JSON.stringify({ lang: "pt" })); } catch (e) {}
     const caps = {
       downloads: { save: async ({ filename, data }) => { const size = data instanceof Blob ? data.size : (data.length || data.byteLength); window.__saved.push([filename, size]); return { status: "saved" }; } },
-      sample: Object.assign(async (inp, o) => { const t = "# Projeto\n- item 1\n- item 2"; o && o.onText && o.onText({ text: t, delta: t }); return { text: t }; },
+      sample: Object.assign(async (inp, o) => { const t = /"blocks"|blocks/.test(JSON.stringify(inp)) ? JSON.stringify(await caps.sample.json()) : "# Projeto\n- item 1\n- item 2"; o && o.onText && o.onText({ text: t, delta: t }); return { text: t }; },
         { json: async (p) => ({ title: "Ciclo da água", subtitle: "Teste", blocks: [{ type: "heading", text: "Introdução", level: 1 }, { type: "paragraph", text: "A **água** circula." }, { type: "choice_question", prompt: "O que é evaporação?", options: ["a", "b", "c", "d"], correct: 1 }, { type: "match", prompt: "Ligue", left: ["x", "y"], right: ["1", "2"] }], questions: [{ prompt: "Q1", options: ["a", "b"], correct: 0, explanation: "porque" }], cards: [{ front: "f", back: "b" }], center: "Água", branches: [{ label: "Estados", children: ["sólido", "líquido"] }], lines: [{ speaker: "Ana", text: "Oi" }, { speaker: "Léo", text: "Olá" }], words: ["sol", "lua", "mar"] }) })
     };
     window.claude = { use: async (n) => caps[n] || null };
@@ -32,7 +32,7 @@ const srv = http.createServer((q, r) => { const f = path.join(root, "dist", deco
   const shot = (n) => p.screenshot({ path: path.join(root, "tests", "shot-" + n + ".png") });
   await shot("inicio");
   // criar com IA
-  await p.click("text=Criar com IA"); await p.fill("#ai-topic", "Ciclo da água"); await p.click("text=Gerar material"); await p.waitForSelector(".ed-title");
+  await p.click("text=Criar com IA"); await p.fill("#ai-topic", "Ciclo da água"); await p.click("text=Gerar material"); await p.click("text=Abrir no editor", { timeout: 30000 }); await p.waitForSelector(".ed-title");
   console.log("editor title:", await p.inputValue(".ed-title"), "blocks:", await p.locator(".blk").count());
   await p.waitForTimeout(500); await shot("editor");
   // exportar todos os formatos

@@ -49,7 +49,7 @@ const srv = http.createServer((q, r) => { const f = path.join(root, "dist", deco
   });
   await c2.addInitScript(() => { localStorage.setItem("av:profile", JSON.stringify({ lang: "pt" })); localStorage.setItem("av:aicfg", JSON.stringify({ active: "groq", keys: { groq: "gsk_x" }, models: { groq: "llama-3.3-70b-versatile" }, base: {} })); });
   const p2 = await c2.newPage(); p2.on("pageerror", (e) => errs.push(e.message));
-  await p2.goto("file://" + path.join(root, "dist/aulaviva-studio-standalone.html")); await p2.waitForTimeout(400);
+  await p2.goto("file://" + path.join(root, "dist/aulaviva-studio-standalone.html")); await p2.click("text=Explorar sem criar conta"); await p2.waitForTimeout(400);
   await p2.click("text=Criar com IA"); await p2.fill("#ai-topic", "Ciclo da água"); await p2.click("text=Gerar material");
   await p2.waitForSelector("text=Abrir no editor", { timeout: 15000 });
   ok(streamed, "Groq usado em modo de streaming (SSE)");

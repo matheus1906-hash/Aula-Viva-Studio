@@ -63,6 +63,7 @@
   let queued = new Set(), sched = false;
   function flush() { sched = false; const q = queued; queued = new Set(); q.forEach((n) => { if (n.isConnected) AV.translateTree(n); }); }
   AV.startI18n = function () {
+    if (AV._i18nOn) return; AV._i18nOn = true;
     document.documentElement.lang = AV.locale();
     if (AV.lang() !== "pt") AV.translateTree(document.body);
     new MutationObserver((ms) => {

@@ -215,12 +215,14 @@
   };
 
   /* ---------- armazenamento: db por usuário + cópia local ---------- */
-  const LS = {
+  const baseLS = {
     get(k, d) { try { const v = localStorage.getItem("av:" + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
     set(k, v) { try { localStorage.setItem("av:" + k, JSON.stringify(v)); return true; } catch (e) { return false; } },
     del(k) { try { localStorage.removeItem("av:" + k); } catch (e) {} }
   };
-  AV.LS = LS;
+  AV.LS = baseLS;
+  /* sempre passa pelo AV.LS atual (o cofre cifrado o substitui na versão hospedada) */
+  const LS = { get: (k, d) => AV.LS.get(k, d), set: (k, v) => AV.LS.set(k, v), del: (k) => AV.LS.del(k) };
   const Store = {
     docs: new Map(), ready: null, remote: null, uid: null, listeners: new Set(),
     async init() {

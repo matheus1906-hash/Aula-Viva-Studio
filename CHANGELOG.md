@@ -1,5 +1,13 @@
 # Histórico de versões
 
+## 3.1.0
+
+- Tela de boas-vindas e login com vitrine de imagens reais do app, em português, inglês e espanhol.
+- Cofre local cifrado (AES-256-GCM, PBKDF2 600 mil iterações), código de recuperação, bloqueio progressivo, bloqueio por inatividade, "manter conectado" e modo visitante.
+- Seção "Conta e segurança" nas Configurações.
+- Content-Security-Policy e cabeçalhos de segurança no Vercel; a página recusa abrir dentro de outros sites.
+- Criação ao vivo com IA: a folha se monta em tempo real enquanto a IA escreve.
+
 ## 3.0.0
 - App web, publicado no GitHub Pages, sem instalação.
 - Interface em português, inglês e espanhol; materiais gerados no idioma escolhido.
