@@ -1,0 +1,3 @@
+"use strict";
+const {send,userFromRequest,rpc,handleError}=require("../_lib/supabase");
+module.exports=async function(req,res){if(req.method!=="POST")return send(res,405,{error:"Método não permitido."});try{const {user,config}=await userFromRequest(req),key=String(req.body&&req.body.idempotencyKey||"");if(!/^[a-zA-Z0-9_-]{12,100}$/.test(key))return send(res,400,{error:"Identificador de solicitação inválido."});const result=await rpc(config,"av_reserve_ai_usage",{p_user_id:user.id,p_idempotency_key:key});return send(res,result&&result.allowed?200:429,result);}catch(e){return handleError(res,e);}};
