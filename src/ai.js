@@ -33,6 +33,7 @@
       if (id === "claude") {
         const s = await AV.cap.sample;
         const input = messages.length === 1 ? opts.system + "\n\n" + messages[0].content : messages.map((m, i) => i === 0 ? { role: m.role, content: opts.system + "\n\n" + m.content } : m);
+        if (opts.json && opts.onText) return AV.parseJSON((await s(input, { onText: opts.onText, signal: opts.signal, modelTier: opts.tier || "default", cache: false })).text);
         if (opts.json) return s.json(input, { signal: opts.signal, modelTier: opts.tier || "default", cache: false });
         return (await s(input, { onText: opts.onText, signal: opts.signal, modelTier: opts.tier || "default", cache: false })).text;
       }
@@ -146,12 +147,8 @@ ${schema}`;
     const d = AV.dialog("Criar com IA", body, { onClose: () => ctrl && ctrl.abort() });
     async function run() {
       if (!f.topic.value.trim()) { f.topic.focus(); status.textContent = "Informe o tema."; return; }
-      ctrl = new AbortController(); AV.busy(go, true, "A IA está escrevendo...");
-      status.textContent = "Isso leva de 20 a 60 segundos. Você pode cancelar com Esc.";
-      try {
-        const doc = await AV.AI.document({ kind: f.kind.value, topic: f.topic.value.trim(), subject: f.subject.value.trim(), level: f.level.value.trim(), count: +f.count.value || 0, extra: f.extra.value.trim(), sources: preset.sources, lang: f.lang.value }, { signal: ctrl.signal });
-        d.close(); AV.openDoc(doc); AV.toast("Material criado. Revise e ajuste o que quiser.");
-      } catch (e) { status.textContent = AV.AI.explain(e); AV.busy(go, false); }
+      const req = { kind: f.kind.value, topic: f.topic.value.trim(), subject: f.subject.value.trim(), level: f.level.value.trim(), count: +f.count.value || 0, extra: f.extra.value.trim(), sources: preset.sources, lang: f.lang.value };
+      AV.liveCreate(req, { dialog: d, onRetry: () => { d.close(); AV.aiCreateDialog(Object.assign({}, preset, req)); } });
     }
   };
 })(globalThis.AV = globalThis.AV || {});

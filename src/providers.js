@@ -45,6 +45,54 @@
     }
     return r.json();
   }
+  /* streaming SSE: lê "data: ..." linha a linha e chama onEvent(json) */
+  async function sse(url, opts, id, onEvent) {
+    let r;
+    try { r = await fetch(url, opts); }
+    catch (e) { if (e && e.name === "AbortError") throw e; throw err(window.claude ? "blocked" : "network", window.claude ? "Dentro do claude.ai a página não pode falar com outras IAs." : "Sem conexão com " + P[id].name + "."); }
+    if (!r.ok) {
+      let body = ""; try { body = (await r.text()).toLowerCase(); } catch (e) {}
+      if (r.status === 401 || r.status === 403 || /api key|invalid.*key|unauthorized/.test(body)) throw err("bad_key", "Chave inválida ou sem permissão em " + P[id].name + ". Confira se copiou a chave inteira.");
+      if (r.status === 429 || /rate.?limit|quota|resource.?exhausted|too many requests/.test(body)) throw err("rate_limited", "Limite do plano de " + P[id].name + " atingido. Aguarde um pouco ou use outra IA.");
+      const e2 = err("http", P[id].name + " respondeu com erro " + r.status + "."); e2.status = r.status; e2.stream = true; throw e2;
+    }
+    if (!r.body || !r.body.getReader) { const e3 = err("nostream", "sem streaming"); e3.stream = true; throw e3; }
+    const rd = r.body.getReader(), dec = new TextDecoder(); let buf = "";
+    for (;;) {
+      const { value, done } = await rd.read(); if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let i; while ((i = buf.indexOf("\n")) >= 0) {
+        const line = buf.slice(0, i).trim(); buf = buf.slice(i + 1);
+        if (!line.startsWith("data:")) continue;
+        const data = line.slice(5).trim(); if (!data || data === "[DONE]") continue;
+        try { onEvent(JSON.parse(data)); } catch (e) { /* linha parcial ou comentário */ }
+      }
+    }
+  }
+  /* versão em tempo real de callProvider; devolve null se o serviço não aceitar streaming */
+  async function streamProvider(id, messages, opts, key, model, sys) {
+    let text = "";
+    const push = (t) => { if (!t) return; text += t; opts.onText({ text, delta: t }); };
+    try {
+      if (P[id].kind === "gemini") {
+        const body = { contents: messages.map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] })), generationConfig: { temperature: 0.7, maxOutputTokens: 16384 } };
+        if (sys) body.systemInstruction = { parts: [{ text: sys }] };
+        if (opts.json) body.generationConfig.responseMimeType = "application/json";
+        await sse("https://generativelanguage.googleapis.com/v1beta/models/" + encodeURIComponent(model) + ":streamGenerateContent?alt=sse&key=" + encodeURIComponent(key), { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body), signal: opts.signal }, id,
+          (j) => (((j.candidates || [])[0] || {}).content || { parts: [] }).parts && push((((j.candidates || [])[0] || {}).content.parts || []).map((x) => x.text || "").join("")));
+      } else if (P[id].kind === "anthropic") {
+        await sse("https://api.anthropic.com/v1/messages", { method: "POST", signal: opts.signal, headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" }, body: JSON.stringify({ model, max_tokens: 8000, system: sys || undefined, messages, stream: true }) }, id,
+          (j) => { if (j.type === "content_block_delta" && j.delta) push(j.delta.text || ""); });
+      } else {
+        const body = { model, messages: (sys ? [{ role: "system", content: sys }] : []).concat(messages), temperature: 0.7, stream: true };
+        if (opts.json && id !== "ollama" && id !== "huggingface") body.response_format = { type: "json_object" };
+        const go = () => sse(baseOf(id) + "/chat/completions", { method: "POST", signal: opts.signal, headers: headersFor(id, key), body: JSON.stringify(body) }, id,
+          (j) => push(((((j.choices || [])[0] || {}).delta) || {}).content || ""));
+        try { await go(); } catch (e) { if (body.response_format && e.status === 400 && !text) { delete body.response_format; await go(); } else throw e; }
+      }
+    } catch (e) { if (e && e.stream && !text) return null; throw e; }
+    return text;
+  }
   function headersFor(id, key) {
     const hd = { "content-type": "application/json" };
     if (key) hd.authorization = "Bearer " + key;
@@ -82,6 +130,10 @@
     if (!P[id].nokey && !P[id].custom && !key) throw err("no_key", "Cole a sua chave de " + P[id].name + " em Configurações.");
     if (!model) throw err("model", "Escolha um modelo para " + P[id].name + ".");
     let text = "";
+    if (opts.onText && opts.stream !== false) {
+      const st = await streamProvider(id, messages, opts, key, model, sys);
+      if (st != null) { text = String(st).replace(/<think>[\s\S]*?<\/think>/g, "").trim(); if (!text) throw err("empty", P[id].name + " devolveu uma resposta vazia. Tente de novo."); return text; }
+    }
     if (P[id].kind === "gemini") {
       const body = { contents: messages.map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] })), generationConfig: { temperature: 0.7, maxOutputTokens: 16384 } };
       if (sys) body.systemInstruction = { parts: [{ text: sys }] };

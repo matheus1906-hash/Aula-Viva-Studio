@@ -1,5 +1,5 @@
 import fs from "node:fs";
-const order = ["core.js", "i18n.js", "i18n-dict.js", "i18n-extra.js", "importers.js", "exporters.js", "atividades.js", "biblioteca-data.js", "providers.js", "ai.js", "ai-settings.js", "preview.js", "editor.js", "views.js", "chat-studio.js", "animacao.js", "animacao-modelos.js", "views2.js", "main.js"];
+const order = ["core.js", "i18n.js", "i18n-dict.js", "i18n-extra.js", "importers.js", "exporters.js", "atividades.js", "biblioteca-data.js", "providers.js", "ai.js", "ai-live.js", "ai-settings.js", "preview.js", "editor.js", "views.js", "chat-studio.js", "animacao.js", "animacao-modelos.js", "views2.js", "main.js"];
 const js = order.filter((f) => fs.existsSync("src/" + f)).map((f) => "/* " + f + " */\n" + fs.readFileSync("src/" + f, "utf8")).join("\n;\n");
 const css = fs.readFileSync("src/app.css", "utf8") + "\n" + fs.readFileSync("src/theme-v4.css", "utf8");
 const v4 = fs.existsSync("src/icons-v4.html") ? fs.readFileSync("src/icons-v4.html", "utf8") : "";

@@ -57,12 +57,8 @@
       }
       async function toDoc() {
         if (!msgs.length) { AV.toast("Converse primeiro para ter conteúdo."); return; }
-        AV.toast("Organizando a conversa em um material...");
-        try {
-          const conv = msgs.map((m) => (m.role === "user" ? "PROFESSOR: " : "ASSISTENTE: ") + m.content).join("\n\n").slice(-30000);
-          const doc = await AV.AI.document({ kind: "projeto", topic: "o projeto/material construído nesta conversa", extra: "Transforme fielmente o resultado final da conversa em material (escolha o tipo adequado no título). Conversa:\n" + conv });
-          AV.openDoc(doc);
-        } catch (e) { AV.toast(AV.AI.explain(e)); }
+        const conv = msgs.map((m) => (m.role === "user" ? "PROFESSOR: " : "ASSISTENTE: ") + m.content).join("\n\n").slice(-30000);
+        AV.liveCreate({ kind: "projeto", topic: "o projeto/material construído nesta conversa", extra: "Transforme fielmente o resultado final da conversa em material (escolha o tipo adequado no título). Conversa:\n" + conv });
       }
       let dictOn = false, dictBound = false;
       async function dictate() {
@@ -185,9 +181,9 @@
         if (o[3] === "create") { AV.aiCreateDialog({ kind: "apostila", topic: sources.filter((s) => s.on !== false).map((s) => s.title).join(", "), level: lv, sources: cp }); return; }
         if (o[3] === "doc") {
           AV.busy(btn, true, "Gerando...");
-          try { const doc = await AV.AI.document({ kind: o[0] === "projeto" ? "projeto" : "plano", topic: "o conteúdo das fontes", level: lv, sources: cp, extra: o[0] === "sequencia" ? "Organize como sequência didática de 4 a 6 aulas de 50 minutos, cada aula com objetivo, etapas, recursos e avaliação." : o[0] === "projeto" ? "Projeto educacional profissional, pronto para apresentar à coordenação ou compor um produto educacional de mestrado." : "" }); AV.openDoc(doc); }
-          catch (e) { AV.toast(AV.AI.explain(e)); }
-          AV.busy(btn, false); return;
+          AV.busy(btn, false);
+          AV.liveCreate({ kind: o[0] === "projeto" ? "projeto" : "plano", topic: "o conteúdo das fontes", level: lv, sources: cp, extra: o[0] === "sequencia" ? "Organize como sequência didática de 4 a 6 aulas de 50 minutos, cada aula com objetivo, etapas, recursos e avaliação." : o[0] === "projeto" ? "Projeto educacional profissional, pronto para apresentar à coordenação ou compor um produto educacional de mestrado." : "" });
+          return;
         }
         AV.busy(btn, true, "Gerando...");
         try {
