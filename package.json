@@ -7,7 +7,8 @@
     "test": "node tests/importers.test.mjs && node tests/exporters.test.mjs && node tests/atividades.test.mjs",
     "test:e2e": "node tests/smoke.cjs && node tests/regress.cjs && node tests/standalone.cjs && node tests/auth.cjs",
     "test:a11y": "node tests/a11y.cjs",
-    "perf": "node tests/perf.cjs"
+    "perf": "node tests/perf.cjs",
+    "test:account": "node tests/account-api.cjs"
   },
   "license": "UNLICENSED",
   "devDependencies": {
