@@ -103,6 +103,12 @@ O site abre com uma tela de boas-vindas e login. A conta é **local**: nada vai 
 - Arquivos importados são lidos no seu aparelho; macros são bloqueadas.
 - Interface auditada com axe (WCAG 2.1 AA) nos temas claro e escuro, navegável por teclado.
 
+## Documentação técnica e histórico do projeto
+
+Este GitHub é a **fonte oficial de documentação e portfólio** do AulaViva Studio. Acompanhe a [política de documentação e registro das decisões](docs/PROJECT-DOCUMENTATION.md) e as [instruções de Supabase Auth e Vercel Functions](docs/SUPABASE-VERCEL-SETUP.md).
+
+**Em desenvolvimento:** migração para autenticação Supabase, IA incluída via backend e franquia de uso; a implementação está isolada no [Pull Request #1](https://github.com/matheus1906-hash/Aula-Viva-Studio/pull/1), sem implantação de produção. O cofre local existente permanece preservado.
+
 ## Desenvolvimento
 
 Requer Node.js 18 ou mais recente.
