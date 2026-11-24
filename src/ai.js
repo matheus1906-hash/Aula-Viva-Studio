@@ -4,15 +4,15 @@
   const ROLE_BASE = "Você é um assistente pedagógico experiente, alinhado à BNCC e ao currículo das redes públicas brasileiras, e também a boas práticas internacionais de ensino. Use linguagem adequada à faixa etária, conteúdo correto e sem estereótipos.";
   const roleFor = (lang) => ROLE_BASE + " Escreva TODO o conteúdo em " + AV.contentLangName(lang) + ".";
 
-  const FREE_ORDER = ["gemini", "groq", "cerebras", "openrouter", "mistral", "huggingface", "ollama", "anthropic", "openai", "deepseek", "custom"];
+  const FREE_ORDER = ["aulaviva", "anthropic", "openai", "deepseek", "custom"];
   AV.AI = {
     async get() { return AV.cap.sample; },
     /* qual IA usar agora: a escolhida (se configurada) ou a primeira disponível */
     async resolve() {
       const c = AV.aiCfg(), s = await AV.cap.sample;
-      if (c.active && c.active !== "auto" && c.active !== "claude" && AV.hasKey(c.active)) return c.active;
-      if ((c.active === "claude" || c.active === "auto" || !c.active) && s) return "claude";
-      if (s) return "claude";
+      if (s) return "claude";                                   /* dentro do claude.ai só a IA incluída funciona */
+      const P = AV.PROVIDERS, a = c.active;
+      if (a && a !== "auto" && P[a] && AV.hasKey(a)) return a;    /* motor interno escolhido ou IA paga com chave */
       return FREE_ORDER.find((id) => AV.hasKey(id)) || null;
     },
     async available() { return !!(await AV.AI.resolve()); },
@@ -21,7 +21,7 @@
       const c = e && e.code;
       if (c === "not_granted") return "A IA não foi autorizada nesta página. Você pode continuar com modelos e o editor.";
       if (c === "rate_limited") return (e.message && e.message.length > 20) ? e.message : "Muitos pedidos seguidos. Aguarde um minuto e tente de novo.";
-      if (c === "none") return "Nenhuma IA disponível. Em Configurações, escolha uma IA gratuita e cole a sua chave.";
+      if (c === "none") return "A IA não está disponível agora. Verifique a internet e tente de novo.";
       if (e && e.name === "AbortError") return "Geração cancelada.";
       if (e && e.message && c) return e.message;
       return "A IA não respondeu agora (" + (c || (e && e.message) || "erro") + "). Tente de novo.";
@@ -142,7 +142,7 @@ ${schema}`;
         h("label", { class: "f" }, "Idioma do material", f.lang),
         h("label", { class: "f full" }, "Pedidos extras (opcional)", f.extra)),
       preset.sources ? h("p", { class: "note info" }, "As fontes selecionadas no Estúdio serão usadas como base.") : null,
-      h("p", { class: "small muted" }, "IA: ", aiName, " · ", h("a", { href: "#config", onclick: () => { AV.LS.set("cfgJump", 1); d.close(); } }, "trocar IA ou usar a sua chave")),
+      h("p", { class: "small muted" }, "IA: ", aiName, " · ", h("a", { href: "#config", onclick: () => { AV.LS.set("cfgJump", 1); d.close(); } }, "trocar o motor de IA")),
       status, h("div", { class: "row end" }, h("button", { class: "btn", onclick: () => d.close() }, "Cancelar"), go));
     const d = AV.dialog("Criar com IA", body, { onClose: () => ctrl && ctrl.abort() });
     async function run() {

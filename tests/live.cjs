@@ -41,19 +41,19 @@ const srv = http.createServer((q, r) => { const f = path.join(root, "dist", deco
   // 2) versão para hospedar com Groq em SSE
   const c2 = await b.newContext({ viewport: { width: 1280, height: 860 } });
   await c2.route("https://fonts.**", (r) => r.abort());
-  let streamed = false;
-  await c2.route("https://api.groq.com/**", async (r) => {
-    const body = JSON.parse(r.request().postData() || "{}");
-    if (body.stream) { streamed = true; const chunks = []; for (let i = 0; i < DOC.length; i += 40) chunks.push("data: " + JSON.stringify({ choices: [{ delta: { content: DOC.slice(i, i + 40) } }] }) + "\n\n"); chunks.push("data: [DONE]\n\n"); return r.fulfill({ status: 200, headers: { "content-type": "text/event-stream" }, body: chunks.join("") }); }
-    r.fulfill({ json: { choices: [{ message: { content: DOC } }] } });
+  let streamed = false, sentKey = false;
+  await c2.route("https://aulavivastudio.vercel.app/api/ia", async (r) => {
+    const body = JSON.parse(r.request().postData() || "{}"); sentKey = /gsk_|sk-|key/i.test(JSON.stringify(r.request().headers()));
+    if (body.stream && body.engine === "groq") { streamed = true; const chunks = ["data: " + JSON.stringify({ engine: "groq", choices: [{ delta: { content: "" } }] }) + "\n\n"]; for (let i = 0; i < DOC.length; i += 40) chunks.push("data: " + JSON.stringify({ choices: [{ delta: { content: DOC.slice(i, i + 40) } }] }) + "\n\n"); chunks.push("data: [DONE]\n\n"); return r.fulfill({ contentType: "text/event-stream", headers: { "access-control-allow-origin": "null" }, body: chunks.join("") }); }
+    r.fulfill({ json: { text: DOC, engine: "groq" }, headers: { "access-control-allow-origin": "null" } });
   });
-  await c2.addInitScript(() => { localStorage.setItem("av:profile", JSON.stringify({ lang: "pt" })); localStorage.setItem("av:aicfg", JSON.stringify({ active: "groq", keys: { groq: "gsk_x" }, models: { groq: "llama-3.3-70b-versatile" }, base: {} })); });
+  await c2.addInitScript(() => { localStorage.setItem("av:profile", JSON.stringify({ lang: "pt" })); localStorage.setItem("av:aicfg", JSON.stringify({ active: "groq", keys: {}, models: {}, base: {} })); });
   const p2 = await c2.newPage(); p2.on("pageerror", (e) => errs.push(e.message));
   await p2.goto("file://" + path.join(root, "dist/aulaviva-studio-standalone.html")); await p2.click("text=Explorar sem criar conta"); await p2.waitForTimeout(400);
   await p2.click("text=Criar com IA"); await p2.fill("#ai-topic", "Ciclo da água"); await p2.click("text=Gerar material");
   await p2.waitForSelector("text=Abrir no editor", { timeout: 15000 });
-  ok(streamed, "Groq usado em modo de streaming (SSE)");
-  ok(+(await p2.locator(".live-stat b").first().innerText()) >= 6, "blocos montados a partir do streaming do Groq");
+  ok(streamed && !sentKey, "IA interna (motor Rápida/Groq) em tempo real, sem chave no navegador");
+  ok(+(await p2.locator(".live-stat b").first().innerText()) >= 6, "blocos montados a partir do streaming da IA interna");
   await c2.close();
   ok(!errs.length, "sem erros de página " + JSON.stringify(errs));
   await b.close(); srv.close();

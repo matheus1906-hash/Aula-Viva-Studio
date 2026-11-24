@@ -1,42 +1,58 @@
 (function (AV) {
   "use strict";
   const h = AV.h, P = AV.PROVIDERS;
-  const GROUPS = [["free", "IAs gratuitas (crie sua chave grátis em 2 minutos)"], ["local", "No seu computador"], ["builtin", "Incluída"], ["paid", "IAs pagas (use a sua própria chave)"]];
+  /* Ajustes de IA: o professor só escolhe o motor. As IAs gratuitas são internas (sem chave).
+     Quem quiser pode usar uma IA paga com a própria chave, numa seção opcional. */
+  const ENGINES = ["aulaviva", "groq", "mistral", "openrouter", "ollama"];
+  const PAID = ["anthropic", "openai", "deepseek", "custom"];
+  const EICON = { aulaviva: "sparkle", groq: "send", mistral: "doc", openrouter: "grid", ollama: "mind" };
 
   AV.aiSettingsPanel = function () {
     const wrap = h("div", { style: { display: "grid", gap: "16px" } });
     const status = h("span", { class: "chip" }, "...");
-    const refreshStatus = () => AV.AI.resolve().then((id) => { status.textContent = id ? "Em uso: " + P[id].name : "Nenhuma IA disponível"; status.className = "chip " + (id ? "pri" : "acc"); });
-    const sel = h("select", { class: "in", id: "ai-active", style: { maxWidth: "340px" }, onchange: (e) => { const c = AV.aiCfg(); c.active = e.target.value; AV.setAiCfg(c); refreshStatus(); AV.toast("IA escolhida."); } });
-    const fillSel = () => { const c = AV.aiCfg(); sel.textContent = ""; sel.appendChild(h("option", { value: "auto", selected: c.active === "auto" }, "Automático (recomendado)")); Object.keys(P).forEach((id) => sel.appendChild(h("option", { value: id, selected: c.active === id }, P[id].name + (AV.hasKey(id) ? "  ✓" : "")))); };
-    const results = h("div", { class: "list" });
-    const testAll = h("button", { class: "btn", onclick: async () => {
-      results.textContent = ""; AV.busy(testAll, true, "Testando...");
-      const ids = Object.keys(P).filter((id) => AV.hasKey(id));
-      for (const id of ids) {
-        const row = h("div", { class: "item", style: { gridTemplateColumns: "auto minmax(0,1fr)" } }, h("span", { class: "spin", style: { margin: "0 8px" } }), h("div", null, h("b", null, P[id].name), h("span", null, "testando...")));
-        results.appendChild(row);
-        try { const m = await AV.testProvider(id); row.firstChild.replaceWith(h("span", { class: "chip pri" }, "OK")); row.lastChild.lastChild.textContent = m; }
-        catch (e) { row.firstChild.replaceWith(h("span", { class: "chip acc" }, "Falhou")); row.lastChild.lastChild.textContent = (e && e.message) || "erro"; }
-      }
-      if (!ids.length) results.appendChild(h("div", { class: "empty" }, "Nenhuma IA configurada ainda."));
-      AV.busy(testAll, false);
-    } }, AV.icon("check"), "Testar todas as IAs salvas");
-
     const inClaude = !!window.claude;
+    const refreshStatus = () => AV.AI.resolve().then((id) => { status.textContent = id ? AV.t("Em uso") + ": " + (P[id].short ? "AulaViva IA · " + AV.t(P[id].short) : P[id].name) : AV.t("IA indisponível"); status.className = "chip " + (id ? "pri" : "acc"); });
+    const choose = (id) => { const c = AV.aiCfg(); c.active = id === "aulaviva" ? "auto" : id; AV.setAiCfg(c); draw(); refreshStatus(); AV.toast(AV.t("Motor de IA escolhido.")); };
+    const current = () => { const a = AV.aiCfg().active; return !a || a === "auto" ? "aulaviva" : a; };
+    const engines = h("div", { class: "eng-grid", role: "radiogroup", "aria-label": AV.t("Motor de IA") });
+    const testMsg = h("p", { class: "small", "aria-live": "polite", style: { minHeight: "1.2em", margin: 0 } });
+    const testBtn = h("button", { class: "btn", onclick: async () => {
+      AV.busy(testBtn, true, "Testando...");
+      try { const id = await AV.AI.resolve(); if (!id) throw new Error(AV.t("IA indisponível")); testMsg.style.color = "var(--ok)"; testMsg.textContent = await AV.testProvider(id); }
+      catch (e) { testMsg.style.color = "var(--bad)"; testMsg.textContent = (e && e.message) || "erro"; }
+      AV.busy(testBtn, false);
+    } }, AV.icon("check"), "Testar a IA");
+    function draw() {
+      engines.textContent = "";
+      const cur = current();
+      ENGINES.forEach((id) => {
+        const p = P[id], on = cur === id;
+        engines.appendChild(h("button", { type: "button", class: "eng" + (on ? " on" : ""), role: "radio", "aria-checked": on ? "true" : "false", disabled: inClaude, onclick: () => choose(id) },
+          h("span", { class: "eng-ic" }, AV.icon(EICON[id])),
+          h("span", { class: "eng-t" }, h("b", null, AV.t(p.short)), id === "aulaviva" ? h("em", null, AV.t("Recomendado")) : null),
+          h("span", { class: "eng-d" }, AV.t(p.desc)),
+          p.engineName ? h("small", { "data-notr": "" }, p.engineName) : h("small", null, AV.t("Groq, Mistral, OpenRouter e Ollama")),
+          h("span", { class: "eng-dot", "aria-hidden": "true" })));
+      });
+      const paidOn = PAID.includes(cur);
+      paidNote.hidden = !paidOn;
+      if (paidOn) paidNote.textContent = AV.t("Você está usando uma IA paga com a sua chave:") + " " + P[cur].name + ". " + AV.t("Escolha um motor acima para voltar à IA gratuita incluída.");
+    }
+    const paidNote = h("p", { class: "note", hidden: true });
     wrap.append(...[
-      h("div", { class: "row" }, h("label", { class: "f", style: { flex: "1 1 260px" } }, "IA usada pelo app", sel), status),
-      inClaude ? h("div", { class: "note info" }, h("div", null, h("b", null, "Dentro do claude.ai a IA incluída já funciona, grátis e sem chave. "), "Por segurança, o claude.ai não deixa a página falar com outras IAs. Para usar Gemini, Groq ou sua IA paga, use a versão para hospedar (abaixo).")) : null,
-      h("div", { class: "row" }, testAll, inClaude ? h("button", { class: "btn", onclick: AV.saveStandalone }, AV.icon("download"), "Baixar versão para hospedar") : null),
-      results].filter(Boolean));
-    if (!inClaude) wrap.append(h("div", { class: "note info" }, "Para usar a IA: escolha uma das gratuitas abaixo, clique em \"Criar chave\" (é grátis), copie e cole a chave no campo. O app salva e escolhe o melhor modelo sozinho."));
-    GROUPS.forEach(([tag, title]) => {
-      const ids = Object.keys(P).filter((id) => (P[id].builtin ? "builtin" : P[id].tag) === tag);
-      if (!ids.length) return;
-      wrap.append(h("h3", null, title), h("div", { class: "grid wide" }, ids.map(card)));
-    });
-    wrap.append(h("p", { class: "muted small" }, "As chaves ficam guardadas só neste navegador: não vão para a sua conta, para outros professores nem para o AulaViva. Nenhuma chave vem embutida no app, porque qualquer pessoa conseguiria copiá-la. Dados pessoais de alunos nunca são enviados às IAs."));
-    fillSel(); refreshStatus();
+      h("div", { class: "row" }, h("p", { class: "muted small", style: { margin: 0, flex: "1 1 260px" } }, inClaude ? AV.t("Dentro do claude.ai o app usa a IA incluída do Claude, grátis e sem chave.") : AV.t("A IA já vem incluída e é grátis: não precisa criar conta nem colar chave. Escolha o motor que preferir.")), status),
+      engines, paidNote,
+      h("div", { class: "row" }, testBtn, inClaude ? h("button", { class: "btn", onclick: AV.saveStandalone }, AV.icon("download"), "Baixar versão para hospedar") : null),
+      testMsg].filter(Boolean));
+    if (!inClaude) {
+      const paid = h("details", { class: "paid-ai" }, h("summary", null, AV.t("Usar uma IA paga com a sua própria chave (opcional)")),
+        h("p", { class: "muted small" }, AV.t("Só para quem já assina uma IA paga. A chave fica guardada apenas neste aparelho, criptografada na sua conta.")),
+        h("div", { class: "grid wide" }, PAID.map(card)));
+      if (PAID.includes(current())) paid.open = true;
+      wrap.append(paid);
+    }
+    wrap.append(h("p", { class: "muted small" }, AV.t("Dados pessoais de alunos nunca são enviados às IAs.")));
+    draw(); refreshStatus();
     return wrap;
 
     function card(id) {
@@ -46,38 +62,32 @@
       const models = h("select", { class: "in", "aria-label": "Modelo de " + p.name, onchange: (e) => { const k = AV.aiCfg(); k.models[id] = e.target.value; AV.setAiCfg(k); } });
       const fillModels = (list) => { const cur = AV.aiCfg().models[id] || list[0] || ""; models.textContent = ""; [...new Set([cur].concat(list))].filter(Boolean).forEach((m) => models.appendChild(h("option", { value: m, selected: m === cur }, m))); };
       fillModels(p.models || []);
-      const save = (v) => { const k = AV.aiCfg(); const key = AV.cleanKey(v); if (key) k.keys[id] = key; else delete k.keys[id]; AV.setAiCfg(k); fillSel(); refreshStatus(); return key; };
-      const key = h("input", { class: "in", type: "password", autocomplete: "off", spellcheck: "false", placeholder: p.nokey ? "Não precisa de chave" : "Cole a chave aqui", value: c.keys[id] || "", "aria-label": "Chave de " + p.name, disabled: !!p.nokey,
-        onchange: (e) => { if (save(e.target.value)) { ok("Chave salva neste navegador."); discover(); } },
-        onpaste: () => setTimeout(() => { if (save(key.value)) { ok("Chave salva neste navegador."); discover(); } }, 30) });
+      const save = (v) => { const k = AV.aiCfg(); const key = AV.cleanKey(v); if (key) k.keys[id] = key; else delete k.keys[id]; AV.setAiCfg(k); refreshStatus(); return key; };
+      const key = h("input", { class: "in", type: "password", autocomplete: "off", spellcheck: "false", placeholder: "Cole a chave aqui", value: c.keys[id] || "", "aria-label": "Chave de " + p.name,
+        onchange: (e) => { if (save(e.target.value)) { ok("Chave salva neste aparelho."); discover(); } },
+        onpaste: () => setTimeout(() => { if (save(key.value)) { ok("Chave salva neste aparelho."); discover(); } }, 30) });
       const eye = h("button", { class: "btn sm icon ghost", type: "button", "aria-label": "Mostrar chave", onclick: () => { key.type = key.type === "password" ? "text" : "password"; } }, AV.icon("eye"));
       async function discover() {
-        if (p.builtin) return;
         try { const names = await AV.listModels(id); if (names.length) { const best = AV.pickModel(id, names); const k = AV.aiCfg(); k.models[id] = best; AV.setAiCfg(k); fillModels(names); ok("Chave salva. Modelo escolhido: " + best); } }
         catch (e) { bad(e.message); }
       }
       const extra = [];
       if (p.custom) {
-        const base = h("input", { class: "in", placeholder: "https://servidor/v1", value: c.base.custom || "", onchange: (e) => { const k = AV.aiCfg(); k.base.custom = AV.safeUrl(e.target.value) || (/^http:\/\/(localhost|127\.0\.0\.1)/.test(e.target.value) ? e.target.value : ""); AV.setAiCfg(k); fillSel(); } });
+        const base = h("input", { class: "in", placeholder: "https://servidor/v1", value: c.base.custom || "", onchange: (e) => { const k = AV.aiCfg(); k.base.custom = AV.safeUrl(e.target.value) || (/^http:\/\/(localhost|127\.0\.0\.1)/.test(e.target.value) ? e.target.value : ""); AV.setAiCfg(k); } });
         const mdl = h("input", { class: "in", placeholder: "nome-do-modelo", value: c.models.custom || "", onchange: (e) => { const k = AV.aiCfg(); k.models.custom = e.target.value.trim(); AV.setAiCfg(k); } });
         extra.push(h("label", { class: "f" }, "Endereço da API", base), h("label", { class: "f" }, "Modelo", mdl));
-      } else if (id === "ollama") {
-        const mdl = h("input", { class: "in", value: c.models.ollama || "", placeholder: "qwen2.5:7b", onchange: (e) => { const k = AV.aiCfg(); k.models.ollama = e.target.value.trim(); AV.setAiCfg(k); fillSel(); } });
-        extra.push(h("label", { class: "f" }, "Modelo instalado", mdl));
       }
-      const tagChip = h("span", { class: "chip " + (p.tag === "paid" ? "" : "pri") }, p.cost);
       return h("article", { class: "card", style: { display: "grid", gap: "10px", alignContent: "start" } },
-        h("div", { class: "row" }, AV.providerLogo(id), h("div", { style: { flex: 1, minWidth: 0 } }, h("h3", null, p.name), tagChip)),
+        h("div", { class: "row" }, AV.providerLogo(id), h("div", { style: { flex: 1, minWidth: 0 } }, h("h3", null, p.name), h("span", { class: "chip" }, p.cost))),
         p.note ? h("p", { class: "muted small" }, p.note) : null,
-        p.builtin ? null : p.nokey ? null : h("label", { class: "f" }, "Chave da API", h("div", { class: "row", style: { flexWrap: "nowrap" } }, key, eye)),
+        p.custom ? null : h("label", { class: "f" }, "Chave da API", h("div", { class: "row", style: { flexWrap: "nowrap" } }, key, eye)),
         extra,
-        p.builtin || p.custom || id === "ollama" ? null : h("label", { class: "f" }, "Modelo", models),
+        p.custom ? null : h("label", { class: "f" }, "Modelo", models),
         h("div", { class: "row" },
-          p.keyUrl ? h("a", { class: "btn sm", href: p.keyUrl, target: "_blank", rel: "noopener noreferrer" }, AV.icon("link"), p.nokey ? "Baixar" : "Criar chave") : null,
+          p.keyUrl ? h("a", { class: "btn sm", href: p.keyUrl, target: "_blank", rel: "noopener noreferrer" }, AV.icon("link"), "Onde pegar a chave") : null,
           h("button", { class: "btn sm", onclick: async (e) => { const b = e.currentTarget; AV.busy(b, true, "Testando..."); try { ok(await AV.testProvider(id)); } catch (er) { bad(er.message); } AV.busy(b, false); } }, "Testar"),
-          !p.builtin && !p.nokey && !p.custom ? h("button", { class: "btn sm", onclick: discover }, "Buscar modelos") : null,
-          !p.builtin && !p.nokey && !p.custom ? h("button", { class: "btn sm ghost danger", onclick: () => { key.value = ""; save(""); msg.textContent = "Chave removida."; } }, "Remover") : null,
-          h("button", { class: "btn sm pri", onclick: () => { const k = AV.aiCfg(); k.active = id; AV.setAiCfg(k); fillSel(); refreshStatus(); AV.toast(p.name + " será usada."); } }, "Usar esta")),
+          !p.custom ? h("button", { class: "btn sm ghost danger", onclick: () => { key.value = ""; save(""); msg.textContent = "Chave removida."; } }, "Remover") : null,
+          h("button", { class: "btn sm pri", onclick: () => { if (!AV.hasKey(id)) { bad(p.custom ? "Informe o endereço da API." : "Cole a chave primeiro."); return; } choose(id); } }, "Usar esta")),
         msg);
     }
   };
@@ -96,7 +106,7 @@
       if (!r.ok) throw new Error();
       await AV.saveFile("aulaviva-studio.html", await r.blob());
       AV.dialog("Como usar a versão para hospedar", h("div", { style: { display: "grid", gap: "10px" } },
-        h("p", null, "Esse arquivo é o AulaViva completo, com os 30 modelos. Fora do claude.ai ele usa as IAs que você configurar com a sua chave."),
+        h("p", null, "Esse arquivo é o AulaViva completo, com todos os modelos. Fora do claude.ai ele usa a IA gratuita incluída do AulaViva (precisa de internet)."),
         h("ul", { style: { margin: 0, paddingLeft: "18px" } }, h("li", null, "Abra direto no navegador (dois cliques), ou"), h("li", null, "Publique de graça no GitHub Pages ou no site da escola para os colegas usarem.")),
         h("p", { class: "muted small" }, "Os materiais ficam salvos no navegador de cada professor. Exporte um backup de vez em quando.")));
     } catch (e) { AV.toast("Não foi possível preparar o arquivo agora."); }

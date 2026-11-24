@@ -2,28 +2,37 @@
   "use strict";
   /* Provedores de IA. "claude" = IA incluída no claude.ai (sem chave). Os demais usam a chave do próprio professor,
      guardada só neste navegador. Nenhuma chave vem embutida no app. */
+  /* "aulaviva*" = IA interna do site (as chaves gratuitas ficam no servidor, nunca no navegador).
+     "claude" = IA incluída quando o app roda dentro do claude.ai. Pagas: chave do próprio professor. */
   const P = {
-    claude:      { name: "Claude (incluída)", cost: "Grátis, já vem pronta", tag: "free", nokey: true, builtin: true, note: "Funciona dentro do claude.ai, sem chave." },
-    gemini:      { name: "Google Gemini", cost: "Plano gratuito", tag: "free", keyUrl: "https://aistudio.google.com/apikey", models: ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash"], kind: "gemini" },
-    groq:        { name: "Groq", cost: "Plano gratuito", tag: "free", keyUrl: "https://console.groq.com/keys", base: "https://api.groq.com/openai/v1", models: ["llama-3.3-70b-versatile", "openai/gpt-oss-120b", "meta-llama/llama-4-maverick", "qwen/qwen3-32b", "llama-3.1-8b-instant"] },
-    cerebras:    { name: "Cerebras", cost: "Plano gratuito", tag: "free", keyUrl: "https://cloud.cerebras.ai/platform/", base: "https://api.cerebras.ai/v1", models: ["llama-3.3-70b", "gpt-oss-120b", "qwen-3-235b", "qwen-3-32b", "llama3.1-8b"] },
-    openrouter:  { name: "OpenRouter", cost: "Modelos gratuitos", tag: "free", keyUrl: "https://openrouter.ai/keys", base: "https://openrouter.ai/api/v1", models: ["openrouter/free", "meta-llama/llama-3.3-70b-instruct:free", "deepseek/deepseek-chat-v3-0324:free"], freeOnly: true },
-    mistral:     { name: "Mistral", cost: "Plano gratuito (experimental)", tag: "free", keyUrl: "https://console.mistral.ai/api-keys", base: "https://api.mistral.ai/v1", models: ["mistral-small-latest", "mistral-medium-latest", "mistral-large-latest", "open-mistral-nemo"] },
-    huggingface: { name: "Hugging Face", cost: "Créditos gratuitos mensais", tag: "free", keyUrl: "https://huggingface.co/settings/tokens", base: "https://router.huggingface.co/v1", models: ["meta-llama/Llama-3.3-70B-Instruct", "openai/gpt-oss-120b", "Qwen/Qwen2.5-72B-Instruct", "deepseek-ai/DeepSeek-V3"] },
-    ollama:      { name: "Ollama (no seu computador)", cost: "Grátis e 100% privado", tag: "local", nokey: true, keyUrl: "https://ollama.com/download", base: "http://localhost:11434/v1", models: ["qwen2.5:7b", "llama3.1:8b", "gemma2:9b"], note: "Instale o Ollama, rode \"ollama pull qwen2.5:7b\" e libere o acesso do navegador (OLLAMA_ORIGINS=*)." },
+    aulaviva:    { name: "AulaViva IA · Automático", short: "Automático", desc: "Escolhe sozinho o motor mais rápido e disponível. Recomendado.", cost: "Grátis, já incluída", tag: "internal", internal: true, engine: "auto" },
+    groq:        { name: "AulaViva IA · Rápida", short: "Rápida", engineName: "Groq · Llama 3.3 70B", desc: "Respostas em segundos. Ótima para atividades, listas e provas.", cost: "Grátis, já incluída", tag: "internal", internal: true, engine: "groq" },
+    mistral:     { name: "AulaViva IA · Equilibrada", short: "Equilibrada", engineName: "Mistral", desc: "Texto caprichado em português. Boa para apostilas e planos.", cost: "Grátis, já incluída", tag: "internal", internal: true, engine: "mistral" },
+    openrouter:  { name: "AulaViva IA · Variada", short: "Variada", engineName: "OpenRouter · modelos abertos", desc: "Alterna entre vários modelos abertos gratuitos.", cost: "Grátis, já incluída", tag: "internal", internal: true, engine: "openrouter" },
+    ollama:      { name: "AulaViva IA · Raciocínio", short: "Raciocínio", engineName: "Ollama Cloud · GPT-OSS", desc: "Pensa mais antes de responder. Boa para projetos e sequências didáticas.", cost: "Grátis, já incluída", tag: "internal", internal: true, engine: "ollama" },
+    claude:      { name: "Claude (incluída)", cost: "Grátis, já vem pronta", tag: "builtin", nokey: true, builtin: true, note: "Funciona dentro do claude.ai, sem chave." },
     anthropic:   { name: "Claude API (Anthropic)", cost: "Pago", tag: "paid", keyUrl: "https://console.anthropic.com/settings/keys", models: ["claude-sonnet-5-5", "claude-haiku-5-5", "claude-opus-5-5"], kind: "anthropic" },
     openai:      { name: "ChatGPT (OpenAI)", cost: "Pago", tag: "paid", keyUrl: "https://platform.openai.com/api-keys", base: "https://api.openai.com/v1", models: ["gpt-4.1-mini", "gpt-5-mini", "gpt-4o-mini", "gpt-4.1"] },
     deepseek:    { name: "DeepSeek", cost: "Pago (barato)", tag: "paid", keyUrl: "https://platform.deepseek.com/api_keys", base: "https://api.deepseek.com/v1", models: ["deepseek-chat"] },
-    custom:      { name: "Outra IA compatível (OpenAI)", cost: "Variável", tag: "paid", custom: true, models: [], note: "LM Studio, servidor da escola ou outro serviço compatível com a API da OpenAI." }
+    custom:      { name: "Outra IA compatível (OpenAI)", cost: "Variável", tag: "paid", custom: true, models: [], note: "Servidor da escola, LM Studio ou outro serviço compatível com a API da OpenAI." }
   };
   const NOT_CHAT = /whisper|tts|embed|guard|moderation|audio|image|dall-e|transcri|realtime|search|ocr|playai|distil|rerank/i;
   AV.PROVIDERS = P;
 
   /* configurações: { active, keys:{id:key}, models:{id:model}, base:{custom:url} } (só neste navegador) */
-  AV.aiCfg = () => Object.assign({ active: "auto", keys: {}, models: {}, base: {} }, AV.LS.get("aicfg", {}));
+  AV.aiCfg = () => {
+    const c = Object.assign({ active: "auto", keys: {}, models: {}, base: {} }, AV.LS.get("aicfg", {}));
+    /* chaves de IAs gratuitas não são mais usadas: a IA gratuita agora é interna */
+    ["gemini", "groq", "cerebras", "openrouter", "mistral", "huggingface", "ollama"].forEach((id) => { delete c.keys[id]; });
+    if (c.active && !P[c.active] && c.active !== "auto") c.active = "auto";
+    return c;
+  };
+  /* endereço da IA interna: o próprio site no Vercel; de outros lugares (GitHub Pages, arquivo local) usa o endereço público */
+  AV.IA_HOME = "https://aulavivastudio.vercel.app/api/ia";
+  AV.iaEndpoint = () => AV.IA_URL || (/\.vercel\.app$/.test(location.hostname) || location.hostname === "localhost" && location.port === "3000" ? "/api/ia" : AV.IA_HOME);
   AV.setAiCfg = (c) => AV.LS.set("aicfg", c);
   AV.cleanKey = (k) => String(k || "").trim().replace(/^["']|["']$/g, "").replace(/^Bearer\s+/i, "").replace(/^[A-Z_]+=/, "").trim();
-  AV.hasKey = (id) => { const p = P[id]; if (!p) return false; if (p.builtin) return !!window.claude; if (p.nokey) return id !== "ollama" || !!AV.aiCfg().models.ollama; if (p.custom) return !!AV.aiCfg().base.custom; return !!AV.aiCfg().keys[id]; };
+  AV.hasKey = (id) => { const p = P[id]; if (!p) return false; if (p.internal) return !window.claude; if (p.builtin) return !!window.claude; if (p.custom) return !!AV.aiCfg().base.custom; return !!AV.aiCfg().keys[id]; };
 
   function err(code, message) { const e = new Error(message); e.code = code; return e; }
   async function http(url, opts, id) {
@@ -122,9 +131,47 @@
     return names[0] || P[id].models[0] || "";
   };
 
+  /* IA interna: o servidor do site fala com o motor gratuito usando as chaves guardadas lá */
+  async function internal(id, messages, opts) {
+    const body = { engine: P[id].engine, messages, system: opts.system || "", json: !!opts.json, stream: !!opts.onText && opts.stream !== false };
+    const req = { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body), signal: opts.signal, credentials: "omit", referrerPolicy: "no-referrer" };
+    const fail = async (r) => {
+      let j = {}; try { j = await r.json(); } catch (e) {}
+      if (r.status === 429) throw err("rate_limited", j.message || "Muitos pedidos seguidos. Aguarde alguns minutos e tente de novo.");
+      if (r.status === 503) throw err("internal_off", "A IA do AulaViva está em manutenção. Tente de novo em instantes.");
+      throw err("http", j.message || "Não foi possível falar com a IA agora. Tente de novo.");
+    };
+    let text = "";
+    if (body.stream) {
+      let r;
+      try { r = await fetch(AV.iaEndpoint(), req); } catch (e) { if (e && e.name === "AbortError") throw e; throw err(window.claude ? "blocked" : "network", "Sem conexão com a IA do AulaViva. Verifique a internet."); }
+      if (!r.ok) await fail(r);
+      const rd = r.body.getReader(), dec = new TextDecoder(); let buf = "";
+      for (;;) {
+        const { value, done } = await rd.read(); if (done) break;
+        buf += dec.decode(value, { stream: true });
+        let i; while ((i = buf.indexOf("\n")) >= 0) {
+          const line = buf.slice(0, i).trim(); buf = buf.slice(i + 1);
+          if (!line.startsWith("data:")) continue;
+          const d = line.slice(5).trim(); if (!d || d === "[DONE]") continue;
+          try { const j = JSON.parse(d); const t = ((((j.choices || [])[0] || {}).delta) || {}).content || ""; if (j.engine) AV.lastEngine = j.engine; if (t) { text += t; opts.onText({ text, delta: t }); } } catch (e) {}
+        }
+      }
+    } else {
+      let r;
+      try { r = await fetch(AV.iaEndpoint(), req); } catch (e) { if (e && e.name === "AbortError") throw e; throw err(window.claude ? "blocked" : "network", "Sem conexão com a IA do AulaViva. Verifique a internet."); }
+      if (!r.ok) await fail(r);
+      const j = await r.json(); text = j.text || ""; AV.lastEngine = j.engine;
+    }
+    text = String(text).replace(/<think>[\s\S]*?<\/think>/g, "").trim();
+    if (!text) throw err("empty", "A IA devolveu uma resposta vazia. Tente de novo.");
+    return text;
+  }
+
   /* chamada principal: messages = [{role, content}] */
   AV.callProvider = async function (id, messages, opts) {
     opts = opts || {};
+    if (P[id] && P[id].internal) return internal(id, messages, opts);
     const c = AV.aiCfg(), key = c.keys[id] || "", model = c.models[id] || P[id].models[0];
     const sys = opts.system || "";
     if (!P[id].nokey && !P[id].custom && !key) throw err("no_key", "Cole a sua chave de " + P[id].name + " em Configurações.");
@@ -171,6 +218,7 @@
   AV.testProvider = async function (id) {
     if (id === "claude") { const s = await AV.cap.sample; if (!s) throw err("unavailable", "Disponível só dentro do claude.ai."); const r = await s("Responda só: OK", { modelTier: "quick", cache: false }); return "Funcionando (" + (r.modelApplied || "Claude") + ")"; }
     const t = await AV.callProvider(id, [{ role: "user", content: "Responda apenas: OK" }], {});
+    if (P[id].internal) return "Funcionando" + (AV.lastEngine && P[AV.lastEngine] ? " (" + P[AV.lastEngine].short + ")" : "") + ".";
     return "Funcionando (" + (AV.aiCfg().models[id] || P[id].models[0]) + "): " + t.slice(0, 40);
   };
 })(globalThis.AV = globalThis.AV || {});

@@ -87,15 +87,19 @@ Envie textos e arquivos e gere resumo, guia de estudo, perguntas frequentes, lin
 
 ## Inteligência artificial
 
-Em **Ajustes → Inteligência artificial**, escolha uma IA e cole a **sua** chave. Ela fica guardada só no seu navegador.
+A IA já vem **incluída e grátis**: o professor não cria conta nem cola chave. Em **Ajustes → Inteligência artificial** ele só escolhe o motor:
 
-| IA | Custo |
+| Motor | Para quê |
 |---|---|
-| Google Gemini, Groq, Cerebras, OpenRouter, Mistral, Hugging Face | planos gratuitos |
-| Ollama | grátis, roda no seu computador |
-| Claude API, ChatGPT, DeepSeek, APIs compatíveis com a OpenAI | pagas, com a sua chave |
+| Automático (recomendado) | escolhe sozinho o motor mais rápido e disponível, e troca se um falhar |
+| Rápida (Groq) | atividades, listas e provas em segundos |
+| Equilibrada (Mistral) | apostilas e planos com texto caprichado |
+| Variada (OpenRouter) | vários modelos abertos gratuitos |
+| Raciocínio (Ollama Cloud) | projetos e sequências didáticas |
 
-Nenhuma chave vem embutida no app. Dados pessoais de alunos nunca são enviados às IAs.
+Quem já assina uma IA paga (Claude API, ChatGPT, DeepSeek ou outra compatível) pode usá-la com a própria chave, numa seção opcional.
+
+**Como funciona:** o site chama a função `api/ia.js` no Vercel, que fala com os motores gratuitos usando chaves guardadas só nas **variáveis de ambiente do Vercel** (`GROQ_API_KEY`, `MISTRAL_API_KEY`, `OPENROUTER_API_KEY`, `OLLAMA_API_KEY`). As chaves nunca ficam no código nem chegam ao navegador. A função limita pedidos por pessoa para proteger a cota gratuita e só atende o próprio site. Dados pessoais de alunos nunca são enviados às IAs.
 
 ## Segurança e privacidade
 

@@ -1,5 +1,11 @@
 # Histórico de versões
 
+## 3.5.0
+
+- IA gratuita interna: o professor não precisa mais criar nem colar chave. A função `api/ia.js` no Vercel fala com Groq, Mistral, OpenRouter e Ollama Cloud usando chaves guardadas só nas variáveis de ambiente, com troca automática de motor, limite de uso por pessoa e restrição ao próprio site.
+- Ajustes de IA simplificados: escolha do motor (Automático, Rápida, Equilibrada, Variada, Raciocínio); chave própria só para IAs pagas, numa seção opcional.
+- Removidos os campos de chave das IAs gratuitas (as chaves antigas salvas no navegador são apagadas).
+
 ## 3.4.0
 
 - 34 vídeos animados novos (46 no total): corpo humano, animais, plantas, reciclagem, saúde, contagem, tabuada do 2, dobro e metade, dinheiro, alfabeto, rimas, sílabas, emoções, trânsito seguro, povos indígenas, cores primárias e inglês básico.
