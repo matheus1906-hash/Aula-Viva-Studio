@@ -12,7 +12,7 @@
   "license": "UNLICENSED",
   "devDependencies": {
     "axe-core": "^4.10.2",
-    "docx": "^8.5.0",
+    "docx": "^9.16.0",
     "jspdf": "^4.2.1",
     "jszip": "^3.10.1",
     "mammoth": "^1.13.0",
