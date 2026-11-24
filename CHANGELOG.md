@@ -1,5 +1,13 @@
 # Histórico de versões
 
+## 4.0.0 · versão estável
+
+Primeira versão estável, pronta para uso público em https://aulavivastudio.vercel.app
+
+- IA sempre disponível: motor reserva gratuito e sem chave entra quando as chaves não estão configuradas ou quando todos os motores falham.
+- Publicação oficial pelo Vercel; o GitHub Pages passa a ser opcional (disparo manual).
+- Reúne tudo das versões 3.x: criação ao vivo com IA, login com cofre cifrado, 290 modelos com miniatura, 46 vídeos animados, leitor de livros completo, biblioteca com prévias e ícones ilustrados.
+
 ## 3.5.0
 
 - IA gratuita interna: o professor não precisa mais criar nem colar chave. A função `api/ia.js` no Vercel fala com Groq, Mistral, OpenRouter e Ollama Cloud usando chaves guardadas só nas variáveis de ambiente, com troca automática de motor, limite de uso por pessoa e restrição ao próprio site.

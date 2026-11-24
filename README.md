@@ -5,7 +5,7 @@
 **Crie aulas, atividades, provas, projetos e vídeos animados em minutos, com IA.**
 Para professores da educação básica, em português, inglês e espanhol.
 
-[**Abrir o AulaViva Studio →**](https://matheus1906-hash.github.io/Aula-Viva-Studio/)
+[**Abrir o AulaViva Studio →**](https://aulavivastudio.vercel.app)
 
 ![Tela inicial do AulaViva Studio](docs/screenshots/inicio.webp)
 
@@ -99,7 +99,7 @@ A IA já vem **incluída e grátis**: o professor não cria conta nem cola chave
 
 Quem já assina uma IA paga (Claude API, ChatGPT, DeepSeek ou outra compatível) pode usá-la com a própria chave, numa seção opcional.
 
-**Como funciona:** o site chama a função `api/ia.js` no Vercel, que fala com os motores gratuitos usando chaves guardadas só nas **variáveis de ambiente do Vercel** (`GROQ_API_KEY`, `MISTRAL_API_KEY`, `OPENROUTER_API_KEY`, `OLLAMA_API_KEY`). As chaves nunca ficam no código nem chegam ao navegador. A função limita pedidos por pessoa para proteger a cota gratuita e só atende o próprio site. Dados pessoais de alunos nunca são enviados às IAs.
+**Como funciona:** o site chama a função `api/ia.js` no Vercel, que fala com os motores gratuitos usando chaves guardadas só nas **variáveis de ambiente do Vercel** (`GROQ_API_KEY`, `MISTRAL_API_KEY`, `OPENROUTER_API_KEY`, `OLLAMA_API_KEY`). As chaves nunca ficam no código nem chegam ao navegador. Se nenhuma chave estiver configurada, ou se todos os motores falharem, um motor reserva gratuito e sem chave mantém a IA funcionando. A função limita pedidos por pessoa para proteger a cota gratuita e só atende o próprio site. Dados pessoais de alunos nunca são enviados às IAs.
 
 ## Segurança e privacidade
 

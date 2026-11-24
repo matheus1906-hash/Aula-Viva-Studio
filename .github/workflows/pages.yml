@@ -1,7 +1,7 @@
 name: pages
+# O site oficial é publicado pelo Vercel. Para também publicar no GitHub Pages,
+# ative em Settings > Pages > Source: GitHub Actions e rode este fluxo manualmente.
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 permissions:
   contents: read

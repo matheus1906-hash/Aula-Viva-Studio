@@ -26,13 +26,14 @@ const text = (out) => out.split("\n").filter((l) => l.startsWith("data: {")).map
 
 let h = fresh({});
 let r = await run(h, { method: "GET" });
-ok(JSON.parse(r.out).engines.length === 0, "sem chaves configuradas: nenhum motor ligado");
+ok(JSON.parse(r.out).engines.join() === "reserva", "sem chaves configuradas: só o motor reserva fica ligado");
+plan = { "text.pollinations.ai": { status: 200, body: () => sse(["Funciona ", "sem chave"]) } }; calls = [];
 r = await run(h, { body: msg });
-ok(r.statusCode === 503, "sem chaves: responde 503 com aviso amigável");
+ok(r.statusCode === 200 && text(r.out) === "Funciona sem chave" && !calls[0].auth, "sem chaves: a IA funciona pelo motor reserva, sem enviar chave");
 
 h = fresh({ GROQ_API_KEY: "test-groq", MISTRAL_API_KEY: "test-mistral", OPENROUTER_API_KEY: "test-or", OLLAMA_API_KEY: "test-ollama" });
 r = await run(h, { method: "GET" });
-ok(JSON.parse(r.out).engines.length === 4 && !r.out.includes("test-"), "GET lista os 4 motores sem revelar chaves");
+ok(JSON.parse(r.out).engines.length === 5 && !r.out.includes("test-"), "GET lista os 4 motores + reserva sem revelar chaves");
 
 plan = { "api.groq.com": { status: 200, body: () => sse(["Bom ", "dia!"]) } }; calls = [];
 r = await run(h, { body: { ...msg, engine: "auto" } });
@@ -55,7 +56,10 @@ plan = { "api.groq.com": { status: 200, body: () => sse(["{\"a\":1}"]) } };
 r = await run(h, { body: { ...msg, stream: false, json: true } });
 ok(JSON.parse(r.out).text === "{\"a\":1}" && JSON.parse(r.out).engine === "groq", "modo sem streaming devolve o texto completo");
 
-plan = { "api.groq.com": { status: 500 }, "api.mistral.ai": { status: 500 }, "openrouter.ai": { status: 500 }, "ollama.com": { status: 500 } };
+plan = { "api.groq.com": { status: 500 }, "api.mistral.ai": { status: 500 }, "openrouter.ai": { status: 500 }, "ollama.com": { status: 500 }, "text.pollinations.ai": { status: 200, body: () => sse(["salvo pela reserva"]) } };
+r = await run(h, { body: msg });
+ok(text(r.out) === "salvo pela reserva", "se todos os motores com chave falharem, a reserva responde");
+plan["text.pollinations.ai"] = { status: 500 };
 r = await run(h, { body: msg });
 ok(r.statusCode === 502 && /Tente de novo/.test(r.out), "todos os motores fora: erro amigável");
 

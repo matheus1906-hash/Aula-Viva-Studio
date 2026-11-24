@@ -2,6 +2,7 @@
    As chaves das IAs gratuitas ficam SÓ nas variáveis de ambiente do Vercel:
      GROQ_API_KEY, MISTRAL_API_KEY, OPENROUTER_API_KEY, OLLAMA_API_KEY
    Nunca coloque chaves no código: o repositório e o site são públicos.
+   Sem nenhuma chave, o motor "reserva" (gratuito, sem chave) mantém a IA funcionando.
    POST /api/ia  { engine, messages:[{role,content}], system?, json?, stream? }
      stream=true  -> text/event-stream no formato da OpenAI (data: {"choices":[{"delta":{"content":"..."}}]})
      stream=false -> { text, engine }
@@ -12,9 +13,11 @@ const ENGINES = {
   groq: { name: "Groq", key: "GROQ_API_KEY", base: "https://api.groq.com/openai/v1", models: ["llama-3.3-70b-versatile", "openai/gpt-oss-120b", "llama-3.1-8b-instant"], json: true },
   mistral: { name: "Mistral", key: "MISTRAL_API_KEY", base: "https://api.mistral.ai/v1", models: ["mistral-small-latest", "open-mistral-nemo"], json: true },
   openrouter: { name: "OpenRouter", key: "OPENROUTER_API_KEY", base: "https://openrouter.ai/api/v1", models: ["meta-llama/llama-3.3-70b-instruct:free", "deepseek/deepseek-chat-v3-0324:free", "mistralai/mistral-small-3.2-24b-instruct:free"], json: false },
-  ollama: { name: "Ollama Cloud", key: "OLLAMA_API_KEY", native: "https://ollama.com/api/chat", models: ["gpt-oss:120b", "gpt-oss:20b"], json: true }
+  ollama: { name: "Ollama Cloud", key: "OLLAMA_API_KEY", native: "https://ollama.com/api/chat", models: ["gpt-oss:120b", "gpt-oss:20b"], json: true },
+  /* reserva sem chave: garante que a IA funcione mesmo antes de as chaves serem configuradas ou se todos os motores falharem */
+  reserva: { name: "Reserva", keyless: true, url: "https://text.pollinations.ai/openai", models: ["openai", "mistral"], json: false }
 };
-const AUTO = ["groq", "mistral", "openrouter", "ollama"];
+const AUTO = ["groq", "mistral", "openrouter", "ollama", "reserva"];
 
 const DEFAULT_ORIGINS = ["https://aulavivastudio.vercel.app", "https://matheus1906-hash.github.io"];
 function originAllowed(origin, host) {
@@ -49,19 +52,21 @@ function clean(body) {
   return { engine: typeof b.engine === "string" ? b.engine : "auto", messages, system: typeof b.system === "string" ? b.system.slice(0, 12000) : "", json: !!b.json, stream: b.stream !== false };
 }
 
-const available = () => Object.keys(ENGINES).filter((id) => !!process.env[ENGINES[id].key]);
+const available = () => Object.keys(ENGINES).filter((id) => ENGINES[id].keyless || !!process.env[ENGINES[id].key]);
 
 /* abre a resposta de um motor; devolve { reader(), engine } ou lança erro com status */
 async function open(id, req, signal) {
-  const e = ENGINES[id], key = process.env[e.key];
-  if (!key) throw Object.assign(new Error("motor desligado"), { status: 503 });
+  const e = ENGINES[id], key = e.keyless ? "" : process.env[e.key];
+  if (!key && !e.keyless) throw Object.assign(new Error("motor desligado"), { status: 503 });
   let last;
   for (const model of e.models) {
     const msgs = (req.system ? [{ role: "system", content: req.system }] : []).concat(req.messages);
     let url, payload;
     if (e.native) { url = e.native; payload = { model, messages: msgs, stream: true, options: { temperature: 0.7 } }; if (req.json) payload.format = "json"; }
-    else { url = e.base + "/chat/completions"; payload = { model, messages: msgs, temperature: 0.7, max_tokens: 8000, stream: true }; if (req.json && e.json) payload.response_format = { type: "json_object" }; }
-    const headers = { "content-type": "application/json", authorization: "Bearer " + key };
+    else { url = e.url || e.base + "/chat/completions"; payload = { model, messages: msgs, temperature: 0.7, max_tokens: 8000, stream: true }; if (req.json && e.json) payload.response_format = { type: "json_object" }; }
+    const headers = { "content-type": "application/json" };
+    if (key) headers.authorization = "Bearer " + key;
+    if (e.keyless) { delete payload.max_tokens; payload.referrer = "aulavivastudio"; }
     if (id === "openrouter") { headers["X-Title"] = "AulaViva Studio"; headers["HTTP-Referer"] = "https://aulavivastudio.vercel.app"; }
     let r;
     try { r = await fetch(url, { method: "POST", headers, body: JSON.stringify(payload), signal }); }
