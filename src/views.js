@@ -149,7 +149,8 @@
         if (!l.length) grid.appendChild(h("div", { class: "empty" }, "Nenhum modelo encontrado."));
         AV.renderChunked(grid, l, (x) => {
           const k = AV.KINDS[AV.kindFrom(x.kind)];
-          return (h("article", { class: "tile", style: { cursor: "default" } },
+          return (h("article", { class: "tile mtile", style: { cursor: "default" } },
+            AV.modelThumb(x, () => preview(x)),
             h("div", { class: "chips" }, h("span", { class: "chip", style: { background: k[1], color: "#fff", borderColor: "transparent" } }, x.kind), h("span", { class: "chip" }, x.subject), h("span", { class: "chip" }, x.level), x.lang && x.lang !== "pt-BR" && x.lang !== "pt" ? h("span", { class: "lang-badge", "data-notr": "" }, AV.LANGS[String(x.lang).slice(0, 2)] ? AV.LANGS[String(x.lang).slice(0, 2)][2] + " " + String(x.lang).slice(0, 2).toUpperCase() : x.lang) : null),
             h("h3", null, x.title), h("p", null, x.description),
             h("div", { class: "row" }, h("button", { class: "btn sm", onclick: () => preview(x) }, AV.icon("eye"), "Visualizar"), h("button", { class: "btn sm pri", onclick: () => use(x) }, "Usar modelo"))));
@@ -163,6 +164,25 @@
         const dl = AV.dialog(x.title, h("div", { style: { display: "grid", gap: "12px" } }, h("div", { class: "row" }, seg, h("span", { class: "spacer" }), h("button", { class: "btn pri", onclick: () => { dl.close(); use(x); } }, "Usar modelo")), box), { large: true });
       }
     }
+  };
+
+  /* miniatura da primeira folha do modelo, desenhada só quando o card aparece na tela */
+  let thumbIO = null, thumbRO = null;
+  const fitThumb = (el) => { const inner = el.firstChild; if (inner) inner.style.transform = "translateX(-50%) scale(" + Math.max(0.2, (el.clientWidth - 28) / 620) + ")"; };
+  AV.modelThumb = function (x, onOpen) {
+    const inner = h("div", { class: "mthumb-in", "aria-hidden": "true", "data-notr": "", inert: "" });
+    const el = h("button", { type: "button", class: "mthumb", "aria-label": AV.t("Visualizar") + ": " + x.title, onclick: onOpen }, inner, h("span", { class: "mthumb-zoom", "aria-hidden": "true" }, AV.icon("eye")));
+    if (!thumbIO) {
+      thumbRO = new ResizeObserver((es) => es.forEach((e) => fitThumb(e.target)));
+      thumbIO = new IntersectionObserver((es) => es.forEach((e) => {
+        if (!e.isIntersecting || e.target.dataset.done) return;
+        e.target.dataset.done = "1"; thumbIO.unobserve(e.target);
+        try { const d = AV.normalize(AV.clone(e.target.__model.doc)); d.meta.cover = false; e.target.firstChild.appendChild(AV.renderPaper(d, "aluno")); } catch (err) { e.target.classList.add("mthumb-off"); }
+        fitThumb(e.target); thumbRO.observe(e.target);
+      }), { rootMargin: "300px 0px" });
+    }
+    el.__model = x; thumbIO.observe(el);
+    return el;
   };
 
   /* ---------- Biblioteca de conteúdos ---------- */

@@ -23,13 +23,15 @@ const U = "http://localhost:8799/aulaviva-studio.html";
   await shot(p, "livro-detalhe", null, async (q) => { await q.locator(".bk").nth(2).click(); await q.waitForTimeout(500); });
   await shot(p, "leitor", null, async q => {
     await q.getByRole("button", { name: "Ler na plataforma" }).click();
-    await q.waitForFunction(() => document.querySelector(".reader-nav")?.hidden === false);
-    await q.getByRole("button", {name:"Aparência"}).click();
-    await q.getByLabel("Papel", {exact:true}).selectOption("sepia");
+    await q.waitForFunction(() => !document.querySelector(".rd-text .rd-loading") && (document.querySelector(".rd-text")?.textContent.length || 0) > 200);
+    await q.evaluate(() => { const t = document.querySelector(".rd-text").firstChild; const r = new Range(); const i = Math.max(0, t.nodeValue.search(/[A-ZÁÉ][a-zà-ú]{3,}/)); r.setStart(t, i); r.setEnd(t, Math.min(t.nodeValue.length, i + 70)); getSelection().removeAllRanges(); getSelection().addRange(r); });
+    await q.dispatchEvent(".rd-text", "mouseup"); await q.waitForTimeout(200); await q.click(".rd-pop .rd-sw.c-yellow");
+    await q.getByRole("button", { name: "Aparência" }).click(); await q.click(".rd-theme.t-paper"); await q.waitForTimeout(400);
   });
   await p.setViewportSize({width:390,height:844});
   await shot(p, "leitor-celular");
   await p.setViewportSize({width:1440,height:900});
+  await q_close(p);
   await q_close(p);
   await q_close(p);
   await shot(p, "modelos", "modelos", async (q) => { await q.waitForTimeout(400); });

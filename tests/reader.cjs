@@ -1,0 +1,37 @@
+// Leitor de livros em tela cheia e miniaturas dos modelos.
+const { chromium } = require("playwright"); const path = require("path");
+const url = "file://" + path.join(__dirname, "..", "dist/aulaviva-studio-standalone.html");
+let fails = 0; const ok = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); if (!c) fails++; };
+(async () => {
+  const b = await chromium.launch(); const errs = [];
+  const p = await (await b.newContext({ viewport: { width: 1366, height: 900 }, locale: "pt-BR" })).newPage();
+  p.on("pageerror", (e) => errs.push(e.message));
+  await p.goto(url); await p.click("text=Explorar sem criar conta");
+  await p.evaluate(() => (location.hash = "modelos")); await p.waitForTimeout(1500);
+  ok((await p.locator(".mthumb .paper").count()) >= 3, "modelos mostram miniatura da folha");
+  await p.evaluate(() => AV.readBook(AV.LIVROS_INLINE.find((x) => x.title === "Yayá Garcia") || AV.LIVROS_INLINE[0]));
+  await p.waitForFunction(() => (document.querySelector(".rd-text")?.textContent.length || 0) > 300);
+  ok(await p.locator(".rd").isVisible(), "leitor abre em tela cheia");
+  await p.evaluate(() => { const t = document.querySelector(".rd-text").firstChild; const r = new Range(); r.setStart(t, 5); r.setEnd(t, 45); getSelection().removeAllRanges(); getSelection().addRange(r); });
+  await p.dispatchEvent(".rd-text", "mouseup"); await p.waitForTimeout(200);
+  await p.click(".rd-pop .rd-sw.c-blue");
+  ok((await p.locator(".rd-text mark.c-blue").count()) === 1, "grifo azul criado");
+  await p.click(".rd-text mark.c-blue"); await p.click(".rd-pop >> text=Anotar");
+  await p.fill(".dlg textarea", "Minha nota"); await p.click(".dlg >> text=Salvar"); await p.waitForTimeout(200);
+  ok((await p.locator(".rd-text mark.has-note").count()) === 1, "anotação salva no grifo");
+  await p.click('.rd-ib[aria-label="Aparência"]'); await p.click(".rd-theme.t-dark");
+  ok((await p.getAttribute(".rd", "data-theme")) === "dark", "tema escuro aplicado");
+  await p.keyboard.press("Escape"); await p.keyboard.press("ArrowRight"); await p.waitForTimeout(300);
+  ok(/Página 2 /.test(await p.textContent(".rd-pinfo")), "seta muda de página");
+  await p.click('.rd-ib[aria-label="Buscar no livro"]'); await p.fill(".rd-panel input[type=search]", "Garcia"); await p.waitForTimeout(500);
+  ok((await p.locator(".rd-go.find").count()) > 5, "busca no livro encontra resultados");
+  await p.click('.rd-ib[aria-label="Sumário"]');
+  ok((await p.locator(".rd-go.toc").count()) > 3, "sumário com capítulos");
+  await p.keyboard.press("Escape"); await p.keyboard.press("Escape"); await p.waitForTimeout(200);
+  ok((await p.locator(".rd").count()) === 0, "Esc fecha o leitor");
+  await p.evaluate(() => AV.readBook(AV.LIVROS_INLINE.find((x) => x.title === "Yayá Garcia") || AV.LIVROS_INLINE[0]));
+  await p.waitForFunction(() => (document.querySelector(".rd-text")?.textContent.length || 0) > 300);
+  ok(/Página 2 /.test(await p.textContent(".rd-pinfo")) && (await p.getAttribute(".rd", "data-theme")) === "dark", "reabre na mesma página e tema");
+  ok(!errs.length, "sem erros de página " + errs.join(" | "));
+  await b.close(); process.exit(fails ? 1 : 0);
+})();

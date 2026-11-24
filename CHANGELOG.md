@@ -1,5 +1,10 @@
 # Histórico de versões
 
+## 3.3.0
+
+- Modelos prontos mostram uma miniatura real da primeira folha em cada card.
+- Leitor de livros em tela cheia: temas claro, amarelado, papel, escuro e noite; fontes, tamanho, espaçamento, largura, alinhamento e escurecer a tela; grifos em 5 cores com anotações; marcadores; sumário por capítulos; busca no livro; leitura em voz alta; tempo restante; exportar anotações; gestos e atalhos de teclado.
+
 ## 3.2.0
 
 - 220 modelos novos e originais (total de 290): 50 atividades, 50 apostilas, 50 provas, 30 listas de exercícios, 25 planos de aula com habilidades da BNCC e 15 roteiros com QR codes, da Educação Infantil ao Ensino Médio, em português, inglês e espanhol. Inspirados nos formatos que professores mais usam: avaliação diagnóstica, simulado no estilo SAEB/ENEM, sequência didática, lista de fixação, revisão para prova e roteiro de estudo.
