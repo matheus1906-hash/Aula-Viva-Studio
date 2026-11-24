@@ -54,7 +54,9 @@
         h("div", { class: "ed-bar" }, h("button", { class: "btn ghost icon", "aria-label": "Voltar", onclick: () => { saveSoon.cancel(); if (story) AnimStore.save(story); story = null; stop(); gallery.hidden = false; studio.hidden = true; drawGallery(); } }, AV.icon("back")), title,
           h("button", { class: "btn sm", onclick: () => { story.scenes.splice(cur + 1, 0, AV.clone(story.scenes[cur] || blankScene())); cur++; refresh(); } }, AV.icon("plus"), "Cena"),
           h("button", { class: "btn sm", onclick: support }, AV.icon("doc"), "Atividade sobre o vídeo"),
-          h("button", { class: "btn sm pri", onclick: (e) => exportVideo(e.currentTarget) }, AV.icon("download"), "Baixar vídeo")),
+          h("button", { class: "btn sm pri", onclick: (e) => exportVideo(e.currentTarget) }, AV.icon("download"), "Baixar vídeo"),
+          h("button", { class: "btn sm", onclick: () => AV.saveFile(AV.slug(story.title)+".json",JSON.stringify(story,null,2)) }, "Exportar roteiro JSON"),
+          h("button", { class: "btn sm", onclick: exportSRT }, "Legendas (.srt"))),
         h("div", { class: "anim-grid" },
           h("div", { style: { display: "grid", gap: "10px", minWidth: 0 } },
             h("div", { class: "anim-stage" }, canvas),
@@ -79,7 +81,7 @@
         gallery.append(h("section", { class: "feature-card" },
           h("div", { style: { display: "grid", gap: "12px", minWidth: 0 } }, h("h2", null, "Criar com IA"), h("p", { class: "muted" }, "Descreva o tema. A IA escreve o roteiro, escolhe cenários e personagens e monta as cenas. Você ajusta tudo depois."),
             h("div", { class: "form" }, h("label", { class: "f full" }, "Tema do vídeo", topic), h("label", { class: "f" }, "Idade", age), h("label", { class: "f" }, "Tamanho", nsc), h("label", { class: "f" }, "Idioma", lang)),
-            h("div", { class: "row" }, go, h("button", { class: "btn", onclick: () => open({ id: AV.uid(), title: "Meu vídeo", lang: AV.locale(), scenes: [blankScene()] }) }, AV.icon("plus"), "Começar do zero")))));
+            h("div", { class: "row" }, go, h("button", { class: "btn", onclick: chatStoryboard }, AV.icon("chat"), "Criar livremente por chat"), h("button", { class: "btn", onclick: () => open({ id: AV.uid(), title: "Meu vídeo", lang: AV.locale(), scenes: [blankScene()] }) }, AV.icon("plus"), "Começar do zero")))));
         const mine = AnimStore.list();
         if (mine.length) gallery.append(h("h2", null, "Meus vídeos"), h("div", { class: "grid wide" }, mine.map((s) => card(s, true))));
         gallery.append(h("h2", null, "Modelos prontos"), h("div", { class: "grid wide" }, (A.TEMPLATES || []).map((t) => card(Object.assign({ id: "tpl-" + t.id, title: t.title, level: t.level, description: t.description }, t.story), false))));
@@ -160,6 +162,40 @@
           num(t, "y", "Altura", 0.05, 0.9, 0.01), num(t, "size", "Tamanho", 0.5, 2.5, 0.1),
           h("button", { class: "btn sm ghost danger", onclick: () => { sc.texts.splice(i, 1); ch(); drawEditor(); } }, AV.icon("trash"), "Remover"))));
       }
+      /* Chat livre para construir e refinar o roteiro em múltiplas mensagens.
+         Nenhuma chave de IA é solicitada aqui; respeita o motor escolhido no app. */
+      function chatStoryboard() {
+        const history = [];
+        let draft = null, busy = false;
+        const log = h("div", { class: "teacher-chat-log", role: "log", "aria-live": "polite" },
+          h("p", { class: "note info" }, "Conte o que você imagina: tema, personagens, cenários, estilo e idade. A cada mensagem a IA pode reconstruir o roteiro. Você poderá continuar conversando e depois abrir as cenas no editor."));
+        const input = h("textarea", { class: "in", rows: 3, placeholder: "Ex.: Quero um vídeo divertido sobre o Cerrado para o 4º ano, com duas personagens que conversam..." });
+        const status = h("p", { class: "muted small", "aria-live": "polite" });
+        const previewBtn = h("button", { class: "btn pri", disabled: true, onclick: () => { if (!draft) return; d.close(); open(Object.assign({}, draft, { id: AV.uid() }), true); } }, "Abrir roteiro no editor");
+        const send = h("button", { class: "btn pri", onclick: ask }, AV.icon("send"), "Enviar ao chat");
+        const d = AV.dialog("Criar vídeo livremente com chat", h("div", { class: "teacher-chat" }, log, input, h("div", { class: "row" }, send, previewBtn), status), { large: true });
+        input.addEventListener("keydown", e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); ask(); } });
+        async function ask() {
+          const msg = input.value.trim(); if (!msg || busy) return; busy = true; send.disabled = true;
+          history.push({ role: "professor", text: msg });
+          log.append(h("p", { class: "teacher-bubble user" }, msg));
+          input.value = ""; status.textContent = "Organizando as cenas com o motor de IA...";
+          try {
+            const schema = '{"title":string,"scenes":[{"bg":um de ['+Object.keys(A.BACKGROUNDS).join(",")+'],"duration":5-9,"narration":frase curta,"actors":[{"type":um de ['+Object.keys(A.ACTORS).join(",")+'],"x":0.2-0.8,"y":0.2-0.85,"anim":um de ['+Object.keys(A.ANIMS).join(",")+'],"say":fala curta opcional}],"texts":[{"text":palavra-chave curta,"x":0.5,"y":0.12,"size":1,"anim":"aparecer"}]}]}';
+            const context = history.slice(-7).map((m,i)=>(i+1)+". "+m.role+": "+m.text).join("\n").slice(-5500);
+            const old = draft ? "\nRoteiro anterior (refine, não ignore as decisões do professor): "+JSON.stringify(draft).slice(0,9000) : "";
+            const response = await AV.AI.json("Você é um roteirista pedagógico de animações para a educação básica brasileira. Construa ou refine um vídeo original e editável com base no diálogo:\n"+context+old+"\nUse 3 a 8 cenas, personagens adequados e conteúdo correto. Responda somente JSON: "+schema,{tier:"complex",lang:AV.lang()});
+            const candidate = A.validate(Object.assign({lang:AV.locale()},response));
+            if (!candidate.scenes || !candidate.scenes.length) throw Error("A resposta não trouxe cenas válidas.");
+            draft = Object.assign(candidate,{title:response.title||"Meu vídeo livre"});
+            history.push({role:"roteirista",text:"Roteiro com "+draft.scenes.length+" cenas: "+draft.title});
+            log.append(h("p", { class: "teacher-bubble" }, "Roteiro preparado: "+draft.title+" ("+draft.scenes.length+" cenas). Peça alterações ou abra no editor."));
+            previewBtn.disabled = false; status.textContent = "Roteiro editável pronto. Você pode solicitar ajustes pelo chat.";
+          } catch(e) {log.append(h("p",{class:"note"},"Não foi possível gerar: "+AV.AI.explain(e)));status.textContent="Você pode tentar novamente sem perder a conversa.";}
+          busy=false;send.disabled=false;log.scrollTop=log.scrollHeight;
+        }
+      }
+
       async function aiStory(topic, age, n, lang, btn) {
         if (!topic) { document.getElementById("anim-topic").focus(); return; }
         AV.busy(btn, true, "Escrevendo o roteiro...");
@@ -175,13 +211,18 @@
         } catch (e) { AV.toast(AV.AI.explain(e)); }
         AV.busy(btn, false);
       }
+      function exportSRT() {
+        let at=0;const fmtSrt=t=>{const ms=Math.floor(t*1000),hh=Math.floor(ms/3600000),mm=Math.floor(ms%3600000/60000),ss=Math.floor(ms%60000/1000),m=ms%1000;return String(hh).padStart(2,"0")+":"+String(mm).padStart(2,"0")+":"+String(ss).padStart(2,"0")+","+String(m).padStart(3,"0");};
+        const rows=story.scenes.map((scene,i)=>{const from=at;at+=Number(scene.duration)||6;return (i+1)+"\n"+fmtSrt(from)+" --> "+fmtSrt(at)+"\n"+String(scene.narration||"").trim()+"\n";});
+        AV.saveFile(AV.slug(story.title)+".srt",rows.join("\n"));
+      }
       async function exportVideo(btn) {
         if (player && player.playing) toggle();
         AV.busy(btn, true, "Gravando 0%");
         try {
           const blob = await A.exportWebM(story, { captions, fps: 30, onProgress: (f) => { btn.lastChild.textContent = " " + AV.t("Gravando") + " " + Math.round(f * 100) + "%"; } });
           await AV.saveFile(AV.slug(story.title) + ".webm", blob);
-          AV.toast("Vídeo pronto. A narração não vai no arquivo: as legendas sim.", 5000);
+          AV.toast("Vídeo WebM pronto. A narração falada não está incorporada; as legendas visuais estão.", 5000);
         } catch (e) { AV.toast((e && e.message) || "Não foi possível gravar o vídeo."); }
         AV.busy(btn, false);
       }
