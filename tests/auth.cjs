@@ -11,6 +11,16 @@ let fails = 0; const ok = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); 
   p.on("pageerror", (e) => errs.push(e.message));
   await p.goto(url); await p.waitForSelector(".auth");
   ok(await p.locator(".auth h1").isVisible(), "tela de boas-vindas aparece");
+  // Primeira visita / domínio novo: botão Entrar não pode parecer quebrado.
+  const loginTab = p.locator('.auth-tabs button').filter({ hasText: 'Entrar' });
+  ok(await loginTab.isEnabled(), "aba Entrar clicável mesmo sem conta local");
+  await loginTab.click();
+  ok(/Nenhuma conta local foi encontrada neste endereço/.test(await p.locator('.auth-form').innerText()), "mensagem explica domínio e conta local");
+  await p.fill('#au-pw', 'Senha-de-outra-origem');
+  await p.click('.auth-go');
+  ok(/Não existe conta local neste endereço/.test(await p.locator('.auth-msg').innerText()), "login sem conta não tenta autenticar em cofre inexistente");
+  await p.locator('.auth-tabs button').filter({ hasText: 'Criar conta' }).click();
+
   ok((await p.locator(".auth-frame img").count()) === 6, "6 imagens reais na vitrine");
   ok(!(await p.locator("#main, main.main").first().isVisible().catch(() => false)), "app escondido antes de entrar");
   await p.screenshot({ path: path.join(root, "tests/auth-login.png") });
