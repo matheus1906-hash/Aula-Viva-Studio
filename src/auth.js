@@ -72,15 +72,17 @@
   function field(label, el, extra) { return h("label", { class: "f" }, AV.t(label), extra ? h("div", { class: "row", style: { flexWrap: "nowrap", gap: "6px" } }, el, extra) : el); }
     function draw() {
       msg.textContent = ""; form.textContent = ""; tabs.textContent = ""; altLinks.textContent = "";
-      if (mode !== "recover") [["login", "Entrar"], ["signup", "Criar conta"]].forEach(([k, l]) => tabs.appendChild(h("button", { type: "button", "aria-pressed": k === mode ? "true" : "false", disabled: k === "login" && !exists, onclick: () => { mode = k; draw(); } }, AV.t(l))));
+      if (mode !== "recover") [["login", "Entrar"], ["signup", "Criar conta"]].forEach(([k, l]) => tabs.appendChild(h("button", { type: "button", "aria-pressed": k === mode ? "true" : "false", onclick: () => { mode = k; draw(); } }, AV.t(l))));
       if (mode === "login") {
-        add(form, h("h2", null, AV.t("Que bom ter você de volta")), field("Senha", pw, eye),
+        add(form, h("h2", null, AV.t("Que bom ter você de volta")),
+          !exists ? h("p", { class: "note info", role: "status" }, "Nenhuma conta local foi encontrada neste endereço. Se você criou sua conta em outro site ou domínio do AulaViva, ela não é transferida automaticamente para cá. Para testar esta versão, escolha Criar conta ou Explorar sem criar conta. Seu cofre anterior permanece no endereço original.") : null,
+          field("Senha", pw, eye),
           h("label", { class: "check" }, remember, AV.t("Manter conectado neste aparelho por 7 dias")), msg, submit);
         submit.textContent = AV.t("Entrar");
         altLinks.append(h("button", { type: "button", class: "btn ghost sm", onclick: () => { mode = "recover"; draw(); } }, AV.t("Esqueci minha senha")));
       } else if (mode === "signup") {
         add(form, h("h2", null, AV.t(exists ? "Criar uma nova conta" : "Crie sua conta segura")),
-          exists ? h("p", { class: "note" }, AV.t("Já existe uma conta neste aparelho. Criar outra apaga a conta atual e todos os dados dela.")) : null,
+          exists ? h("p", { class: "note" }, AV.t("Já existe uma conta neste aparelho. Criar outra apaga a conta atual e todos os dados dela.")) : h("p", { class: "note info" }, "Esta é uma conta local deste endereço, não um cadastro centralizado. Se já possui materiais em outro endereço do AulaViva, não apague os dados antigos; eles permanecem naquele navegador até a migração para o Supabase."),
           field("Seu nome", name), field("Crie uma senha (mínimo 8 caracteres)", pw, eye), h("div", { class: "row", style: { gap: "10px" } }, meter, meterTxt), field("Repita a senha", pw2),
           h("label", { class: "check" }, remember, AV.t("Manter conectado neste aparelho por 7 dias")), msg, submit);
         submit.textContent = AV.t("Criar conta e entrar");
@@ -101,7 +103,8 @@
         if (pw.value.length < 8) return err("A senha precisa ter pelo menos 8 caracteres.");
         if (AV.Vault.strength(pw.value) < 2) return err("Senha fraca. Misture letras maiúsculas e minúsculas, números e símbolos.");
         if (pw.value !== pw2.value) return err("As senhas não conferem.");
-      } else if (!pw.value) return err("Digite a sua senha.");
+      } else if (!exists) return err("Não existe conta local neste endereço. Crie uma conta aqui ou volte ao endereço onde criou sua conta anterior.");
+      else if (!pw.value) return err("Digite a sua senha.");
       submit.disabled = true; const label = submit.textContent; submit.textContent = AV.t("Protegendo seus dados...");
       try {
         if (mode === "login") await AV.Vault.unlock(pw.value);
