@@ -54,3 +54,13 @@ Após a revisão dos cards, foi removido o gradiente muito claro e o círculo de
 **Novo padrão:** card com superfície sólida do tema da plataforma, ilustração dentro de um painel menor e colorido com borda suave, selo e texto sem alterações. Os desenhos SVG originais continuam sendo gerados localmente; não são imagens externas. A mudança preserva os 12 atalhos e o banner superior.
 
 Verificações: `npm run check:js`, `npm run build`, `npm run test:home`, inspeção visual dos cards em temas claro/escuro e nos tamanhos desktop/mobile. O status READY da Vercel não substitui os testes manuais e de navegador.
+
+## Reformulação: desenhos verdadeiramente coloridos
+
+A pedido do responsável, os ícones de contorno (“preto e branco”) foram substituídos por **12 pequenas cenas vetoriais coloridas, com objetos preenchidos e sobrepostos**. As artes são originais e auto-hospedadas no bundle; não dependem de fotografias, serviços de imagem nem de conexão externa para carregar.
+
+A implementação usa formas SVG preenchidas, detalhes de papel e objetos, personagens, camadas, sombras, contrastes e cores próprias por função. Exemplos: personagem dentro de um player para vídeos, estante multicolorida para biblioteca, mesa de estudos com livro e luminária, caderno aberto, prancheta de prova e páginas com conteúdo para modelos.
+
+Não alteramos o banner verde, agenda, horários, links, títulos nem preferências. Criado `tests/home-illustrations.cjs` para renderizar os 12 SVGs com DOM simulado e conferir que são cenas distintas, multicamadas, coloridas e com marcação decorativa acessível. `npm run test:home` agora executa esse teste além da regressão da home.
+
+**Limite desta entrega:** ilustrações coloridas em estilo vetorial editorial (não fotografias nem renderizações 3D). A qualidade visual em navegadores e temas deve ser verificada separadamente; estado READY não significa homologação completa.
