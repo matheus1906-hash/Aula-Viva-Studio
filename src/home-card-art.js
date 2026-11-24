@@ -25,6 +25,7 @@ const shapes={
  library:[["rect",14,15,72,67,7,"white"],["line",17,61,83,61],["rect",22,25,12,34,2,"accent"],["rect",37,19,12,40,2,"accent"],["rect",52,28,12,31,2,"accent"],["path","M67 25 L80 29 L73 57 L61 53 Z"],["circle",75,70,11,"none"],["path","M83 78 L94 89"]]
 };
 const vector=(name,meta)=>{
+ if(typeof document==="undefined")return AV.h("span",{class:"home-art-test-fallback","data-art":name});
  const palette=themes[name]||themes.ai;
  const svg=document.createElementNS(NS,"svg");
  svg.setAttribute("viewBox","0 0 100 96");svg.setAttribute("class","home-illustration-svg");
