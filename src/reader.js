@@ -87,7 +87,9 @@
     const pageInfo = h("span", { class: "rd-pinfo", role: "status" });
     const leftInfo = h("span", { class: "rd-left", "data-notr": "" });
     const slider = h("input", { type: "range", class: "rd-slider", min: 1, value: 1, "aria-label": AV.t("Ir à página"), oninput: (e) => { pageInfo.textContent = AV.t("Página") + " " + e.target.value + " / " + count(); }, onchange: (e) => go(e.target.valueAsNumber - 1) });
-    const foot = h("footer", { class: "rd-foot" }, pageInfo, slider, leftInfo);
+    const prevBtn = h("button", { type: "button", class: "rd-step", "aria-label": AV.t("Página anterior"), onclick: () => go(page() - 1) }, icon("chevron-left"), h("span", null, AV.t("Anterior")));
+    const nextBtn = h("button", { type: "button", class: "rd-step next", "aria-label": AV.t("Próxima página"), onclick: () => go(page() + 1) }, h("span", null, AV.t("Próxima")), icon("chevron-right"));
+    const foot = h("footer", { class: "rd-foot" }, prevBtn, h("div", { class: "rd-prog" }, h("div", { class: "rd-prog-row" }, pageInfo, leftInfo), slider), nextBtn);
     const bmBtn = ib("Marcar página", "bookmark", toggleBookmark, { "aria-pressed": "false" });
     const ttsBtn = ib("Ouvir em voz alta", "volume", toggleSpeech, { "aria-pressed": "false" });
     const edSel = canScan ? h("select", { class: "rd-sel", "aria-label": AV.t("Edição"), onchange: (e) => { mode = e.target.value; record.mode = mode; persist(); draw(); } }, h("option", { value: "text", selected: mode === "text" }, AV.t("Texto")), h("option", { value: "scan", selected: mode === "scan" }, AV.t("Página original"))) : null;
@@ -176,7 +178,7 @@
         leftInfo.textContent = (ch ? ch.label + " · " : "") + (rest > 0 ? fmtMin(rest) + " " + AV.t("para terminar") : AV.t("Última página"));
       } else leftInfo.textContent = "";
       bmBtn.setAttribute("aria-pressed", String(record.bookmarks.some((m) => m.page === page() && m.mode === mode)));
-      prevZone.disabled = n <= 1; nextZone.disabled = n >= total;
+      prevZone.disabled = prevBtn.disabled = n <= 1; nextZone.disabled = nextBtn.disabled = n >= total;
       if (!panel.hidden && panel.dataset.kind === "marks") openPanel("marks", true);
     }
     function offsetsOf(range) {

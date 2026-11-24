@@ -1,7 +1,7 @@
 (function (AV) {
   "use strict";
   const h = AV.h, V = AV.views;
-  const tile = (icon, color, title, text, onclick, href) => h(href ? "a" : "button", { class: "tile", type: href ? null : "button", href: href || null, onclick }, AV.appIcon(icon, color, "ico"), h("h3", null, title), h("p", null, text));
+  const tile = (icon, color, title, text, onclick, href) => h(href ? "a" : "button", { class: "tile", type: href ? null : "button", href: href || null, onclick }, AV.homeIcon(icon, color, "ico"), h("h3", null, title), h("p", null, text));
   const head = (t, p, ...right) => h("div", { class: "head" }, h("div", null, h("h1", null, t), p ? h("p", null, p) : null), right.length ? h("div", { class: "row" }, right) : null);
   function hello() { const hr = new Date().getHours(); return hr < 12 ? "Bom dia" : hr < 18 ? "Boa tarde" : "Boa noite"; }
   async function importAny() {
@@ -58,10 +58,10 @@
           null),
           daily.element,
         h("div", { class: "stats" },
-          h("div", { class: "stat" }, AV.appIcon("folder", "amber"), h("div", null, nMat, h("span", null, "materiais seus"))),
-          h("div", { class: "stat" }, AV.appIcon("book", "blue"), h("div", null, nModelos, h("span", null, "modelos prontos"))),
-          h("div", { class: "stat" }, AV.appIcon("puzzle", "rose"), h("div", null, h("b", null, String((AV.atividades && AV.atividades.catalog || []).length)), h("span", null, "tipos de atividade"))),
-          h("div", { class: "stat" }, AV.appIcon("globe", "teal"), h("div", null, h("b", null, "3"), h("span", null, "idiomas"))))),
+          h("div", { class: "stat" }, AV.homeIcon("folder", "amber"), h("div", null, nMat, h("span", null, "materiais seus"))),
+          h("div", { class: "stat" }, AV.homeIcon("book", "blue"), h("div", null, nModelos, h("span", null, "modelos prontos"))),
+          h("div", { class: "stat" }, AV.homeIcon("puzzle", "rose"), h("div", null, h("b", null, String((AV.atividades && AV.atividades.catalog || []).length)), h("span", null, "tipos de atividade"))),
+          h("div", { class: "stat" }, AV.homeIcon("globe", "teal"), h("div", null, h("b", null, "3"), h("span", null, "idiomas"))))),
         h("div", { class: "sec-t" }, h("div", null, h("small", null, "Criar agora"), h("h2", null, "Comece um material"))),
         h("div", { class: "grid" },
           tile("wand", "pink", "Criar com IA", "Escolha o tipo e o tema: a IA escreve tudo e você ajusta depois.", () => AV.aiCreateDialog()),
@@ -185,6 +185,32 @@
     return el;
   };
 
+  /* prévia ilustrativa de um material que a IA ainda vai gerar: a folha no formato do tipo escolhido */
+  AV.demoThumb = function (title, sub, tipo, onOpen) {
+    const t = (AV.LIB.tipos.find((x) => x[0] === tipo) || AV.LIB.tipos[0]);
+    const kind = AV.KINDS[t[2]] || AV.KINDS.atividade || ["", "#0B6E5F"];
+    const bar = (w, cls) => h("i", { class: "db" + (cls ? " " + cls : ""), style: { width: w + "%" } });
+    const lines = (n, base) => Array.from({ length: n }, (_, i) => bar(base - ((i * 17) % 28)));
+    const q = (n, opts) => h("div", { class: "dq" }, h("b", null, n + "."), h("div", null, bar(88), bar(60), opts ? h("div", { class: "dopts" }, ["a", "b", "c", "d"].map((l) => h("span", null, h("em"), bar(70)))) : h("div", { class: "dline" })));
+    const parts = {
+      atividade: () => [h("div", { class: "dcall" }, bar(80), bar(55)), q(1, true), q(2, false), q(3, true)],
+      ludica: () => [h("div", { class: "dcall" }, bar(70)), h("div", { class: "dgrid" }, Array.from({ length: 48 }, (_, i) => h("span", null, "ABCDEFGHIJLMNOPRSTUV"[(i * 7 + title.length) % 20]))), h("div", { class: "dwords" }, lines(4, 40))],
+      lista: () => Array.from({ length: 6 }, (_, i) => h("div", { class: "dq" }, h("b", null, i + 1 + "."), h("div", null, bar(92 - i * 6), h("div", { class: "dline" })))),
+      prova: () => [h("div", { class: "dnota" }, h("span", null, "Nota"), h("i")), q(1, true), q(2, true), q(3, false)],
+      plano: () => [h("div", { class: "dtable" }, ["Objetivos", "BNCC", "Materiais", "Etapas", "Avaliação"].map((k) => h("div", null, h("b", null, k), h("div", null, bar(90), bar(65)))))],
+      sequencia: () => [1, 2, 3, 4].map((n) => h("div", { class: "dstep" }, h("b", null, AV.t("Aula") + " " + n), h("div", null, bar(85), bar(60)))),
+      projeto: () => [h("div", { class: "dcall" }, bar(75), bar(50)), h("div", { class: "dtime" }, [1, 2, 3, 4].map((n) => h("span", null, h("em", null, n), bar(80))))],
+      apostila: () => [h("div", { class: "dtwo" }, h("div", null, lines(5, 96)), h("div", { class: "dimg" })), h("div", { class: "dcall" }, bar(80), bar(60)), h("div", null, lines(4, 95))],
+      interpretacao: () => [h("div", { class: "dtext" }, lines(7, 97)), q(1, true), q(2, false)],
+      roteiro: () => [1, 2, 3].map((n) => h("div", { class: "dqr" }, h("span", { class: "qr" }), h("div", null, h("b", null, AV.t("Passo") + " " + n), bar(85), bar(55))))
+    };
+    const sheet = h("div", { class: "dsheet", style: { "--k": kind[1] } },
+      h("div", { class: "dhead" }, h("small", null, t[1]), h("strong", { "data-notr": "" }, title), h("span", { "data-notr": "" }, sub)),
+      h("div", { class: "dfields" }, ["Nome", "Turma", "Data"].map((k) => h("span", null, AV.t(k)))),
+      (parts[tipo] || parts.atividade)());
+    return h("button", { type: "button", class: "mthumb dthumb", "aria-label": AV.t("Gerar") + ": " + title, onclick: onOpen }, h("div", { class: "dthumb-in", "aria-hidden": "true" }, sheet), h("span", { class: "mthumb-zoom", "aria-hidden": "true" }, AV.icon("sparkle")));
+  };
+
   /* ---------- Biblioteca de conteúdos ---------- */
   V.biblioteca = {
     title: "Biblioteca",
@@ -212,14 +238,14 @@
         if (tab === "temas") {
           const seg = AV.LIB.segmento(st.etapa), temas = (AV.LIB.temas[st.disc] || {})[seg] || [];
           out.textContent = "";
-          temas.forEach((t) => out.appendChild(h("article", { class: "tile", style: { cursor: "default" } }, h("h3", null, t), h("p", null, st.disc + " · " + st.etapa),
+          temas.forEach((t) => out.appendChild(h("article", { class: "tile mtile", style: { cursor: "default" } }, AV.demoThumb(t, st.disc + " · " + st.etapa, st.tipo, () => gen(t)), h("h3", null, t), h("p", null, st.disc + " · " + st.etapa),
             h("div", { class: "row" }, h("button", { class: "btn sm pri", onclick: () => gen(t) }, AV.icon("sparkle"), "Gerar"), h("button", { class: "btn sm", onclick: () => { AV.LS.set("studioTopic", t); AV.go("estudio"); } }, "Estudar no Estúdio")))));
           if (!temas.length) out.appendChild(h("div", { class: "empty" }, "Sem temas sugeridos para esta combinação. Use o Pedido rápido."));
           const own = h("input", { class: "in", id: "lib-own", placeholder: "Ou digite outro tema...", value: st.own || "", oninput: (e) => { st.own = e.target.value; } });
           body.append(selects(), out, h("div", { class: "row" }, h("div", { style: { flex: "1 1 260px" } }, own), h("button", { class: "btn pri", onclick: () => own.value.trim() ? gen(own.value.trim()) : own.focus() }, AV.icon("sparkle"), "Gerar com este tema")));
           AV.loadModelos().then((m) => {
             const rel = m.filter((x) => x.subject.includes(st.disc.split(" ")[0]) || st.disc.includes(x.subject.split(" ")[0])).slice(0, 6);
-            if (rel.length) body.append(h("h2", null, "Modelos prontos relacionados"), h("div", { class: "grid wide" }, rel.map((x) => h("button", { class: "tile", onclick: () => { const d = AV.normalize(AV.clone(x.doc)); d.id = AV.uid(); d.meta.kind = AV.kindFrom(x.kind); AV.openDoc(d); } }, h("h3", null, x.title), h("p", null, x.kind + " · " + x.level)))));
+            if (rel.length) body.append(h("h2", null, "Modelos prontos relacionados"), h("div", { class: "grid wide" }, rel.map((x) => { const open = () => { const d = AV.normalize(AV.clone(x.doc)); d.id = AV.uid(); d.meta.kind = AV.kindFrom(x.kind); AV.openDoc(d); }; return h("article", { class: "tile mtile", style: { cursor: "default" } }, AV.modelThumb(x, open), h("h3", null, x.title), h("p", null, x.kind + " · " + x.level), h("div", { class: "row" }, h("button", { class: "btn sm pri", onclick: open }, "Usar modelo"))); })));
           }).catch(() => {});
         } else if (tab === "datas") {
           const now = new Date().getMonth() + 1;

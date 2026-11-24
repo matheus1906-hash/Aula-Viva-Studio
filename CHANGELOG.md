@@ -1,5 +1,12 @@
 # Histórico de versões
 
+## 3.4.0
+
+- 34 vídeos animados novos (46 no total): corpo humano, animais, plantas, reciclagem, saúde, contagem, tabuada do 2, dobro e metade, dinheiro, alfabeto, rimas, sílabas, emoções, trânsito seguro, povos indígenas, cores primárias e inglês básico.
+- Ícones ilustrados e coloridos para as opções da tela inicial.
+- Biblioteca de conteúdos com prévia da folha em cada tema, no formato do tipo de material escolhido; modelos relacionados com miniatura.
+- Leitor de livros com botões grandes de Anterior e Próxima no rodapé.
+
 ## 3.3.0
 
 - Modelos prontos mostram uma miniatura real da primeira folha em cada card.

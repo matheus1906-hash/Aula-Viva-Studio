@@ -2,8 +2,9 @@ import fs from "node:fs";
 import { createHash } from "node:crypto";
 import { readingText } from "./reading-text.mjs";
 import { gunzipSync, gzipSync } from "node:zlib";
-const order = ["core.js", "vault.js", "i18n.js", "i18n-dict.js", "i18n-extra.js", "importers.js", "exporters.js", "atividades.js", "biblioteca-data.js", "providers.js", "ai.js", "ai-live.js", "ai-settings.js", "preview.js", "editor.js", "home-planner.js", "views.js", "chat-studio.js", "animacao.js", "animacao-modelos.js", "reader.js", "views2.js", "auth.js", "main.js"];
-const js = order.filter((f) => fs.existsSync("src/" + f)).map((f) => "/* " + f + " */\n" + fs.readFileSync("src/" + f, "utf8")).join("\n;\n");
+const order = ["core.js", "home-icons.js", "vault.js", "i18n.js", "i18n-dict.js", "i18n-extra.js", "importers.js", "exporters.js", "atividades.js", "biblioteca-data.js", "providers.js", "ai.js", "ai-live.js", "ai-settings.js", "preview.js", "editor.js", "home-planner.js", "views.js", "chat-studio.js", "animacao.js", "animacao-modelos.js", "reader.js", "views2.js", "auth.js", "main.js"];
+const animExtra = fs.existsSync("data/animacoes-extra.json") ? fs.readFileSync("data/animacoes-extra.json", "utf8").replace(/<\//g, "<\\/") : "[]";
+const js = order.filter((f) => fs.existsSync("src/" + f)).map((f) => "/* " + f + " */\n" + fs.readFileSync("src/" + f, "utf8").replace("/*ANIM_EXTRA*/[]", () => animExtra)).join("\n;\n");
 const fonts = [["Figtree","figtree"],["Bricolage Grotesque","bricolagegrotesque"]].map(([family, file]) => {
   const encoded = fs.readFileSync("data/fonts/" + file + ".ttf").toString("base64");
   return "@font-face{font-family:'" + family + "';font-style:normal;font-weight:300 900;font-display:swap;src:url(data:font/ttf;base64," + encoded + ") format('truetype')}";

@@ -1,6 +1,6 @@
 (function (AV) {
   "use strict";
-  /* 12 vídeos animados prontos (roteiros originais para Educação Infantil e anos iniciais) */
+  /* vídeos animados prontos (roteiros originais para Educação Infantil e anos iniciais) */
   const A = (type, x, y, o) => Object.assign({ type, x, y, scale: 1, anim: "parado" }, o || {});
   const T = (text, o) => Object.assign({ text, x: 0.5, y: 0.14, size: 1, anim: "aparecer", color: "#FFFFFF" }, o || {});
   const S = (bg, duration, narration, actors, texts) => ({ bg, duration, narration, actors, texts: texts || [] });
@@ -91,6 +91,9 @@
       S("espaco", 5, "E de estrela.", [A("letra", 0.35, 0.75, { text: "E", scale: 1.4, color: "#8B5CF6", anim: "pular" }), A("estrela", 0.68, 0.45, { scale: 1.2, anim: "girar" })]),
       S("sala", 6, "A, B, C, D, E! Que outras palavras começam com essas letras?", [A("letra", 0.2, 0.7, { text: "A", color: "#EF4444", anim: "pular" }), A("letra", 0.35, 0.7, { text: "B", color: "#F59E0B", anim: "pular", delay: 0.3 }), A("letra", 0.5, 0.7, { text: "C", color: "#10B981", anim: "pular", delay: 0.6 }), A("letra", 0.65, 0.7, { text: "D", color: "#3B82F6", anim: "pular", delay: 0.9 }), A("letra", 0.8, 0.7, { text: "E", color: "#8B5CF6", anim: "pular", delay: 1.2 })])] } }
   ];
+  /* mais roteiros originais (data/animacoes-extra.json, embutidos no build) */
+  const EXTRA = /*ANIM_EXTRA*/[];
+  EXTRA.forEach((t) => { if (t && t.story && !TEMPLATES.some((x) => x.id === t.id)) TEMPLATES.push(t); });
   AV.anim = AV.anim || {};
   AV.anim.TEMPLATES = TEMPLATES;
 })(globalThis.AV = globalThis.AV || {});

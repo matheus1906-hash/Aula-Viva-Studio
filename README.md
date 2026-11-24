@@ -33,7 +33,7 @@ Títulos, textos, destaques, imagens, QR codes, links, vídeos, múltipla escolh
 ![Editor de materiais](docs/screenshots/editor.webp)
 
 ### Vídeos animados para crianças
-Desenhos originais com personagens, cenários, balões de fala, legendas e narração em voz alta. Comece por um dos 12 modelos (ciclo da água, vogais, Sistema Solar, Cerrado…) ou peça para a IA escrever o roteiro. Edite cena por cena e baixe o vídeo em `.webm`.
+Desenhos originais com personagens, cenários, balões de fala, legendas e narração em voz alta. Comece por um dos 46 modelos (ciclo da água, corpo humano, tabuada do 2, dinheiro, emoções, trânsito seguro, cores em inglês…) ou peça para a IA escrever o roteiro. Edite cena por cena e baixe o vídeo em `.webm`.
 
 ![Estúdio de vídeos animados](docs/screenshots/video-editor.webp)
 
