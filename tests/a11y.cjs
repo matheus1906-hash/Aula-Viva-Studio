@@ -15,5 +15,6 @@ const srv = http.createServer((q, r) => { const f = path.join(root, "dist", deco
     await p.close();
   }
   for (const [k, v] of Object.entries(agg)) console.log(k, v.impact, "n=" + v.n, v.views.join(","), "\n   " + v.ex.join("\n   "));
+  if (Object.keys(agg).length) process.exitCode = 1;
   await b.close(); srv.close();
 })();
