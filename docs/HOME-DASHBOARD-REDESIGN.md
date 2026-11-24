@@ -56,3 +56,21 @@ Ocultar um widget **não apaga dados**. Quando todos os opcionais estão ocultos
 - `build.mjs` — inclusão na compilação.
 - `tests/home-dashboard.cjs` — regressões automatizadas.
 - `package.json` — comandos de teste.
+
+## Decisão visual posterior — preservar a área superior original
+
+Em 23/11/2026, após revisão da versão 4.0, foi determinado que **o banner original do AulaViva deve ser preservado**, conforme referência enviada pelo responsável do projeto. A reformulação agora se aplica **somente abaixo desse banner**.
+
+O topo mantém:
+- Fundo verde com degradê e textura de grade, cantos arredondados;
+- Selo `AulaViva Studio · PT · EN · ES`;
+- Saudação dinâmica conforme horário e primeiro nome do professor;
+- Texto de apresentação original;
+- Campo amplo `O que você quer criar?` e botão coral **Criar**;
+- Cinco atalhos: Plano de aula, Atividade para imprimir, Prova, Vídeo animado, Livros e artigos.
+
+Abaixo dele permanecem o novo conjunto de cards, agenda, horários, frase diária, estudos, materiais recentes e preferências. O campo extra de geração por IA foi removido da área inferior para evitar duplicação.
+
+### Proteção contra regressões
+
+`tests/home-dashboard.cjs` verifica o retorno do componente `.hero.home-preserved-hero`, a presença dos cinco atalhos, o campo original e o envio por Enter, além das verificações de agenda e widgets já existentes. Não apagar essa área em futuras reformulações sem solicitação explícita.
