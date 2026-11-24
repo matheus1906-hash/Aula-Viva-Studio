@@ -16,7 +16,7 @@
     "jspdf": "^4.2.1",
     "jszip": "^3.10.1",
     "mammoth": "^1.13.0",
-    "pdfjs-dist": "^3.11.174",
+    "pdfjs-dist": "^6.5.438",
     "pptxgenjs": "^3.12.0",
     "reader-pdf": "npm:pdfjs-dist@^5.4.624"
   },
