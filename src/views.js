@@ -91,7 +91,8 @@
           h("a", { class: "btn", href: "#modelos" }, AV.icon("grid"), "Ver modelos prontos"),
           h("button", { class: "btn wa", onclick: () => AV.whatsSheet(null) }, AV.icon("chat"), "WhatsApp")),
         h("div", { class: "sec-t" }, h("div", null, h("small", null, "Seus materiais"), h("h2", null, "Continuar de onde parou")), h("a", { href: "#materiais" }, "Ver todos")),
-        recent));
+        recent,
+        AV.teacherHomeWidgets ? AV.teacherHomeWidgets() : null));
       return AV.Store.on(drawRecent);
     }
   };
@@ -236,13 +237,21 @@
     render(main) {
       const cat = (AV.atividades && AV.atividades.catalog) || [];
       const cats = [...new Set(cat.map((c) => c.category))];
-      let cur = cat[0], result = null;
+      let cur = cat[0], result = null, preset = null;
       const left = h("div", { class: "menu" }), form = h("div", { style: { display: "grid", gap: "12px" } }), pv = h("div", { style: { background: "var(--track)", padding: "12px", borderRadius: "12px" } });
       const into = AV.Store.get(AV.LS.get("insertInto"));
+      const presetGallery = h("div", { class: "grid wide" });
+      const presetFilter = h("input", { class: "in", type: "search", placeholder: "Buscar entre 50 modelos de atividades..." });
+      const presets = AV.ACTIVITY_PRESETS || [];
+      const choosePreset = (item) => { const found = cat.find(x => x.id === item.activityId); if (!found) return; cur = found; preset = item.values; drawForm(); document.querySelector(".studio")?.scrollIntoView({ behavior: "smooth" }); };
+      const drawPresetGallery = () => { const q = presetFilter.value.toLocaleLowerCase(); presetGallery.textContent = ""; const list = presets.filter(item => (item.name + " " + item.category).toLocaleLowerCase().includes(q)); AV.renderChunked(presetGallery, list, item => h("article", { class: "tile" }, h("span", { class: "chip pri", style: { width: "fit-content" } }, item.category), h("h3", null, item.name), h("p", null, item.description), h("button", { class: "btn sm pri", onclick: () => choosePreset(item) }, "Personalizar atividade"))); };
+      presetFilter.addEventListener("input", AV.debounce(drawPresetGallery, 120));
       main.appendChild(h("div", { class: "wrap" }, AV.pageHead("Atividades prontas", "Gere atividades comuns em segundos. Escolha, preencha e confira a prévia.", "puzzle", "rose"),
         into ? h("p", { class: "note info" }, "As atividades serão inseridas em \"" + into.meta.title + "\". ", h("button", { class: "btn sm", onclick: () => { AV.LS.del("insertInto"); AV.go("atividades"); AV.route(); } }, "Criar como novo material")) : null,
-        h("div", { class: "studio" }, h("div", { class: "card", style: { padding: "8px" } }, left), h("div", { style: { display: "grid", gap: "14px" } }, h("div", { class: "card" }, form), pv))));
-      cats.forEach((c) => { left.appendChild(h("div", { class: "small muted", style: { padding: "8px 10px 2px", fontWeight: 800 } }, c)); cat.filter((x) => x.category === c).forEach((x) => left.appendChild(h("button", { onclick: () => { cur = x; drawForm(); } }, AV.appIcon(ACT_ICON[x.id] ? ACT_ICON[x.id][0] : "puzzle", ACT_ICON[x.id] ? ACT_ICON[x.id][1] : "rose"), h("b", null, x.name), h("span", null, x.years || "")))); });
+        h("div", { class: "studio" }, h("div", { class: "card", style: { padding: "8px" } }, left), h("div", { style: { display: "grid", gap: "14px" } }, h("div", { class: "card" }, form), pv)),
+        h("div", { class: "sec-t" }, h("div", null, h("small", null, "Prontos para adaptar"), h("h2", null, "50 modelos de atividades"))), presetFilter, presetGallery));
+      drawPresetGallery();
+      cats.forEach((c) => { left.appendChild(h("div", { class: "small muted", style: { padding: "8px 10px 2px", fontWeight: 800 } }, c)); cat.filter((x) => x.category === c).forEach((x) => left.appendChild(h("button", { onclick: () => { cur = x; preset = null; drawForm(); } }, AV.appIcon(ACT_ICON[x.id] ? ACT_ICON[x.id][0] : "puzzle", ACT_ICON[x.id] ? ACT_ICON[x.id][1] : "rose"), h("b", null, x.name), h("span", null, x.years || "")))); });
       function toText(v, type) { if (type === "pairs" && Array.isArray(v)) return v.map((p) => p.join(" = ")).join("\n"); if (Array.isArray(v)) return v.join("\n"); return v == null ? "" : v; }
       function drawForm() {
         form.textContent = ""; result = null; pv.textContent = "";
@@ -250,7 +259,7 @@
         form.append(h("h2", null, cur.name), h("p", { class: "muted" }, cur.description));
         const grid = h("div", { class: "form", oninput: () => { result = null; }, onchange: () => { result = null; } });
         cur.fields.forEach((f) => {
-          const ex = cur.example && cur.example[f.key] !== undefined ? cur.example[f.key] : f.default;
+          const ex = preset && preset[f.key] !== undefined ? preset[f.key] : cur.example && cur.example[f.key] !== undefined ? cur.example[f.key] : f.default;
           let el;
           if (f.type === "textarea" || f.type === "list" || f.type === "pairs") el = h("textarea", { class: "in", rows: 5, placeholder: f.placeholder || "" }, toText(ex, f.type));
           else if (f.type === "select") el = h("select", { class: "in" }, (f.options || []).map((o) => { const v = Array.isArray(o) ? o[0] : (o.value != null ? o.value : o), l = Array.isArray(o) ? o[1] : (o.label || o); return h("option", { value: v, selected: v == ex }, l); }));
@@ -431,6 +440,7 @@
           h("div", { class: "seg", role: "group", "aria-label": "Idioma", "data-notr": "" }, Object.keys(AV.LANGS).map((k) => h("button", { type: "button", "aria-pressed": k === AV.lang() ? "true" : "false", onclick: () => AV.setLang(k) }, AV.LANGS[k][2] + " " + AV.LANGS[k][0]))),
           h("p", { class: "muted small" }, "O idioma muda a interface e é o idioma padrão dos novos materiais. Cada material pode ter o seu idioma."), theme),
         h("section", { class: "card", id: "cfg-ia", style: { display: "grid", gap: "12px" } }, h("h2", null, "Inteligência artificial"), AV.aiSettingsPanel()),
+        AV.homeWidgetSettings ? AV.homeWidgetSettings() : null,
         AV.securityPanel ? AV.securityPanel() : null,
         h("section", { class: "card", style: { display: "grid", gap: "12px" } }, h("h2", null, "Seus dados (LGPD)"),
           h("p", { class: "muted small" }, "Seus materiais ficam na sua conta, visíveis só para você, e uma cópia fica neste navegador."),
