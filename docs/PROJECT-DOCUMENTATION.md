@@ -48,3 +48,7 @@ Pendências explícitas: integrar autenticação ao frontend, preservar/migrar o
 ## Critério de conclusão
 
 Nenhuma tarefa relevante é considerada concluída apenas porque seu código foi enviado: ela precisa de documentação compatível, testes necessários e registro transparente do que está ou não funcionando. A branch principal só deve receber funcionalidades validadas e documentação revisada.
+
+## Publicação GitHub em todas as mudanças
+
+Toda alteração produzida no projeto deve ser registrada no GitHub na mesma entrega, em branch apropriada, com commit e documentação. Manter a `main` protegida de implementações não validadas. Mostrar no chat a diferença entre protótipo visual, código commitado e recurso realmente ativo em produção; nunca tratar uma prévia de interface como implantação concluída.
