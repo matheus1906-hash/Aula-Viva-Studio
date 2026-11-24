@@ -56,7 +56,7 @@
           h("button", { class: "btn sm", onclick: support }, AV.icon("doc"), "Atividade sobre o vídeo"),
           h("button", { class: "btn sm pri", onclick: (e) => exportVideo(e.currentTarget) }, AV.icon("download"), "Baixar vídeo"),
           h("button", { class: "btn sm", onclick: () => AV.saveFile(AV.slug(story.title)+".json",JSON.stringify(story,null,2)) }, "Exportar roteiro JSON"),
-          h("button", { class: "btn sm", onclick: exportSRT }, "Legendas (.srt"))),
+          h("button", { class: "btn sm", onclick: exportSRT }, "Legendas (.srt")),
         h("div", { class: "anim-grid" },
           h("div", { style: { display: "grid", gap: "10px", minWidth: 0 } },
             h("div", { class: "anim-stage" }, canvas),
