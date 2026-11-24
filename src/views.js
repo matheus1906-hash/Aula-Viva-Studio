@@ -40,7 +40,7 @@
       const q = h("input", { id: "hero-q", type: "search", placeholder: "O que você quer criar? Ex.: atividade sobre frações para o 4º ano", "aria-label": "O que você quer criar?", onkeydown: (e) => { if (e.key === "Enter") go(); } });
       const go = () => AV.aiCreateDialog({ kind: guessKind(q.value), topic: q.value.trim() });
       const guessKind = (t) => { t = t.toLowerCase(); return /plano/.test(t) ? "plano" : /prova|avalia/.test(t) ? "prova" : /lista|exerc/.test(t) ? "lista" : /projeto/.test(t) ? "projeto" : /roteiro/.test(t) ? "roteiro" : /apostila/.test(t) ? "apostila" : "atividade"; };
-      const art = document.getElementById("hero-art");
+      const daily = AV.homePlanner();
       const nModelos = h("b", null, "70+");
       AV.loadModelos().then((m) => (nModelos.textContent = m.length)).catch(() => {});
       main.appendChild(h("div", { class: "wrap" },
@@ -56,9 +56,7 @@
               h("button", { onclick: () => AV.go("animacao") }, "Vídeo animado"),
               h("button", { onclick: () => AV.go("acervo") }, "Livros e artigos"))),
           null),
-          h("div", { class: "side-cards" },
-            h("a", { class: "promo coral", href: "#animacao" }, h("div", { class: "row" }, AV.appIcon("film", "orange"), h("span", { class: "chip", style: { marginLeft: "auto" } }, AV.t("novo"))), h("div", null, h("h3", null, "Vídeos animados"), h("p", null, "Desenhos com personagens, falas, legendas e narração para as crianças.")), h("span", { class: "go" }, "Criar um vídeo →")),
-            h("a", { class: "promo sun", href: "#acervo" }, h("div", { class: "row" }, AV.appIcon("shelf", "amber"), h("span", { class: "chip", style: { marginLeft: "auto" } }, AV.t("novo"))), h("div", null, h("h3", null, "Livros reais, grátis"), h("p", null, "Clássicos em domínio público com a capa original, para ler online.")), h("span", { class: "go" }, "Abrir a biblioteca →"))),
+          daily.element,
         h("div", { class: "stats" },
           h("div", { class: "stat" }, AV.appIcon("folder", "amber"), h("div", null, nMat, h("span", null, "materiais seus"))),
           h("div", { class: "stat" }, AV.appIcon("book", "blue"), h("div", null, nModelos, h("span", null, "modelos prontos"))),
@@ -92,7 +90,8 @@
           h("button", { class: "btn wa", onclick: () => AV.whatsSheet(null) }, AV.icon("chat"), "WhatsApp")),
         h("div", { class: "sec-t" }, h("div", null, h("small", null, "Seus materiais"), h("h2", null, "Continuar de onde parou")), h("a", { href: "#materiais" }, "Ver todos")),
         recent));
-      return AV.Store.on(drawRecent);
+      const unsubscribe = AV.Store.on(drawRecent);
+      return () => { unsubscribe(); daily.dispose(); };
     }
   };
 

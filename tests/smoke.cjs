@@ -31,6 +31,27 @@ const srv = http.createServer((q, r) => { const f = path.join(root, "dist", deco
   await p.goto("http://localhost:8765/aulaviva-studio.html"); await p.waitForTimeout(500); console.log("BOOT ERRORS:", JSON.stringify(errs));
   const shot = (n) => p.screenshot({ path: path.join(root, "tests", "shot-" + n + ".png") });
   await shot("inicio");
+  const assert = require("node:assert/strict");
+  await p.getByRole("button", { name: "Organizar" }).click();
+  await p.getByLabel("Novo lembrete").fill("Preparar aula de frações");
+  await p.getByLabel("Data", { exact: true }).fill("2027-02-01");
+  await p.getByRole("button", { name: "Adicionar", exact: true }).click();
+  await p.keyboard.press("Escape");
+  await p.reload();
+  await p.waitForSelector(".planner-preview time");
+  assert.match(await p.locator(".planner-preview").innerText(), /Preparar aula de frações/);
+  for (const width of [390, 1280]) {
+    await p.setViewportSize({ width, height: 844 });
+    for (const card of await p.locator(".planner-card").all()) {
+      const box = await card.boundingBox();
+      assert.ok(box && box.y >= 0 && box.y + box.height <= 844, "Painel diário visível ao entrar");
+    }
+  }
+  await p.getByRole("button", { name: "Organizar" }).click();
+  await p.getByRole("button", { name: "Concluir · Preparar aula de frações" }).click();
+  await p.keyboard.press("Escape");
+  assert.match(await p.locator(".planner-preview").innerText(), /Nenhum lembrete/);
+
   // criar com IA
   await p.click("text=Criar com IA"); await p.fill("#ai-topic", "Ciclo da água"); await p.click("text=Gerar material"); await p.click("text=Abrir no editor", { timeout: 30000 }); await p.waitForSelector(".ed-title");
   console.log("editor title:", await p.inputValue(".ed-title"), "blocks:", await p.locator(".blk").count());
