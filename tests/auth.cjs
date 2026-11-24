@@ -40,6 +40,11 @@ let fails = 0; const ok = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); 
   await p.waitForSelector(".home-welcome h1", { timeout: 15000 });
   ok(await p.locator(".home-welcome h1").isVisible(), "nova tela inicial é visível após entrar");
   ok(await p.locator(".home-action").count() === 12, "doze cards de criação são exibidos");
+  ok(await p.locator(".home-action .home-illustration-svg").count() === 12, "12 ilustrações SVG originais aparecem no navegador");
+  ok(await p.locator(".home-action .home-action-badge").count() === 12, "selos contextuais visíveis em todos os cards");
+  ok((await p.locator(".home-action[data-card-art]").evaluateAll(els => new Set(els.map(el => el.dataset.cardArt)).size)) === 12, "12 composições diferentes por categoria");
+  ok(await p.locator(".home-action").first().getAttribute("href") !== "#", "primeiro card mantém ação real e não é placeholder");
+
   ok(await p.locator(".home-hero-area > .home-quote-panel").isVisible(), "frase junto ao banner");
   ok(await p.locator(".home-plan-card").isVisible(), "plano de aula no canto da página");
   ok(await p.locator(".home-recent-bottom").isVisible(), "materiais recentes na parte inferior");
