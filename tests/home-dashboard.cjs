@@ -38,6 +38,19 @@ let nodes = rendered();
 const allText = () => nodes.flatMap(n => n.children || []).filter(x => typeof x === "string").join(" | ");
 const sectionTitles = () => nodes.filter(n => n.tag === "h2").map(n => n.children.join(""));
 assert.ok(nodes.some(n => n.tag === "h1" && n.children.join("").includes("Professora Exemplo".split(" ")[0])));
+const hero = nodes.find(n => n.tag === "section" && n.props.class === "hero home-preserved-hero");
+assert.ok(hero, "original green hero restored");
+const labels = nodes.filter(n => n.tag === "button").map(n => n.children.filter(x => typeof x === "string").join(""));
+for(const label of ["Criar", "Plano de aula", "Atividade para imprimir", "Prova", "Vídeo animado", "Livros e artigos"]) {
+  assert.ok(labels.includes(label), "hero shortcut preserved: " + label);
+}
+const heroInput = nodes.find(n => n.tag === "input" && n.props.id === "hero-q");
+assert.ok(heroInput && heroInput.props.placeholder.includes("atividade sobre frações"), "original hero prompt restored");
+heroInput.value = "Plano de aula sobre plantas";
+heroInput.props.onkeydown({ key: "Enter" });
+assert.ok(calls.some(c => c && c.kind === "plano" && c.topic === "Plano de aula sobre plantas"), "hero Enter still sends prompt");
+console.log("PASS original hero preserved with working prompt and all five shortcuts");
+
 for (const title of ["Minha agenda", "Aulas de hoje", "Crie do seu jeito", "Continuar de onde parou", "Sua tela, suas escolhas"]) {
   assert.ok(sectionTitles().includes(title), "homepage shows " + title);
 }
