@@ -14,7 +14,7 @@
     anthropic:   { name: "Claude API (Anthropic)", cost: "Pago", tag: "paid", keyUrl: "https://console.anthropic.com/settings/keys", models: ["claude-sonnet-5-5", "claude-haiku-5-5", "claude-opus-5-5"], kind: "anthropic" },
     openai:      { name: "ChatGPT (OpenAI)", cost: "Pago", tag: "paid", keyUrl: "https://platform.openai.com/api-keys", base: "https://api.openai.com/v1", models: ["gpt-4.1-mini", "gpt-5-mini", "gpt-4o-mini", "gpt-4.1"] },
     deepseek:    { name: "DeepSeek", cost: "Pago (barato)", tag: "paid", keyUrl: "https://platform.deepseek.com/api_keys", base: "https://api.deepseek.com/v1", models: ["deepseek-chat"] },
-    custom:      { name: "Outra IA compatível (OpenAI)", cost: "Variável", tag: "paid", custom: true, models: [], note: "Servidor da escola, LM Studio ou outro serviço compatível com a API da OpenAI." }
+    custom:      { name: "Outra IA compatível (OpenAI)", cost: "Variável", tag: "paid", custom: true, models: [], note: "Servidor local compatível com a API da OpenAI (LM Studio, Ollama no computador). Use um endereço http://localhost." }
   };
   const NOT_CHAT = /whisper|tts|embed|guard|moderation|audio|image|dall-e|transcri|realtime|search|ocr|playai|distil|rerank/i;
   AV.PROVIDERS = P;
@@ -131,38 +131,52 @@
     return names[0] || P[id].models[0] || "";
   };
 
-  /* IA interna: o servidor do site fala com o motor gratuito usando as chaves guardadas lá */
-  async function internal(id, messages, opts) {
-    const body = { engine: P[id].engine, messages, system: opts.system || "", json: !!opts.json, stream: !!opts.onText && opts.stream !== false };
-    const req = { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body), signal: opts.signal, credentials: "omit", referrerPolicy: "no-referrer" };
-    const fail = async (r) => {
-      let j = {}; try { j = await r.json(); } catch (e) {}
-      if (r.status === 429) throw err("rate_limited", j.message || "Muitos pedidos seguidos. Aguarde alguns minutos e tente de novo.");
-      if (r.status === 503) throw err("internal_off", "A IA do AulaViva está em manutenção. Tente de novo em instantes.");
-      throw err("http", j.message || "Não foi possível falar com a IA agora. Tente de novo.");
-    };
-    let text = "";
-    if (body.stream) {
-      let r;
-      try { r = await fetch(AV.iaEndpoint(), req); } catch (e) { if (e && e.name === "AbortError") throw e; throw err(window.claude ? "blocked" : "network", "Sem conexão com a IA do AulaViva. Verifique a internet."); }
-      if (!r.ok) await fail(r);
-      const rd = r.body.getReader(), dec = new TextDecoder(); let buf = "";
-      for (;;) {
-        const { value, done } = await rd.read(); if (done) break;
-        buf += dec.decode(value, { stream: true });
-        let i; while ((i = buf.indexOf("\n")) >= 0) {
-          const line = buf.slice(0, i).trim(); buf = buf.slice(i + 1);
-          if (!line.startsWith("data:")) continue;
-          const d = line.slice(5).trim(); if (!d || d === "[DONE]") continue;
-          try { const j = JSON.parse(d); const t = ((((j.choices || [])[0] || {}).delta) || {}).content || ""; if (j.engine) AV.lastEngine = j.engine; if (t) { text += t; opts.onText({ text, delta: t }); } } catch (e) {}
-        }
-      }
-    } else {
-      let r;
-      try { r = await fetch(AV.iaEndpoint(), req); } catch (e) { if (e && e.name === "AbortError") throw e; throw err(window.claude ? "blocked" : "network", "Sem conexão com a IA do AulaViva. Verifique a internet."); }
-      if (!r.ok) await fail(r);
-      const j = await r.json(); text = j.text || ""; AV.lastEngine = j.engine;
+  /* IA interna: o servidor do site fala com o motor gratuito usando as chaves guardadas lá.
+     opts.exclude: motores a evitar (usado ao tentar de novo depois de uma resposta ruim). */
+  const INTERNAL_ERRORS = {
+    429: ["rate_limited", "Muitos pedidos seguidos. Aguarde alguns minutos e tente de novo."],
+    503: ["internal_off", "A IA está em manutenção. Tente de novo em instantes."]
+  };
+  async function postInternal(body, opts) {
+    let r;
+    try {
+      r = await fetch(AV.iaEndpoint(), { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body), signal: opts.signal, credentials: "omit", referrerPolicy: "no-referrer", cache: "no-store" });
+    } catch (e) {
+      if (e && e.name === "AbortError") throw e;
+      throw err(window.claude ? "blocked" : "network", "Sem conexão com a IA do AulaViva. Verifique a internet.");
     }
+    if (r.ok) return r;
+    let j = {}; try { j = await r.json(); } catch (e) {}
+    const [code, msg] = INTERNAL_ERRORS[r.status] || ["upstream", "Não foi possível falar com a IA agora. Tente de novo."];
+    throw err(code, j.message || msg);
+  }
+  async function readInternalStream(r, opts) {
+    const reader = r.body.getReader(), dec = new TextDecoder();
+    let buf = "", text = "";
+    for (;;) {
+      const { value, done } = await reader.read(); if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let i;
+      while ((i = buf.indexOf("\n")) >= 0) {
+        const line = buf.slice(0, i).trim(); buf = buf.slice(i + 1);
+        if (!line.startsWith("data:")) continue;
+        const data = line.slice(5).trim(); if (!data || data === "[DONE]") continue;
+        let j; try { j = JSON.parse(data); } catch (e) { continue; }
+        if (j.error) throw err("upstream", j.error.message || "A IA parou no meio da resposta. Tente de novo.");
+        if (j.engine) AV.lastEngine = j.engine;
+        const t = ((((j.choices || [])[0] || {}).delta) || {}).content || "";
+        if (t) { text += t; opts.onText({ text, delta: t }); }
+      }
+    }
+    return text;
+  }
+  async function internal(id, messages, opts) {
+    const stream = !!opts.onText && opts.stream !== false;
+    const body = { engine: P[id].engine, messages, system: opts.system || "", json: !!opts.json, stream, exclude: opts.exclude || [] };
+    const r = await postInternal(body, opts);
+    let text;
+    if (stream) text = await readInternalStream(r, opts);
+    else { const j = await r.json(); text = j.text || ""; AV.lastEngine = j.engine; }
     text = String(text).replace(/<think>[\s\S]*?<\/think>/g, "").trim();
     if (!text) throw err("empty", "A IA devolveu uma resposta vazia. Tente de novo.");
     return text;

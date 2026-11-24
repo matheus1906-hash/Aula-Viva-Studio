@@ -52,6 +52,23 @@ const srv = http.createServer((q, r) => { const f = path.join(root, "dist", deco
   await p2.goto("file://" + path.join(root, "dist/aulaviva-studio-standalone.html")); await p2.click("text=Explorar sem criar conta"); await p2.waitForTimeout(400);
   await p2.click("text=Criar com IA"); await p2.fill("#ai-topic", "Ciclo da água"); await p2.click("text=Gerar material");
   await p2.waitForSelector("text=Abrir no editor", { timeout: 15000 });
+  /* card da tela inicial: entende o pedido e já cria, sem segundo clique; resposta quebrada troca de motor */
+  let calls = [];
+  await c2.unroute("https://aulavivastudio.vercel.app/api/ia");
+  await c2.route("https://aulavivastudio.vercel.app/api/ia", async (r) => {
+    const body = JSON.parse(r.request().postData() || "{}"); calls.push(body);
+    const first = calls.length === 1;
+    const content = first ? "isto não é JSON" : DOC;
+    r.fulfill({ contentType: "text/event-stream", headers: { "access-control-allow-origin": "null" }, body: "data: " + JSON.stringify({ engine: first ? "reserva" : "groq", choices: [{ delta: { content: "" } }] }) + "\n\ndata: " + JSON.stringify({ choices: [{ delta: { content } }] }) + "\n\ndata: [DONE]\n\n" });
+  });
+  const p3 = await c2.newPage(); p3.on("pageerror", (e) => errs.push(e.message));
+  await p3.goto("file://" + path.join(root, "dist/aulaviva-studio-standalone.html")); await p3.click("text=Explorar sem criar conta"); await p3.waitForTimeout(300);
+  await p3.fill("#hero-q", "Uma apostila simples sobre o ciclo da água para o 3º ano");
+  await p3.keyboard.press("Enter");
+  await p3.waitForSelector("text=Abrir no editor", { timeout: 15000 });
+  const sentPrompt = calls[0].messages[0].content;
+  ok(/"Apostila"/.test(sentPrompt) && /Tema: Ciclo da água/.test(sentPrompt) && /3º ano/.test(sentPrompt), "card da tela inicial entende tipo, tema e ano e cria direto");
+  ok(calls.length === 2 && JSON.stringify(calls[1].exclude) === '["reserva"]', "resposta quebrada: tenta de novo sozinho evitando o motor que falhou");
   ok(streamed && !sentKey, "IA interna (motor Rápida/Groq) em tempo real, sem chave no navegador");
   ok(+(await p2.locator(".live-stat b").first().innerText()) >= 6, "blocos montados a partir do streaming da IA interna");
   await c2.close();

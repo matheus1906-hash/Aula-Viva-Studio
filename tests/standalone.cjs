@@ -4,7 +4,7 @@ const root = path.join(__dirname, "..");
   const b = await chromium.launch(); const errs = [];
   const ctx = await b.newContext({ viewport: { width: 1280, height: 860 }, acceptDownloads: true });
   await ctx.route("https://fonts.**", (r) => r.abort());
-  const map = { "docx@8.5.0/build/index.umd.js": "node_modules/docx/build/index.umd.js", "jspdf@2.5.1/dist/jspdf.umd.min.js": "node_modules/jspdf/dist/jspdf.umd.min.js" };
+  const map = { "docx@8.5.0/build/index.umd.js": "node_modules/docx/build/index.umd.js", "jspdf@4.2.1/dist/jspdf.umd.min.js": "node_modules/jspdf/dist/jspdf.umd.min.js" };
   await ctx.route("https://cdn.jsdelivr.net/npm/**", (rt) => { const k = Object.keys(map).find((k) => rt.request().url().endsWith(k)); k ? rt.fulfill({ path: path.join(root, map[k]), contentType: "application/javascript" }) : rt.abort(); });
   let calls = [];
   /* IA interna simulada: o app fala só com o servidor do AulaViva, nunca direto com o Groq e sem chave */

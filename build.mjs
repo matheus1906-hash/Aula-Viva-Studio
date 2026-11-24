@@ -2,9 +2,16 @@ import fs from "node:fs";
 import { createHash } from "node:crypto";
 import { readingText } from "./reading-text.mjs";
 import { gunzipSync, gzipSync } from "node:zlib";
-const order = ["core.js", "home-icons.js", "vault.js", "i18n.js", "i18n-dict.js", "i18n-extra.js", "importers.js", "exporters.js", "atividades.js", "biblioteca-data.js", "providers.js", "ai.js", "ai-live.js", "ai-settings.js", "preview.js", "editor.js", "home-planner.js", "views.js", "chat-studio.js", "animacao.js", "animacao-modelos.js", "reader.js", "views2.js", "auth.js", "main.js"];
+const order = ["core.js", "home-icons.js", "vault.js", "i18n.js", "i18n-dict.js", "i18n-extra.js", "importers.js", "exporters.js", "atividades.js", "biblioteca-data.js", "providers.js", "intent.js", "ai.js", "ai-live.js", "ai-settings.js", "preview.js", "editor.js", "home-planner.js", "views.js", "chat-studio.js", "animacao.js", "animacao-modelos.js", "reader.js", "views2.js", "auth.js", "main.js"];
+/* SRI: o navegador só roda as bibliotecas do CDN se forem idênticas às versões verificadas */
+const SRI_FILES = { jspdf: "jspdf/dist/jspdf.umd.min.js", docx: "docx/build/index.umd.js", pptx: "pptxgenjs/dist/pptxgen.bundle.js", jszip: "jszip/dist/jszip.min.js", mammoth: "mammoth/mammoth.browser.min.js", pdfjs: "pdfjs-dist/build/pdf.min.js" };
+const SRI = {};
+for (const [key, file] of Object.entries(SRI_FILES)) {
+  const p = "node_modules/" + file;
+  if (fs.existsSync(p)) SRI[key] = "sha384-" + createHash("sha384").update(fs.readFileSync(p)).digest("base64");
+}
 const animExtra = fs.existsSync("data/animacoes-extra.json") ? fs.readFileSync("data/animacoes-extra.json", "utf8").replace(/<\//g, "<\\/") : "[]";
-const js = order.filter((f) => fs.existsSync("src/" + f)).map((f) => "/* " + f + " */\n" + fs.readFileSync("src/" + f, "utf8").replace("/*ANIM_EXTRA*/[]", () => animExtra)).join("\n;\n");
+const js = order.filter((f) => fs.existsSync("src/" + f)).map((f) => "/* " + f + " */\n" + fs.readFileSync("src/" + f, "utf8").replace("/*ANIM_EXTRA*/[]", () => animExtra).replace("/*SRI*/{}", () => JSON.stringify(SRI))).join("\n;\n");
 const fonts = [["Figtree","figtree"],["Bricolage Grotesque","bricolagegrotesque"]].map(([family, file]) => {
   const encoded = fs.readFileSync("data/fonts/" + file + ".ttf").toString("base64");
   return "@font-face{font-family:'" + family + "';font-style:normal;font-weight:300 900;font-display:swap;src:url(data:font/ttf;base64," + encoded + ") format('truetype')}";
@@ -62,7 +69,9 @@ fs.writeFileSync("dist/data/livros.json", JSON.stringify(livros));
 fs.writeFileSync("dist/data/acervo.json", JSON.stringify(acervo));
 // versão para hospedar: arquivo único, modelos embutidos
 const shots = fs.existsSync("data/login-shots.json") ? fs.readFileSync("data/login-shots.json", "utf8") : "[]";
-const CSP = "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; worker-src 'self' blob: https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; connect-src 'self' https: data: blob: http://localhost:11434 http://127.0.0.1:11434; frame-src https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com https://archive.org; object-src 'none'; base-uri 'none'; form-action 'none'; upgrade-insecure-requests";
+/* CSP: uma única fonte, o cabeçalho do vercel.json (o meta não aceita frame-ancestors) */
+const CSP = JSON.parse(fs.readFileSync("vercel.json", "utf8")).headers[0].headers.find((x) => x.key === "Content-Security-Policy").value.replace(/;\s*frame-ancestors[^;]*/, "");
+
 fs.writeFileSync("dist/csp.txt", CSP);
 const inline = "globalThis.AV=globalThis.AV||{};AV.STANDALONE=true;AV.LOGIN_SHOTS=" + shots + ";AV.MODELOS_INLINE=" + JSON.stringify(modelos).replace(/<\//g, "<\\/") + ";AV.ACERVO_INLINE=" + JSON.stringify(acervo).replace(/<\//g, "<\\/") + ";AV.LIVROS_INLINE=" + JSON.stringify(livros).replace(/<\//g, "<\\/") + ";\n";
 const solo = shellSrc.replace("<!--ICONS-->", () => icons).replace("/*CSS*/", () => css).replace("/*JS*/", () => inline + js)

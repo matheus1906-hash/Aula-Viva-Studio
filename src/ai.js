@@ -37,12 +37,22 @@
         if (opts.json) return s.json(input, { signal: opts.signal, modelTier: opts.tier || "default", cache: false });
         return (await s(input, { onText: opts.onText, signal: opts.signal, modelTier: opts.tier || "default", cache: false })).text;
       }
-      try {
-        const t = await AV.callProvider(id, messages, opts);
-        return opts.json ? AV.parseJSON(t) : t;
-      } catch (e) {
-        if (e.code === "blocked" && (await AV.cap.sample)) { AV.toast("Usando a IA incluída: o claude.ai bloqueia outras IAs nesta página."); const c = AV.aiCfg(); c.active = "auto"; AV.setAiCfg(c); return AV.AI.run(messages, opts); }
-        throw e;
+      /* IA interna: se a resposta vier vazia, quebrada ou o motor falhar, tenta de novo com outro motor */
+      const internal = !!AV.PROVIDERS[id].internal;
+      const exclude = [];
+      for (let attempt = 0; ; attempt++) {
+        try {
+          const t = await AV.callProvider(id, messages, Object.assign({}, opts, { exclude }));
+          const out = opts.json ? AV.parseJSON(t) : t;
+          if (opts.validate && !opts.validate(out)) throw Object.assign(new Error("A IA respondeu fora do formato esperado. Tente de novo."), { code: "bad_json" });
+          return out;
+        } catch (e) {
+          if (e.code === "blocked" && (await AV.cap.sample)) { AV.toast("Usando a IA incluída: o claude.ai bloqueia outras IAs nesta página."); const c = AV.aiCfg(); c.active = "auto"; AV.setAiCfg(c); return AV.AI.run(messages, opts); }
+          const retryable = internal && attempt < 2 && !(opts.signal && opts.signal.aborted) && ["bad_json", "empty", "upstream", "truncated"].includes(e.code);
+          if (!retryable) throw e;
+          if (AV.lastEngine && !exclude.includes(AV.lastEngine)) exclude.push(AV.lastEngine);
+          if (opts.onRetry) opts.onRetry(attempt + 1);
+        }
       }
     },
     /* Texto livre (com streaming na IA incluída) */
@@ -91,7 +101,7 @@ ${req.extra ? "Pedidos do professor: " + req.extra : ""}
 ${req.sources ? "Use como base estas fontes (priorize o conteúdo delas):\n" + req.sources.slice(0, 24000) : ""}
 Orientação: ${guide}
 ${schema}`;
-      const out = await AV.AI.json(prompt + (req.lang && req.lang !== "pt" ? "\nIMPORTANTE: escreva título, textos, instruções e questões em " + AV.contentLangName(req.lang) + "." : ""), Object.assign({ tier: "complex", lang: req.lang }, opts));
+      const out = await AV.AI.json(prompt + (req.lang && req.lang !== "pt" ? "\nIMPORTANTE: escreva título, textos, instruções e questões em " + AV.contentLangName(req.lang) + "." : ""), Object.assign({ tier: "complex", lang: req.lang, validate: (o) => !!o && Array.isArray(o.blocks) && o.blocks.length >= 2 }, opts));
       return AV.AI.toDoc(out, req);
     },
     toDoc(out, req) {
@@ -100,6 +110,8 @@ ${schema}`;
       doc.meta.subject = req.subject || doc.meta.subject; doc.meta.level = req.level || ""; doc.meta.lang = req.lang || AV.lang();
       const blocks = (out && Array.isArray(out.blocks) ? out.blocks : []).map((b) => {
         if (!b || !b.type) return null;
+        /* lacuna sem a resposta entre colchetes não pode ser corrigida: vira pergunta aberta */
+        if (b.type === "fill_blank" && !/\[[^\]]+\]/.test(String(b.text || ""))) return { type: "open_question", prompt: String(b.text || b.prompt || ""), lines: 2, answer: String(b.answer || "") };
         if (b.type === "match" && Array.isArray(b.left) && Array.isArray(b.right)) {
           const n = Math.min(b.left.length, b.right.length), idx = [...Array(n).keys()].sort(() => Math.random() - .5);
           const right = idx.map((i) => b.right[i]);

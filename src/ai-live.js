@@ -82,7 +82,11 @@
         if (!renderTimer) renderTimer = setTimeout(render, Math.max(0, 220 - (Date.now() - lastRender)));
       };
 
-      AV.AI.document(req, { signal: ctrl.signal, onText }).then((doc) => {
+      const onRetry = () => {
+        raw = ""; shown = 0; setStage("write");
+        statusEl.textContent = AV.t("A resposta veio incompleta. Tentando de novo com outro motor de IA…");
+      };
+      AV.AI.document(req, { signal: ctrl.signal, onText, onRetry }).then((doc) => {
         finished = true; clearTimeout(renderTimer); raw = raw || ""; render();
         setStage("build"); statusEl.textContent = AV.t("Organizando e conferindo o material…");
         setTimeout(() => {

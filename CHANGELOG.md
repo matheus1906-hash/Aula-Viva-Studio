@@ -1,5 +1,19 @@
 # Histórico de versões
 
+## 4.1.0
+
+**Criação com IA mais confiável**
+- O card da tela inicial entende o pedido escrito (tipo, tema, ano, disciplina, quantidade de questões) e já começa a criar, sem segundo clique.
+- Servidor de IA encerra a resposta no sinal de fim (antes esperava a conexão fechar e estourava o tempo), troca de motor quando um trava antes de responder e respeita um tempo total.
+- Seleção automática: se a resposta vier quebrada ou vazia, o app tenta de novo sozinho com outro motor.
+- Groq começa pelo modelo que está respondendo; lacunas sem resposta viram perguntas abertas.
+
+**Segurança**
+- Content-Security-Policy completa também como cabeçalho, lista fechada de endereços que a página pode contatar.
+- Integridade (SRI) nas bibliotecas do CDN; jsPDF 4.2.1 e mammoth 1.13.0 (correções de segurança); PDFs importados sem execução de código (CVE-2024-4367).
+- IA interna: só JSON, mensagens de sistema só do servidor, limite de pedidos simultâneos e limite diário global opcional, erros internos nunca expostos.
+- Novos cabeçalhos (CORP, Origin-Agent-Cluster, X-Permitted-Cross-Domain-Policies, Permissions-Policy ampliada), SECURITY.md, Dependabot e CodeQL.
+
 ## 4.0.0 · versão estável
 
 Primeira versão estável, pronta para uso público em https://aulavivastudio.vercel.app

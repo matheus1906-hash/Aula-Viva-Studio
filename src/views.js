@@ -38,8 +38,14 @@
       const drawRecent = () => { recent.textContent = ""; const all = AV.Store.list(); nMat.textContent = all.length; const l = all.slice(0, 4); if (!l.length) recent.appendChild(h("div", { class: "empty" }, "Você ainda não tem materiais. Comece pela IA, por um modelo ou pela biblioteca.")); l.forEach((d) => recent.appendChild(docItem(d))); };
       drawRecent();
       const q = h("input", { id: "hero-q", type: "search", placeholder: "O que você quer criar? Ex.: atividade sobre frações para o 4º ano", "aria-label": "O que você quer criar?", onkeydown: (e) => { if (e.key === "Enter") go(); } });
-      const go = () => AV.aiCreateDialog({ kind: guessKind(q.value), topic: q.value.trim() });
-      const guessKind = (t) => { t = t.toLowerCase(); return /plano/.test(t) ? "plano" : /prova|avalia/.test(t) ? "prova" : /lista|exerc/.test(t) ? "lista" : /projeto/.test(t) ? "projeto" : /roteiro/.test(t) ? "roteiro" : /apostila/.test(t) ? "apostila" : "atividade"; };
+      /* o card entende o pedido escrito e já começa a criar; se algo falhar, abre o formulário preenchido */
+      const go = () => {
+        const text = q.value.trim();
+        if (text.length < 3) { q.focus(); AV.toast(AV.t("Escreva o que você quer criar. Ex.: apostila sobre o ciclo da água para o 3º ano")); return; }
+        const req = Object.assign(AV.parseRequest(text), { lang: AV.lang() });
+        if (!req.subject) req.subject = AV.profile().subject || "";
+        AV.liveCreate(req, { onRetry: () => { AV.closeDialogs(); AV.aiCreateDialog(req); } });
+      };
       const daily = AV.homePlanner();
       const nModelos = h("b", null, "290");
       AV.loadModelos().then((m) => (nModelos.textContent = m.length)).catch(() => {});

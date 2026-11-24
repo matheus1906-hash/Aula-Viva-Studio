@@ -1,23 +1,28 @@
 (function (AV) {
   "use strict";
   AV.LIBS = AV.LIBS || {
-    jspdf: "https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js",
+    jspdf: "https://cdn.jsdelivr.net/npm/jspdf@4.2.1/dist/jspdf.umd.min.js",
     docx: "https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js",
     pptx: "https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js",
     jszip: "https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js",
-    mammoth: "https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js",
+    mammoth: "https://cdn.jsdelivr.net/npm/mammoth@1.13.0/mammoth.browser.min.js",
     pdfjs: "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js",
     pdfjsWorker: "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js"
   };
   AV.THEMES = AV.THEMES || { "Azul escolar": "#2F6FED", "Verde caderno": "#1F9D6B", "Laranja giz": "#E2762B", "Roxo ciência": "#7B4FD6", "Vermelho lousa": "#C9433A", "Grafite": "#3B4252" };
   AV.CALLOUTS = AV.CALLOUTS || { dica: ["Dica", "#2E9E6B"], atencao: ["Atenção", "#E0912F"], importante: ["Importante", "#D64545"], curiosidade: ["Curiosidade", "#6C5CE7"], definicao: ["Definição", "#2F80ED"] };
 
+  /* hashes de integridade (SRI) das bibliotecas do CDN, gerados no build a partir das versões verificadas */
+  AV.SRI = /*SRI*/{};
+  const sriFor = (url) => { const key = Object.keys(AV.LIBS).find((k) => AV.LIBS[k] === url); return key && AV.SRI[key]; };
+
   /* ---------- utilidades ---------- */
   const loaded = {};
   AV.loadScript = function (url) {
     if (!loaded[url]) loaded[url] = new Promise((ok, fail) => {
       const s = document.createElement("script");
-      s.src = url; s.async = true; s.crossOrigin = "anonymous";
+      s.src = url; s.async = true; s.crossOrigin = "anonymous"; s.referrerPolicy = "no-referrer";
+      const integrity = sriFor(url); if (integrity) s.integrity = integrity;
       s.onload = () => ok(); s.onerror = () => { delete loaded[url]; fail(new Error("Não foi possível carregar um recurso. Verifique a internet e tente de novo.")); };
       document.head.appendChild(s);
     });
@@ -178,8 +183,8 @@
   };
   AV.busy = function (btn, on, label) {
     if (!btn) return;
-    if (on) { btn.dataset.lbl = btn.innerHTML; btn.disabled = true; btn.textContent = ""; btn.append(h("span", { class: "spin" }), " " + (label || "Gerando...")); }
-    else { btn.disabled = false; if (btn.dataset.lbl != null) btn.innerHTML = btn.dataset.lbl; }
+    if (on) { btn.__lbl = [...btn.childNodes]; btn.disabled = true; btn.textContent = ""; btn.append(h("span", { class: "spin" }), " " + (label || "Gerando...")); }
+    else { btn.disabled = false; if (btn.__lbl) { btn.replaceChildren(...btn.__lbl); btn.__lbl = null; } }
   };
 
   /* ---------- plataforma (capacidades do Claude) ---------- */

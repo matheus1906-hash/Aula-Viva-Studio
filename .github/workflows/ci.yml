@@ -2,6 +2,8 @@ name: ci
 on:
   push:
   pull_request:
+permissions:
+  contents: read
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -20,7 +22,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        suite: [smoke, regress, standalone, auth, live, a11y, perf]
+        suite: [smoke, regress, standalone, auth, reader, live, a11y, perf]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
