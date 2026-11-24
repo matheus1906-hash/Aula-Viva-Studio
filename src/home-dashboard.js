@@ -39,12 +39,18 @@
     return dailyQuotes[n % dailyQuotes.length];
   };
   const shortcuts = [
-    { label: "Criar com IA", detail: "Planeje ou produza um material", icon: "wand", kind: "violet", run: () => AV.aiCreateDialog() },
-    { label: "Vídeos animados", detail: "Crie um roteiro pelo chat", icon: "film", kind: "coral", href: "#animacao" },
-    { label: "Atividades", detail: "Modelos e atividades para imprimir", icon: "puzzle", kind: "orange", href: "#atividades" },
-    { label: "Modelos prontos", detail: "Encontre um material para adaptar", icon: "grid", kind: "blue", href: "#modelos" },
-    { label: "Editor ABNT", detail: "Escrita, modelos e exportação", icon: "doc", kind: "teal", href: "#abnt" },
-    { label: "Ambiente de estudos", detail: "Dicas e revisão de textos", icon: "book", kind: "pink", href: "#estudos" }
+    { label: "Criar com IA", detail: "Crie qualquer material a partir de uma ideia", icon: "wand", kind: "violet", run: () => AV.aiCreateDialog() },
+    { label: "Chat livre", detail: "Converse com a IA, sem modelos fixos", icon: "chat", kind: "blue", href: "#chat" },
+    { label: "Vídeos animados", detail: "Personagens e histórias para suas aulas", icon: "film", kind: "coral", href: "#animacao" },
+    { label: "Atividades", detail: "Jogos, exercícios e desafios", icon: "puzzle", kind: "orange", href: "#atividades" },
+    { label: "Modelos prontos", detail: "Materiais com prévia e personalização", icon: "grid", kind: "blue", href: "#modelos" },
+    { label: "Nova apostila", detail: "Capítulos, atividades e conteúdos", icon: "book", kind: "teal", run: () => AV.createAndOpen("apostila") },
+    { label: "Avaliações e provas", detail: "Questões, cabeçalho e gabarito", icon: "exam", kind: "pink", run: () => AV.createAndOpen("prova") },
+    { label: "Lista de exercícios", detail: "Prepare questões e atividades", icon: "list", kind: "orange", run: () => AV.createAndOpen("lista") },
+    { label: "Estúdio de fontes", detail: "Transforme arquivos em materiais", icon: "studio", kind: "violet", href: "#estudio" },
+    { label: "Editor ABNT", detail: "Textos e trabalhos acadêmicos", icon: "doc", kind: "teal", href: "#abnt" },
+    { label: "Ambiente de estudos", detail: "Dicas de escrita e revisão", icon: "book", kind: "pink", href: "#estudos" },
+    { label: "Biblioteca", detail: "Livros, artigos e conteúdos", icon: "shelf", kind: "blue", href: "#acervo" }
   ];
   function card(item) {
     const props = item.href ? { href: item.href } : { type: "button", onclick: item.run };
@@ -168,6 +174,8 @@
       const header = h("div", { class: "home-topline" },
         h("span", { class: "home-top-label" }, "MEU ESPAÇO DOCENTE"),
         h("span", { class: "home-date" }, dateLabel(now)));
+      const heroArea = h("div", { class: "home-hero-area" }, hero);
+      if (p.quote) heroArea.append(quotePanel());
       const grid = h("div", { class: "home-main-grid" });
       const large = h("div", { class: "home-main-column" });
       const side = h("div", { class: "home-side-column" });
@@ -175,8 +183,11 @@
         h("div", { class: "home-section-heading" }, h("div", null, h("span", null, "FERRAMENTAS"), h("h2", null, "Crie do seu jeito"))),
         h("div", { class: "home-action-grid" }, shortcuts.map(card)));
       if (p.agenda) side.append(agendaPanel());
+      side.append(h("section", { class: "home-plan-card" },
+        h("div", { class: "home-plan-icon" }, AV.appIcon("calendar", "violet")),
+        h("div", { class: "home-plan-copy" }, h("strong", null, "Plano de aula"), h("p", null, "Objetivos, habilidades e atividades em poucos passos.")),
+        button("Criar plano", () => AV.aiCreateDialog({ kind: "plano" }), "btn sm pri")));
       if (p.schedule) side.append(timetablePanel());
-      if (p.quote) side.append(quotePanel());
       if (p.quickStudy) side.append(
         h("section", { class: "home-study-strip" },
           h("div", null, h("strong", null, "Quer escrever melhor?"), h("p", null, "Explore técnicas de redação, revisão e modelos acadêmicos.")),
@@ -184,12 +195,14 @@
       grid.append(large);
       if (side.children.length) grid.append(side);
       const recent = recentPanel();
-      const footer = h("div", { class: "home-bottom" }, recent.element,
-        h("section", { class: "home-panel home-preferences" },
-          h("div", { class: "home-panel-head" }, h("div", null, h("h2", null, "Sua tela, suas escolhas"), h("p", null, "Mostre apenas o que você precisa."))),
-          h("p", null, "Você pode esconder agenda, horários, mensagens e atalhos de estudo sem perder seus registros."),
-          link("#config", "Personalizar tela inicial", "btn sm")));
-      container.append(hero, header, grid, footer);
+      const preferencesPanel = h("section", { class: "home-panel home-preferences" },
+        h("div", { class: "home-panel-head" }, h("div", null, h("h2", null, "Sua tela, suas escolhas"), h("p", null, "Mostre apenas o que você precisa."))),
+        h("p", null, "Você pode esconder agenda, horários, mensagens e atalhos de estudo sem perder seus registros."),
+        link("#config", "Personalizar tela inicial", "btn sm"));
+      const recentArea = h("div", { class: "home-recent-bottom" },
+        h("div", { class: "home-section-heading" }, h("div", null, h("span", null, "SEUS MATERIAIS"), h("h2", null, "Retome suas criações quando quiser"))),
+        recent.element);
+      container.append(heroArea, header, grid, preferencesPanel, recentArea);
       main.append(container);
       return AV.Store.on(recent.refresh);
     }
