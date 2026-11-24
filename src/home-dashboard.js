@@ -160,11 +160,11 @@
           h("div", { class: "hero-search" },
             heroInput, h("button", { type: "button", class: "btn pri", onclick: submitHero }, AV.icon("sparkle"), "Criar")),
           h("div", { class: "hero-chips" },
-            button("Plano de aula", () => AV.aiCreateDialog({ kind: "plano" }), ""),
-            button("Atividade para imprimir", () => AV.go("atividades"), ""),
-            button("Prova", () => AV.aiCreateDialog({ kind: "prova" }), ""),
-            button("Vídeo animado", () => AV.go("animacao"), ""),
-            button("Livros e artigos", () => AV.go("acervo"), ""))));
+            h("button", { type: "button", onclick: () => AV.aiCreateDialog({ kind: "plano" }) }, "Plano de aula"),
+            h("button", { type: "button", onclick: () => AV.go("atividades") }, "Atividade para imprimir"),
+            h("button", { type: "button", onclick: () => AV.aiCreateDialog({ kind: "prova" }) }, "Prova"),
+            h("button", { type: "button", onclick: () => AV.go("animacao") }, "Vídeo animado"),
+            h("button", { type: "button", onclick: () => AV.go("acervo") }, "Livros e artigos"))));
       const header = h("div", { class: "home-topline" },
         h("span", { class: "home-top-label" }, "MEU ESPAÇO DOCENTE"),
         h("span", { class: "home-date" }, dateLabel(now)));
