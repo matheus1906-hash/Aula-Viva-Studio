@@ -38,8 +38,15 @@ Desenhos originais com personagens, cenários, balões de fala, legendas e narra
 |---|---|
 | ![Estante de livros](docs/screenshots/livros.webp) | ![Ficha de um livro](docs/screenshots/livro-detalhe.webp) |
 
+O leitor permite grifar trechos, marcar páginas, retomar a leitura e ajustar a fonte e o papel. Na versão hospedada, 30 obras também oferecem a página digitalizada para consultar a impressão e os diagramas. O arquivo HTML offline inclui as transcrições dos 121 livros. No modo visitante, as marcações duram a sessão. Com uma conta local, ficam no cofre cifrado do aparelho.
+
+| Leitor com grifo | Leitor no celular |
+|---|---|
+| ![Leitor em papel sépia com um trecho grifado](docs/screenshots/leitor.webp) | ![Aparência do leitor no celular](docs/screenshots/leitor-celular.webp) |
+
 ### Atividades prontas e 290 modelos
 13 geradores de atividades comuns (caça-palavras, cruzadinha, ligar colunas, lacunas, palavras embaralhadas, ordenar frases, contas, tabuada, sílabas, ordem alfabética, conte e escreva, V/F e quiz) e 290 modelos prontos (atividades, apostilas, provas, listas, planos de aula e roteiros) de várias disciplinas e anos.
+
 
 | Atividades | Modelos |
 |---|---|
@@ -105,7 +112,7 @@ O site abre com uma tela de boas-vindas e login. A conta é **local**: nada vai 
 
 ## Desenvolvimento
 
-Requer Node.js 18 ou mais recente.
+Use Node.js 22.3 ou mais recente para o build e os testes.
 
 ```bash
 npm ci            # instala as dependências de build e testes

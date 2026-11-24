@@ -217,29 +217,6 @@
   async function loadLivros() { if (livros) return livros; if (AV.LIVROS_INLINE) return (livros = AV.LIVROS_INLINE); const r = await fetch("data/livros.json"); if (!r.ok) throw new Error("Não foi possível carregar os livros."); return (livros = await r.json()); }
   AV.loadLivros = loadLivros;
   const LANG_NAME = { pt: "Português", en: "English", es: "Español" };
-  async function readBook(b) {
-    const content = h("article", { class: "book-text", lang: b.lang, "data-notr": "", tabindex: "0", "aria-busy": "true" }, AV.t("Carregando livro…"));
-    const dialog = AV.dialog(b.title, content, { large: true });
-    content.focus();
-    try {
-      let response;
-      if (AV.TEXTOS_INLINE) {
-        const bytes = Uint8Array.from(atob(AV.TEXTOS_INLINE[b.id]), ch => ch.charCodeAt(0));
-        response = new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip")));
-      } else {
-        response = await fetch(b.local);
-        if (!response.ok) throw new Error();
-      }
-      const buffer = await response.arrayBuffer();
-      if (buffer.byteLength !== b.bytes) throw new Error();
-      content.textContent = new TextDecoder().decode(buffer);
-    } catch {
-      content.replaceChildren(h("p", null, AV.t("Não foi possível carregar o livro.")),
-        h("button", { class: "btn", onclick: () => { dialog.close(); readBook(b); } }, AV.t("Tentar novamente")));
-    } finally {
-      content.removeAttribute("aria-busy");
-    }
-  }
   function bookCard(b, onOpen) {
     return h("button", { class: "bk", type: "button", "aria-label": b.title + ", " + (b.authors || []).join(", "), onclick: () => onOpen(b) },
       h("div", { class: "bk-cover" }, b.cover ? h("img", { src: b.cover, alt: "", loading: "lazy", decoding: "async" }) : AV.icon("book"), h("span", { class: "free" }, AV.t("Grátis"))),
@@ -253,7 +230,7 @@
         h("p", { class: "muted", "data-notr": "" }, (b.authors || []).join(", ")),
         h("div", { class: "chips" }, h("span", { class: "chip pri" }, b.credit ? "CC BY 4.0" : "Domínio público"), b.year ? h("span", { class: "chip", "data-notr": "" }, String(b.year)) : null, h("span", { class: "chip", "data-notr": "" }, LANG_NAME[b.lang] || b.lang), h("span", { class: "chip" }, AV.t(b.group)), b.pages ? h("span", { class: "chip" }, b.pages + " " + AV.t("páginas")) : null),
         b.credit ? h("p", { class: "small muted", "data-notr": "" }, b.credit) : null,
-        h("button", { class: "btn pri", onclick: () => readBook(b) }, AV.icon("book"), AV.t("Ler na plataforma")),
+        h("button", { class: "btn pri", onclick: () => AV.readBook(b) }, AV.icon("book"), AV.t("Ler na plataforma")),
         h("div", { class: "row" },
           h("button", { class: "btn sm", onclick: () => AV.copy(AV.abnt(ref)) }, AV.icon("copy"), "Copiar referência ABNT"),
           h("button", { class: "btn sm", onclick: () => RefStore.add(ref) }, AV.icon("plus"), "Salvar"),
@@ -337,7 +314,7 @@
             h("div", { class: "chips" }, tags.map((t) => h("span", { class: "chip" }, String(t))), o.open ? h("span", { class: "chip pri" }, "Acesso aberto") : null),
             o.summary ? h("p", { class: "small" }, o.summary) : null,
             h("div", { class: "row" },
-              localBook ? h("button", { class: "btn sm", onclick: () => readBook(localBook) }, AV.t("Ler na plataforma")) : o.url ? h("a", { class: "btn sm", href: o.url, target: "_blank", rel: "noopener noreferrer" }, AV.icon("link"), o.open ? "Ler / baixar" : "Ver") : h("a", { class: "btn sm", href: "https://scholar.google.com/scholar?q=" + encodeURIComponent('"' + o.title + '" ' + ((o.authors || [])[0] || "").split(",")[0]), target: "_blank", rel: "noopener noreferrer" }, AV.icon("search"), "Encontrar"),
+              localBook ? h("button", { class: "btn sm", onclick: () => AV.readBook(localBook) }, AV.t("Ler na plataforma")) : o.url ? h("a", { class: "btn sm", href: o.url, target: "_blank", rel: "noopener noreferrer" }, AV.icon("link"), o.open ? "Ler / baixar" : "Ver") : h("a", { class: "btn sm", href: "https://scholar.google.com/scholar?q=" + encodeURIComponent('"' + o.title + '" ' + ((o.authors || [])[0] || "").split(",")[0]), target: "_blank", rel: "noopener noreferrer" }, AV.icon("search"), "Encontrar"),
               h("button", { class: "btn sm", onclick: () => AV.copy(AV.abnt(o)) }, AV.icon("copy"), "ABNT"),
               saved ? h("button", { class: "btn sm ghost danger", onclick: () => { RefStore.remove(o.title); draw(); } }, AV.icon("trash"), "Remover") : h("button", { class: "btn sm", onclick: () => RefStore.add(o) }, AV.icon("plus"), "Salvar"),
               h("button", { class: "btn sm", onclick: () => { const l = AV.LS.get("sources", []); l.push({ id: AV.uid(), title: o.title, text: AV.abnt(o) + "\n\n" + (o.summary || "") + "\nPalavras-chave: " + (o.keywords || []).join(", "), on: true }); AV.LS.set("sources", l); AV.toast("Adicionado ao Estúdio de fontes."); } }, AV.icon("book"), "Estúdio"))));

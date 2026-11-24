@@ -6,7 +6,11 @@
   if (!AV.STANDALONE || !window.crypto || !crypto.subtle) return;
   const C = crypto.subtle, enc = new TextEncoder(), dec = new TextDecoder();
   const ITER = 600000, PLAIN = new Set(["ui", "vaultmeta", "lockout"]);
-  const b64 = (u8) => btoa(String.fromCharCode(...new Uint8Array(u8)));
+  function b64(buffer) {
+    const bytes = new Uint8Array(buffer), chunks = [];
+    for (let i = 0; i < bytes.length; i += 16384) chunks.push(String.fromCharCode(...bytes.subarray(i, i + 16384)));
+    return btoa(chunks.join(""));
+  }
   const ub64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
   const raw = { get: (k) => { try { return localStorage.getItem("av:" + k); } catch (e) { return null; } }, set: (k, v) => { try { localStorage.setItem("av:" + k, v); return true; } catch (e) { return false; } }, del: (k) => { try { localStorage.removeItem("av:" + k); } catch (e) {} } };
   const rjson = (k, d) => { try { const v = raw.get(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };

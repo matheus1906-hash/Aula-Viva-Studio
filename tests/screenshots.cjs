@@ -6,11 +6,31 @@ const U = "http://localhost:8799/aulaviva-studio.html";
 (async () => {
   const b = await chromium.launch();
   const page = async (o) => { const ctx = await b.newContext(Object.assign({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 }, o)); await ctx.route("https://**", (r) => r.abort()); await ctx.addInitScript((lang) => localStorage.setItem("av:profile", JSON.stringify({ lang, name: "Ana Souza", school: "E.M. Rio Verde" })), (o && o.lang) || "pt"); return ctx.newPage(); };
-  const shot = async (p, name, hash, prep) => { if (hash) { await p.evaluate((h) => (location.hash = h), hash); } await p.waitForTimeout(900); if (prep) await prep(p); await p.screenshot({ path: path.join(out, name + ".png") }); console.log(name); };
+  const shot = async (p, name, hash, prep) => { if (hash) { await p.evaluate((h) => (location.hash = h), hash); } await p.waitForTimeout(900); if (prep) await prep(p); const png = await p.screenshot();
+    const encoded = await p.evaluate(async data => {
+      const image = new Image();
+      image.src = "data:image/png;base64," + data;
+      await image.decode();
+      const canvas = document.createElement("canvas");
+      canvas.width = image.width; canvas.height = image.height;
+      canvas.getContext("2d").drawImage(image, 0, 0);
+      return canvas.toDataURL("image/webp", 0.88).split(",")[1];
+    }, png.toString("base64"));
+    fs.writeFileSync(path.join(out, name + ".webp"), Buffer.from(encoded, "base64")); console.log(name); };
   let p = await page({ colorScheme: "light" }); await p.goto(U); await p.waitForTimeout(600);
   await shot(p, "inicio", "inicio");
   await shot(p, "livros", "acervo");
   await shot(p, "livro-detalhe", null, async (q) => { await q.locator(".bk").nth(2).click(); await q.waitForTimeout(500); });
+  await shot(p, "leitor", null, async q => {
+    await q.getByRole("button", { name: "Ler na plataforma" }).click();
+    await q.waitForFunction(() => document.querySelector(".reader-nav")?.hidden === false);
+    await q.getByRole("button", {name:"Aparência"}).click();
+    await q.getByLabel("Papel", {exact:true}).selectOption("sepia");
+  });
+  await p.setViewportSize({width:390,height:844});
+  await shot(p, "leitor-celular");
+  await p.setViewportSize({width:1440,height:900});
+  await q_close(p);
   await q_close(p);
   await shot(p, "modelos", "modelos", async (q) => { await q.waitForTimeout(400); });
   await shot(p, "atividades", "atividades");
