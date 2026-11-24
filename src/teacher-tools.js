@@ -31,14 +31,14 @@ function textInput(label,value,placeholder){const i=h("input",{class:"in",value:
 function agendaList(box,compact){
  box.textContent="";
  const items=notes().slice().sort((a,b)=>String(a.date||"9999").localeCompare(String(b.date||"9999")));
- if(!items.length){box.append(h("p",{class:"muted small"},"Nenhum lembrete salvo. Anote uma reunião, entrega ou tarefa.");return;}
+ if(!items.length){box.append(h("p",{class:"muted small"},"Nenhum lembrete salvo. Anote uma reunião, entrega ou tarefa."));return;}
  items.slice(0,compact?3:100).forEach(n=>box.append(h("div",{class:"teacher-entry"},h("div",null,h("strong",null,n.title),h("div",{class:"small muted"},n.date?new Date(n.date+"T12:00:00").toLocaleDateString("pt-BR"):"Sem data",n.detail?" · "+n.detail:"")),h("div",{class:"row"},action(n.done?"Reabrir":"Concluir",()=>{set("teacherAgenda",notes().map(x=>x.id===n.id?Object.assign({},x,{done:!x.done}):x));agendaList(box,compact);},n.done?"sm ghost":"sm"),!compact?action("Excluir",()=>{set("teacherAgenda",notes().filter(x=>x.id!==n.id));agendaList(box,false);},"sm ghost"):null)));
  }
 function scheduleList(box,compact){
  box.textContent="";
  const days=["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
  const items=classes().slice().sort((a,b)=>a.day-b.day||a.start.localeCompare(b.start));
- if(!items.length){box.append(h("p",{class:"muted small"},"Horário de aulas ainda não configurado.");return;}
+ if(!items.length){box.append(h("p",{class:"muted small"},"Horário de aulas ainda não configurado."));return;}
  items.slice(0,compact?4:100).forEach(n=>box.append(h("div",{class:"teacher-entry"},h("span",null,h("strong",null,days[n.day]+" "+n.start),h("div",{class:"small muted"},n.subject+" · "+n.group+(n.room?" · "+n.room:""))),!compact?action("Excluir",()=>{set("teacherSchedule",classes().filter(x=>x.id!==n.id));scheduleList(box,false);},"sm ghost"):null));
 }
 V.agenda={title:"Agenda",render(main){
