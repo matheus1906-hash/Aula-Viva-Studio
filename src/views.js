@@ -150,11 +150,22 @@
         if (!l.length) grid.appendChild(h("div", { class: "empty" }, "Nenhum modelo encontrado."));
         AV.renderChunked(grid, l, (x) => {
           const k = AV.KINDS[AV.kindFrom(x.kind)];
-          return (h("article", { class: "tile", style: { cursor: "default" } },
+          return (h("article", { class: "tile model-card", style: { cursor: "default" } },
+            h("button", { type: "button", class: "model-thumb", "aria-label": "Visualizar modelo: " + x.title, title: "Ampliar prévia de " + x.title, onclick: () => preview(x) },
+              h("div", { class: "model-thumb-page", "aria-hidden": "true" }, miniPaper(x)),
+              h("span", { class: "model-thumb-caption", "aria-hidden": "true" }, AV.icon("eye"), "Clique para ampliar")),
             h("div", { class: "chips" }, h("span", { class: "chip", style: { background: k[1], color: "#fff", borderColor: "transparent" } }, x.kind), h("span", { class: "chip" }, x.subject), h("span", { class: "chip" }, x.level), x.lang && x.lang !== "pt-BR" && x.lang !== "pt" ? h("span", { class: "lang-badge", "data-notr": "" }, AV.LANGS[String(x.lang).slice(0, 2)] ? AV.LANGS[String(x.lang).slice(0, 2)][2] + " " + String(x.lang).slice(0, 2).toUpperCase() : x.lang) : null),
             h("h3", null, x.title), h("p", null, x.description),
             h("div", { class: "row" }, h("button", { class: "btn sm", onclick: () => preview(x) }, AV.icon("eye"), "Visualizar"), h("button", { class: "btn sm pri", onclick: () => use(x) }, "Usar modelo"))));
         });
+      }
+      /* Miniatura real e leve: renderiza a capa e uma amostra do próprio documento.
+         Evita desenhar todas as páginas, imagens e tabelas dos 70+ modelos na grade. */
+      function miniPaper(x) {
+        const doc = x.doc || {}, blocks = doc.blocks || [];
+        const intro = blocks.slice(0, 8).filter((b) => ["heading", "paragraph", "bullets", "callout", "image", "choice_question", "true_false", "open_question", "fill_blank", "match", "table"].includes(b.type)).slice(0, 4);
+        const sample = { meta: doc.meta || { title: x.title }, blocks: intro };
+        return AV.renderPaper(sample, "aluno");
       }
       function use(x) { const d = AV.normalize(AV.clone(x.doc)); d.id = AV.uid(); d.meta.kind = AV.kindFrom(x.kind); const p = AV.profile(); d.meta.author = d.meta.author || p.name; d.meta.school = d.meta.school || p.school; AV.openDoc(d); AV.toast("Modelo aberto. Personalize à vontade."); }
       function preview(x) {
