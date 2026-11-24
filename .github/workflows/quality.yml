@@ -27,7 +27,8 @@ jobs:
       - run: npm run test:all
 
   browser-regression:
-    runs-on: ubuntu-latest
+    # Playwright 1.56 requires a supported Ubuntu version; ubuntu-latest resolves to 26.04.
+    runs-on: ubuntu-24.04
     needs: unit-and-build
     timeout-minutes: 25
     steps:
