@@ -74,3 +74,17 @@ Abaixo dele permanecem o novo conjunto de cards, agenda, horários, frase diári
 ### Proteção contra regressões
 
 `tests/home-dashboard.cjs` verifica o retorno do componente `.hero.home-preserved-hero`, a presença dos cinco atalhos, o campo original e o envio por Enter, além das verificações de agenda e widgets já existentes. Não apagar essa área em futuras reformulações sem solicitação explícita.
+
+## Ajuste de organização visual (23/11/2026)
+
+Solicitação registrada: dar mais destaque às opções de criação, mantendo o banner verde original intocado, posicionar a frase motivacional em um pequeno painel **ao lado do banner**, deixar agenda e plano de aula na coluna do canto e deslocar **Continuar de onde parou** para o final.
+
+Implementação:
+- 12 cards de criação, incluindo chat livre, vídeo, atividades, modelos, apostila, prova, lista de exercícios, fontes, ABNT, estudos e biblioteca; destaque aumentado para áreas clicáveis;
+- pequena coluna de inspiração alinhada com o hero; em telas estreitas, ela quebra para baixo sem alterar o banner;
+- agenda rápida, botão para criar plano de aula e horários na barra lateral;
+- preferências e materiais recentes posicionados depois da área principal, com o histórico por último;
+- visibilidade de frase/agenda/horários/estudos permanece configurável, sem apagar dados;
+- responsividade em desktop, tablet e celular.
+
+Arquivo de interface: `src/home-dashboard.js`. Estilo: `src/app.css`. Regressões: `tests/home-dashboard.cjs` e `tests/auth.cjs`. Não considerar a alteração homologada até confirmação do build e dos testes CI. O merge na branch principal não está autorizado nesta etapa.
