@@ -270,7 +270,7 @@
       clearTimeout(this.timers.get(id)); this.docs.delete(id); LS.del("doc:" + id); this.saveIndex(); this.emit();
       if (this.remote) try { await this.remote.doc(id).delete(); } catch (e) {}
     },
-    async wipe() { for (const id of [...this.docs.keys()]) await this.remove(id); ["profile", "sources", "chat", "lastDoc", "anims", "refs", "libState", "studioTopic", "insertInto", "aicfg", "cfgJump"].forEach(LS.del); },
+    async wipe() { for (const id of [...this.docs.keys()]) await this.remove(id); ["profile", "sources", "chat", "lastDoc", "anims", "refs", "libState", "studioTopic", "insertInto", "aicfg", "cfgJump", "teacherAgenda", "teacherSchedule", "abntEditor", "homeWidgets"].forEach(LS.del); },
     on(fn) { this.listeners.add(fn); return () => this.listeners.delete(fn); },
     emit() { this.listeners.forEach((f) => { try { f(); } catch (e) {} }); }
   };
