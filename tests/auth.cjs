@@ -36,6 +36,23 @@ let fails = 0; const ok = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); 
   ok(await p.locator(".auth-card button.pri").isDisabled(), "continuar exige confirmar que guardou");
   await p.check("#au-saved"); await p.click(".auth-card button.pri");
   await p.waitForSelector(".auth", { state: "detached" });
+  // Home 4.0: verificações reais de navegador após desbloquear o cofre.
+  await p.waitForSelector(".home-welcome h1", { timeout: 15000 });
+  ok(await p.locator(".home-welcome h1").isVisible(), "nova tela inicial é visível após entrar");
+  ok(await p.locator(".home-action").count() === 6, "seis cards de criação são exibidos");
+  ok(await p.locator(".home-panel h2", { hasText: "Minha agenda" }).isVisible(), "agenda destacada na tela inicial");
+  ok(await p.locator(".home-panel h2", { hasText: "Aulas de hoje" }).isVisible(), "horário de aula destacado na tela inicial");
+  await p.fill('.home-quick-add input', 'Lembrete de teste');
+  await p.locator('.home-quick-add button').click();
+  ok((await p.locator('.home-task-copy').innerText()).includes("Lembrete de teste"), "novo lembrete aparece imediatamente na home");
+  ok((await p.evaluate(() => AV.LS.get("teacherAgenda", []).length)) === 1, "agenda foi salva no cofre");
+  await p.evaluate(() => { AV.LS.set("homeWidgets", { agenda: false, schedule: false, quote: false, quickStudy: false }); AV.route(); });
+  ok(await p.locator(".home-panel h2", { hasText: "Minha agenda" }).count() === 0, "modo limpo oculta widgets");
+  ok((await p.evaluate(() => AV.LS.get("teacherAgenda", []).length)) === 1, "modo limpo não apaga lembretes");
+  await p.evaluate(() => { AV.LS.set("homeWidgets", { agenda: true, schedule: true, quote: true, quickStudy: true }); AV.route(); });
+  await p.setViewportSize({ width: 390, height: 844 });
+  ok((await p.evaluate(() => document.documentElement.scrollWidth)) <= 402, "dashboard não provoca rolagem horizontal no celular");
+  await p.setViewportSize({ width: 1280, height: 860 });
   // cria um material e confere que o localStorage só tem dados cifrados
   await p.evaluate(() => { const d = AV.newDoc ? AV.newDoc("apostila") : null; if (d) { d.meta.title = "SEGREDO-MATERIAL"; AV.Store.put(d); } AV.LS.set("ai", { keys: { groq: "gsk_SEGREDO" } }); });
   await p.evaluate(() => AV.Vault.flush()); await p.waitForTimeout(300);
