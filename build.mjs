@@ -95,6 +95,8 @@ for (const dir of ["dist", "dist/site"]) {
   for (const file of ["pdf.min.mjs", "pdf.worker.min.mjs"]) fs.copyFileSync("node_modules/reader-pdf/build/" + file, dir + "/reader-pdf/" + file);
   for (const path of ["standard_fonts","cmaps","wasm","LICENSE"]) fs.cpSync("node_modules/reader-pdf/" + path, dir + "/reader-pdf/" + path, {recursive:true});
 }
+fs.copyFileSync("src/planos.html", "dist/site/planos.html");
+fs.copyFileSync("src/planos.html", "dist/planos.html");
 fs.writeFileSync("dist/site/.nojekyll", "");
 console.log("modelos", modelos.length, "obras", obras.length, "livros", livros.length);
 console.log("dist/aulaviva-studio.html", (html.length / 1024).toFixed(0) + " KB", "missing:", order.filter((f) => !fs.existsSync("src/" + f)));

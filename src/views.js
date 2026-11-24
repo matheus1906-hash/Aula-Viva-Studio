@@ -46,7 +46,7 @@
       main.appendChild(h("div", { class: "wrap" },
         h("div", { class: "bento" },
         h("section", { class: "hero" },
-          h("div", null, h("div", { class: "eyebrow" }, "AulaViva Studio · PT · EN · ES"), h("h1", null, AV.t(hello()) + (p.name ? ", " + p.name.split(" ")[0] : "") + "!"),
+          h("div", null, h("a", { class: "eyebrow", href: "planos.html" }, AV.t("14 dias gratuitos · Planos mensal e anual")), h("h1", null, AV.t(hello()) + (p.name ? ", " + p.name.split(" ")[0] : "") + "!"),
             h("p", null, "Crie aulas, atividades, provas, projetos e vídeos animados em minutos, com IA, e exporte para PDF interativo, Word e PowerPoint."),
             h("div", { class: "hero-search" }, q, h("button", { class: "btn pri", onclick: go }, AV.icon("sparkle"), "Criar")),
             h("div", { class: "hero-chips" },

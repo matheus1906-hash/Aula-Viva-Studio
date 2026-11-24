@@ -81,6 +81,7 @@
       } else if (mode === "signup") {
         add(form, h("h2", null, AV.t(exists ? "Criar uma nova conta" : "Crie sua conta segura")),
           exists ? h("p", { class: "note" }, AV.t("Já existe uma conta neste aparelho. Criar outra apaga a conta atual e todos os dados dela.")) : null,
+          h("a", { href: "planos.html", class: "note info" }, AV.t("14 dias gratuitos · Planos mensal e anual")),
           field("Seu nome", name), field("Crie uma senha (mínimo 8 caracteres)", pw, eye), h("div", { class: "row", style: { gap: "10px" } }, meter, meterTxt), field("Repita a senha", pw2),
           h("label", { class: "check" }, remember, AV.t("Manter conectado neste aparelho por 7 dias")), msg, submit);
         submit.textContent = AV.t("Criar conta e entrar");

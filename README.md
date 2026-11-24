@@ -11,6 +11,12 @@ Para professores da educação básica, em português, inglês e espanhol.
 
 </div>
 
+## Planos de acesso
+
+A distribuição prevê 14 dias gratuitos, seguidos de assinatura mensal ou anual. [Ver planos](https://aulavivastudio.vercel.app/planos.html)
+
+![Planos de acesso](docs/screenshots/planos.webp)
+
 ## Por que usar
 
 - **Tudo em um lugar:** apostilas, listas de exercícios, provas, roteiros com QR code, planos de aula, projetos, atividades para imprimir e vídeos animados.
