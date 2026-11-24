@@ -57,6 +57,18 @@ for (const title of ["Minha agenda", "Aulas de hoje", "Crie do seu jeito", "Cont
 assert.ok(nodes.some(n => n.tag === "section" && n.props.class === "home-quote-panel"), "quote visible by default");
 assert.ok(nodes.some(n => n.props && n.props.href === "#abnt"), "ABNT shortcut visible");
 assert.ok(nodes.some(n => n.props && n.props.href === "#animacao"), "video shortcut visible");
+assert.equal(nodes.filter(n => n.props && /^home-action(?: |$)/.test(n.props.class || "")).length, 12, "12 prominent tool cards");
+const mainRoot = nodes.find(n => n.props && n.props.class === "wrap home-dashboard");
+const rootChildren = mainRoot.children.filter(x => x && typeof x === "object");
+assert.equal(rootChildren[0].props.class, "home-hero-area", "hero and quote appear before dashboard");
+assert.equal(rootChildren.at(-1).props.class, "home-recent-bottom", "continue editing appears last");
+const heroGroup = rootChildren[0];
+assert.equal(heroGroup.children[0].props.class, "hero home-preserved-hero", "banner kept intact inside hero group");
+assert.equal(heroGroup.children[1].props.class, "home-quote-panel", "quote beside interactive welcome area");
+const workGrid = nodes.find(n => n.props && n.props.class === "home-main-grid");
+const sidebar = workGrid.children[1];
+assert.ok(sidebar.children.some(x => x.props && x.props.class === "home-plan-card"), "compact lesson plan action in corner sidebar");
+assert.ok(sidebar.children.some(x => x.props && x.props.class === "home-panel"), "agenda and class schedule in corner sidebar");
 console.log("PASS new workspace visible and teacher links above/below the fold");
 // Quick agenda: add from home and then mark completed.
 const input = nodes.find(n => n.props && n.props["aria-label"] === "Novo lembrete");
