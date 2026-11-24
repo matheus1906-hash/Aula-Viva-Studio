@@ -39,25 +39,32 @@
     return dailyQuotes[n % dailyQuotes.length];
   };
   const shortcuts = [
-    { label: "Criar com IA", detail: "Crie qualquer material a partir de uma ideia", icon: "wand", kind: "violet", run: () => AV.aiCreateDialog() },
-    { label: "Chat livre", detail: "Converse com a IA, sem modelos fixos", icon: "chat", kind: "blue", href: "#chat" },
-    { label: "Vídeos animados", detail: "Personagens e histórias para suas aulas", icon: "film", kind: "coral", href: "#animacao" },
-    { label: "Atividades", detail: "Jogos, exercícios e desafios", icon: "puzzle", kind: "orange", href: "#atividades" },
-    { label: "Modelos prontos", detail: "Materiais com prévia e personalização", icon: "grid", kind: "blue", href: "#modelos" },
-    { label: "Nova apostila", detail: "Capítulos, atividades e conteúdos", icon: "book", kind: "teal", run: () => AV.createAndOpen("apostila") },
-    { label: "Avaliações e provas", detail: "Questões, cabeçalho e gabarito", icon: "exam", kind: "pink", run: () => AV.createAndOpen("prova") },
-    { label: "Lista de exercícios", detail: "Prepare questões e atividades", icon: "list", kind: "orange", run: () => AV.createAndOpen("lista") },
-    { label: "Estúdio de fontes", detail: "Transforme arquivos em materiais", icon: "studio", kind: "violet", href: "#estudio" },
-    { label: "Editor ABNT", detail: "Textos e trabalhos acadêmicos", icon: "doc", kind: "teal", href: "#abnt" },
-    { label: "Ambiente de estudos", detail: "Dicas de escrita e revisão", icon: "book", kind: "pink", href: "#estudos" },
-    { label: "Biblioteca", detail: "Livros, artigos e conteúdos", icon: "shelf", kind: "blue", href: "#acervo" }
+    { label: "Criar com IA", detail: "Crie qualquer material a partir de uma ideia", icon: "wand", kind: "violet", art: "ai", run: () => AV.aiCreateDialog() },
+    { label: "Chat livre", detail: "Converse com a IA, sem modelos fixos", icon: "chat", kind: "blue", art: "chat", href: "#chat" },
+    { label: "Vídeos animados", detail: "Personagens e histórias para suas aulas", icon: "film", kind: "coral", art: "video", href: "#animacao" },
+    { label: "Atividades", detail: "Jogos, exercícios e desafios", icon: "puzzle", kind: "orange", art: "activities", href: "#atividades" },
+    { label: "Modelos prontos", detail: "Materiais com prévia e personalização", icon: "grid", kind: "blue", art: "models", href: "#modelos" },
+    { label: "Nova apostila", detail: "Capítulos, atividades e conteúdos", icon: "book", kind: "teal", art: "book", run: () => AV.createAndOpen("apostila") },
+    { label: "Avaliações e provas", detail: "Questões, cabeçalho e gabarito", icon: "exam", kind: "pink", art: "exam", run: () => AV.createAndOpen("prova") },
+    { label: "Lista de exercícios", detail: "Prepare questões e atividades", icon: "list", kind: "orange", art: "exercises", run: () => AV.createAndOpen("lista") },
+    { label: "Estúdio de fontes", detail: "Transforme arquivos em materiais", icon: "studio", kind: "violet", art: "sources", href: "#estudio" },
+    { label: "Editor ABNT", detail: "Textos e trabalhos acadêmicos", icon: "doc", kind: "teal", art: "abnt", href: "#abnt" },
+    { label: "Ambiente de estudos", detail: "Dicas de escrita e revisão", icon: "book", kind: "pink", art: "study", href: "#estudos" },
+    { label: "Biblioteca", detail: "Livros, artigos e conteúdos", icon: "shelf", kind: "blue", art: "library", href: "#acervo" }
   ];
   function card(item) {
     const props = item.href ? { href: item.href } : { type: "button", onclick: item.run };
-    return h(item.href ? "a" : "button", Object.assign({ class: "home-action home-action-" + item.kind }, props),
-      h("span", { class: "home-action-icon" }, AV.appIcon(item.icon, item.kind === "coral" ? "rose" : item.kind)),
-      h("span", { class: "home-action-copy" }, h("strong", null, item.label), h("small", null, item.detail)),
-      h("span", { class: "home-action-arrow", "aria-hidden": "true" }, "↗"));
+    const art = AV.HOME_CARD_ART;
+    const badge = art && art.badges[item.art];
+    return h(item.href ? "a" : "button",
+      Object.assign({ class: "home-action home-action-" + item.kind + " home-action-illustrated", "data-card-art": item.art }, props),
+      h("span", { class: "home-action-art" },
+        art ? art.create(item.art) : AV.appIcon(item.icon, item.kind === "coral" ? "rose" : item.kind)),
+      h("span", { class: "home-action-badge" }, badge || "Explorar"),
+      h("span", { class: "home-action-copy" },
+        h("strong", null, item.label),
+        h("small", null, item.detail)),
+      h("span", { class: "home-action-cta", "aria-hidden": "true" }, "Explorar", " ↗"));
   }
   function agendaPanel() {
     const list = h("div", { class: "home-task-list" });
