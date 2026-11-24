@@ -1,0 +1,183 @@
+/* AulaViva Studio — Home 4.0: workspace-first dashboard.
+   Overrides the legacy landing page after teacher-tools.js is loaded. */
+(function (AV) {
+  "use strict";
+  const h = AV.h;
+  const DEFAULTS = { agenda: true, schedule: true, quote: true, quickStudy: true };
+  const weekNames = ["domingo", "segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado"];
+  const dailyQuotes = [
+    "Uma aula marcante começa com uma boa pergunta.",
+    "Planejar hoje é abrir possibilidades para amanhã.",
+    "Ensinar também é aprender a escutar.",
+    "Uma ideia bem explicada pode mudar uma trajetória.",
+    "Cada atividade é uma oportunidade de despertar curiosidade.",
+    "Revisar o que escrevemos também é aprender.",
+    "Conhecimento cresce quando é compartilhado.",
+    "A curiosidade é um ótimo ponto de partida.",
+    "Um ambiente acolhedor favorece novas descobertas.",
+    "Aprender é construir relações entre ideias.",
+    "O avanço de uma turma acontece em muitos ritmos.",
+    "Uma pergunta simples pode criar uma grande conversa.",
+    "Criatividade e organização podem caminhar juntas.",
+    "Boas aulas combinam planejamento e flexibilidade."
+  ];
+  const read = (key, fallback) => AV.LS.get(key, fallback);
+  const save = (key, value) => AV.LS.set(key, value);
+  const preferences = () => Object.assign({}, DEFAULTS, read("homeWidgets", {}));
+  const button = (label, cb, className) => h("button", { type: "button", class: className || "btn sm", onclick: cb }, label);
+  const link = (url, label, className) => h("a", { href: url, class: className || "btn sm" }, label);
+  const section = (title, subtitle, body, action) =>
+    h("section", { class: "home-panel" },
+      h("div", { class: "home-panel-head" }, h("div", null, h("h2", null, title), subtitle && h("p", null, subtitle)), action || null),
+      body);
+  const localDate = d => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  const todayKey = () => localDate(new Date());
+  const dateLabel = d => d.toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" });
+  const quote = () => {
+    const key = todayKey();
+    let n = 0; for (const c of key) n = ((n * 31) + c.charCodeAt(0)) >>> 0;
+    return dailyQuotes[n % dailyQuotes.length];
+  };
+  const shortcuts = [
+    { label: "Criar com IA", detail: "Planeje ou produza um material", icon: "wand", kind: "violet", run: () => AV.aiCreateDialog() },
+    { label: "Vídeos animados", detail: "Crie um roteiro pelo chat", icon: "film", kind: "coral", href: "#animacao" },
+    { label: "Atividades", detail: "Modelos e atividades para imprimir", icon: "puzzle", kind: "orange", href: "#atividades" },
+    { label: "Modelos prontos", detail: "Encontre um material para adaptar", icon: "grid", kind: "blue", href: "#modelos" },
+    { label: "Editor ABNT", detail: "Escrita, modelos e exportação", icon: "doc", kind: "teal", href: "#abnt" },
+    { label: "Ambiente de estudos", detail: "Dicas e revisão de textos", icon: "book", kind: "pink", href: "#estudos" }
+  ];
+  function card(item) {
+    const props = item.href ? { href: item.href } : { type: "button", onclick: item.run };
+    return h(item.href ? "a" : "button", Object.assign({ class: "home-action home-action-" + item.kind }, props),
+      h("span", { class: "home-action-icon" }, AV.appIcon(item.icon, item.kind === "coral" ? "rose" : item.kind)),
+      h("span", { class: "home-action-copy" }, h("strong", null, item.label), h("small", null, item.detail)),
+      h("span", { class: "home-action-arrow", "aria-hidden": "true" }, "↗"));
+  }
+  function agendaPanel() {
+    const list = h("div", { class: "home-task-list" });
+    const input = h("input", { class: "in", maxlength: 120, placeholder: "Adicionar lembrete rápido...", "aria-label": "Novo lembrete" });
+    const add = () => {
+      const title = input.value.trim();
+      if (!title) { input.focus(); return; }
+      const records = read("teacherAgenda", []);
+      if (!Array.isArray(records) || records.length >= 300) { AV.toast("Não foi possível salvar o lembrete. Confira o limite da agenda."); return; }
+      const ok = save("teacherAgenda", records.concat({ id: AV.uid(), title, detail: "", date: todayKey(), done: false }));
+      if (ok === false) { AV.toast("Espaço de armazenamento insuficiente."); return; }
+      input.value = "";
+      draw();
+    };
+    const draw = () => {
+      list.textContent = "";
+      const records = read("teacherAgenda", []);
+      const all = Array.isArray(records) ? records.slice() : [];
+      const pending = all.filter(x => x && !x.done).sort((a, b) => String(a.date || "9999").localeCompare(String(b.date || "9999")));
+      if (!pending.length) list.append(h("div", { class: "home-empty" }, "Tudo organizado por aqui! Adicione seu próximo lembrete."));
+      pending.slice(0, 4).forEach(item => {
+        const complete = button("Concluir", () => {
+          save("teacherAgenda", read("teacherAgenda", []).map(x => x.id === item.id ? Object.assign({}, x, { done: true }) : x));
+          draw();
+        }, "home-done");
+        list.append(h("div", { class: "home-task" }, h("span", { class: "home-task-dot", "aria-hidden": "true" }), h("span", { class: "home-task-copy" }, h("strong", null, item.title), h("small", null, item.date ? new Date(item.date + "T12:00:00").toLocaleDateString("pt-BR") : "Sem data")), complete));
+      });
+    };
+    input.addEventListener("keydown", ev => { if (ev.key === "Enter") add(); });
+    draw();
+    return section("Minha agenda", "Lembretes e tarefas importantes",
+      h("div", { class: "home-panel-body" }, h("div", { class: "home-quick-add" }, input, button("Adicionar", add, "btn sm pri")), list),
+      link("#agenda", "Ver agenda", "home-panel-link"));
+  }
+  function timetablePanel() {
+    const body = h("div", { class: "home-class-list" });
+    const day = new Date().getDay();
+    const rows = read("teacherSchedule", []);
+    const all = Array.isArray(rows) ? rows : [];
+    const todays = all.filter(x => x && Number(x.day) === day).sort((a, b) => String(a.start || "").localeCompare(String(b.start || "")));
+    if (!todays.length) {
+      body.append(h("div", { class: "home-empty" },
+        all.length ? "Nenhuma aula registrada para hoje." : "Monte sua grade para visualizar as aulas do dia.",
+        link("#horarios", "Organizar horários", "btn sm")));
+    } else {
+      todays.slice(0, 5).forEach(c => body.append(
+        h("div", { class: "home-class-row" },
+          h("span", { class: "home-class-time" }, c.start || "—"),
+          h("span", { class: "home-class-copy" }, h("strong", null, c.subject || "Aula"), h("small", null, [c.group, c.room].filter(Boolean).join(" · "))))));
+    }
+    return section("Aulas de hoje", weekNames[day] + " · sua programação", body, link("#horarios", "Ver grade", "home-panel-link"));
+  }
+  function recentPanel() {
+    const body = h("div", { class: "home-recent-list" });
+    const refresh = () => {
+      body.textContent = "";
+      const docs = AV.Store.list().slice(0, 3);
+      if (!docs.length) body.append(h("p", { class: "home-empty" }, "Você ainda não criou materiais. Comece pelo primeiro modelo ou pela IA."));
+      docs.forEach(doc => body.append(
+        h("button", { type: "button", class: "home-recent-row", onclick: () => { AV.LS.set("lastDoc", doc.id); AV.go("editor"); } },
+          AV.appIcon("doc", "blue"),
+          h("span", null, h("strong", null, doc.meta && doc.meta.title || "Material sem título"), h("small", null, doc.meta && doc.meta.subject || "Abrir no editor")),
+          h("span", { "aria-hidden": "true" }, "↗"))));
+    };
+    refresh();
+    return { element: section("Continuar de onde parou", "Seus últimos materiais", body, link("#materiais", "Ver todos", "home-panel-link")), refresh };
+  }
+  function quotePanel() {
+    return h("section", { class: "home-quote-panel" },
+      h("span", { class: "home-quote-mark", "aria-hidden": "true" }, "“"),
+      h("div", null, h("span", { class: "home-quote-kicker" }, "INSPIRE SUA PRÓXIMA AULA"),
+        h("p", null, quote()), h("small", null, "Uma nova mensagem a cada dia")));
+  }
+  AV.views.inicio = {
+    title: "Início",
+    render(main) {
+      const profile = AV.profile();
+      const name = String(profile.name || "").trim().split(/\s+/)[0];
+      const p = preferences();
+      const now = new Date();
+      const container = h("div", { class: "wrap home-dashboard" });
+      const header = h("div", { class: "home-topline" },
+        h("span", { class: "home-top-label" }, "MEU ESPAÇO DOCENTE"),
+        h("span", { class: "home-date" }, dateLabel(now)));
+      const hero = h("section", { class: "home-welcome" },
+        h("div", { class: "home-welcome-content" },
+          h("span", { class: "home-eyebrow" }, "AulaViva Studio · Seu dia, mais organizado"),
+          h("h1", null, "Olá" + (name ? ", " + name : "") + "!"),
+          h("p", null, "Planeje suas aulas, organize compromissos e transforme suas ideias em materiais prontos para ensinar."),
+          h("div", { class: "home-hero-buttons" },
+            button("Criar material com IA", () => AV.aiCreateDialog(), "btn pri home-hero-primary"),
+            link("#animacao", "Criar vídeo animado", "btn home-hero-secondary"))),
+        h("div", { class: "home-welcome-decoration", "aria-hidden": "true" },
+          h("div", { class: "home-floating-note note-one" }, "PLANO", h("span", null, "✓ Objetivos")),
+          h("div", { class: "home-floating-note note-two" }, "IDEIAS", h("span", null, "✦ Criatividade")),
+          h("div", { class: "home-floating-ring" })));
+      const grid = h("div", { class: "home-main-grid" });
+      const large = h("div", { class: "home-main-column" });
+      const side = h("div", { class: "home-side-column" });
+      const quickSearch = h("input", { class: "in home-idea-input", type: "search", placeholder: "Ex.: atividade de frações para o 4º ano", "aria-label": "Descreva o material que deseja criar" });
+      const createIdea = () => AV.aiCreateDialog({ topic: quickSearch.value.trim() });
+      quickSearch.addEventListener("keydown", e => { if (e.key === "Enter") createIdea(); });
+      large.append(
+        h("section", { class: "home-idea" },
+          h("div", null, h("h2", null, "O que vamos criar hoje?"), h("p", null, "Descreva sua ideia e comece pelo caminho mais rápido.")),
+          h("div", { class: "home-idea-row" }, quickSearch, button("Gerar com IA", createIdea, "btn pri"))),
+        h("div", { class: "home-section-heading" }, h("div", null, h("span", null, "FERRAMENTAS"), h("h2", null, "Crie do seu jeito"))),
+        h("div", { class: "home-action-grid" }, shortcuts.map(card)));
+      if (p.agenda) side.append(agendaPanel());
+      if (p.schedule) side.append(timetablePanel());
+      if (p.quote) side.append(quotePanel());
+      if (p.quickStudy) side.append(
+        h("section", { class: "home-study-strip" },
+          h("div", null, h("strong", null, "Quer escrever melhor?"), h("p", null, "Explore técnicas de redação, revisão e modelos acadêmicos.")),
+          h("div", { class: "home-study-links" }, link("#estudos", "Dicas de estudo", "btn sm"), link("#abnt", "Editor ABNT", "btn sm"))));
+      grid.append(large);
+      if (side.children.length) grid.append(side);
+      const recent = recentPanel();
+      const footer = h("div", { class: "home-bottom" }, recent.element,
+        h("section", { class: "home-panel home-preferences" },
+          h("div", { class: "home-panel-head" }, h("div", null, h("h2", null, "Sua tela, suas escolhas"), h("p", null, "Mostre apenas o que você precisa."))),
+          h("p", null, "Você pode esconder agenda, horários, mensagens e atalhos de estudo sem perder seus registros."),
+          link("#config", "Personalizar tela inicial", "btn sm")));
+      container.append(header, hero, grid, footer);
+      main.append(container);
+      return AV.Store.on(recent.refresh);
+    }
+  };
+})(globalThis.AV = globalThis.AV || {});
