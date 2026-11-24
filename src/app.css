@@ -478,3 +478,16 @@ select.in{max-width:100%;text-overflow:ellipsis}
 @media(max-width:900px){.home-main-grid,.home-bottom{grid-template-columns:minmax(0,1fr)}.home-side-column{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.home-welcome{min-height:240px}}
 @media(max-width:620px){.home-dashboard{gap:15px!important}.home-welcome{display:block;padding:26px 21px;min-height:0;border-radius:19px}.home-welcome-decoration{display:none}.home-welcome h1{font-size:2.25rem}.home-welcome p{font-size:.91rem}.home-hero-buttons .btn{width:100%;justify-content:center}.home-action-grid,.home-side-column{grid-template-columns:minmax(0,1fr)}.home-action{min-height:82px}.home-idea{padding:16px}.home-idea-row{flex-direction:column}.home-idea-row .btn{justify-content:center}.home-quick-add .btn{padding:6px 8px}.home-panel{padding:16px}.home-quote-panel{padding:17px}}
 @media(prefers-reduced-motion:reduce){.home-action{transition:none}.home-action:hover{transform:none}}
+
+/* Preserva o banner original (inclusive seu tema e botão coral) em largura total.
+   A regra antiga .hero usa grid-column:span 8 dentro do bento; aqui a home tem 1 coluna. */
+.home-dashboard > .home-preserved-hero{grid-column:1/-1;grid-template-columns:minmax(0,1fr);width:100%;min-width:0;box-sizing:border-box}
+.home-dashboard > .home-preserved-hero .hero-search{width:100%;box-sizing:border-box}
+.home-dashboard > .home-preserved-hero .hero-search input{min-width:0}
+@media(max-width:620px){
+  .home-dashboard > .home-preserved-hero{border-radius:22px;padding:24px 20px}
+  .home-dashboard > .home-preserved-hero h1{font-size:clamp(1.9rem,7vw,2.5rem)}
+  .home-dashboard > .home-preserved-hero .hero-search{gap:5px;padding:5px}
+  .home-dashboard > .home-preserved-hero .hero-search .btn{flex:none;padding:8px 13px}
+  .home-dashboard > .home-preserved-hero .hero-chips{gap:6px}
+}
