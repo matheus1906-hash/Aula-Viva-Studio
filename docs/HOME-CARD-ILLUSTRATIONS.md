@@ -46,3 +46,11 @@ Atenção: os badges e artes são desenhados pela aplicação em tempo de execu�
 ## Controle de qualidade adicional
 
 O comando `npm run check:js` agora verifica explicitamente `src/home-card-art.js` antes de liberar o build na Vercel. O teste de navegador `tests/auth.cjs` valida a presença das doze SVGs, dos doze selos, dos IDs de desenho distintos e da ausência de rolagem horizontal no mobile. O teste unitário `tests/home-dashboard.cjs` valida o mapeamento entre categorias e composição. Um deployment com estado READY não equivale, sozinho, à aprovação dos testes completos de navegador.
+
+## Correção visual — fundo parecido com imagem não carregada
+
+Após a revisão dos cards, foi removido o gradiente muito claro e o círculo decorativo translúcido atrás das ilustrações. O conjunto criava uma área esmaecida que parecia um espaço de imagem vazia.
+
+**Novo padrão:** card com superfície sólida do tema da plataforma, ilustração dentro de um painel menor e colorido com borda suave, selo e texto sem alterações. Os desenhos SVG originais continuam sendo gerados localmente; não são imagens externas. A mudança preserva os 12 atalhos e o banner superior.
+
+Verificações: `npm run check:js`, `npm run build`, `npm run test:home`, inspeção visual dos cards em temas claro/escuro e nos tamanhos desktop/mobile. O status READY da Vercel não substitui os testes manuais e de navegador.
