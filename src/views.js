@@ -174,7 +174,7 @@
       const out = h("div", { class: "grid wide" });
       const tabs = h("div", { class: "tabs", role: "tablist" });
       const body = h("div", { style: { display: "grid", gap: "16px" } });
-      const sections = { temas: "Temas por ano e disciplina", datas: "Datas comemorativas", rapido: "Pedido rápido" };
+      const sections = { livros: "Livros e e-books", temas: "Temas por ano e disciplina", datas: "Datas comemorativas", rapido: "Pedido rápido" };
       let tab = "temas";
       Object.keys(sections).forEach((k) => tabs.appendChild(h("button", { role: "tab", "aria-selected": k === tab ? "true" : "false", onclick: (e) => { tab = k; tabs.querySelectorAll("button").forEach((b) => b.setAttribute("aria-selected", b === e.currentTarget)); draw(); } }, sections[k])));
       main.appendChild(h("div", { class: "wrap" }, AV.pageHead("Biblioteca de conteúdos", "Temas organizados por etapa e componente curricular. Escolha e gere o material pronto, alinhado à BNCC.", "shelf", "orange"), tabs, body));
@@ -188,6 +188,7 @@
       }
       function draw() {
         body.textContent = "";
+        if (tab === "livros") { AV.drawLivros(body); return; }
         if (tab === "temas") {
           const seg = AV.LIB.segmento(st.etapa), temas = (AV.LIB.temas[st.disc] || {})[seg] || [];
           out.textContent = "";

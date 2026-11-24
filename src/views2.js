@@ -217,22 +217,43 @@
   async function loadLivros() { if (livros) return livros; if (AV.LIVROS_INLINE) return (livros = AV.LIVROS_INLINE); const r = await fetch("data/livros.json"); if (!r.ok) throw new Error("Não foi possível carregar os livros."); return (livros = await r.json()); }
   AV.loadLivros = loadLivros;
   const LANG_NAME = { pt: "Português", en: "English", es: "Español" };
+  async function readBook(b) {
+    const content = h("article", { class: "book-text", lang: b.lang, "data-notr": "", tabindex: "0", "aria-busy": "true" }, AV.t("Carregando livro…"));
+    const dialog = AV.dialog(b.title, content, { large: true });
+    content.focus();
+    try {
+      let response;
+      if (AV.TEXTOS_INLINE) {
+        const bytes = Uint8Array.from(atob(AV.TEXTOS_INLINE[b.id]), ch => ch.charCodeAt(0));
+        response = new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip")));
+      } else {
+        response = await fetch(b.local);
+        if (!response.ok) throw new Error();
+      }
+      const buffer = await response.arrayBuffer();
+      if (buffer.byteLength !== b.bytes) throw new Error();
+      content.textContent = new TextDecoder().decode(buffer);
+    } catch {
+      content.replaceChildren(h("p", null, AV.t("Não foi possível carregar o livro.")),
+        h("button", { class: "btn", onclick: () => { dialog.close(); readBook(b); } }, AV.t("Tentar novamente")));
+    } finally {
+      content.removeAttribute("aria-busy");
+    }
+  }
   function bookCard(b, onOpen) {
     return h("button", { class: "bk", type: "button", "aria-label": b.title + ", " + (b.authors || []).join(", "), onclick: () => onOpen(b) },
-      h("div", { class: "bk-cover" }, h("img", { src: b.cover, alt: "", loading: "lazy", decoding: "async" }), h("span", { class: "free" }, AV.t("Grátis"))),
+      h("div", { class: "bk-cover" }, b.cover ? h("img", { src: b.cover, alt: "", loading: "lazy", decoding: "async" }) : AV.icon("book"), h("span", { class: "free" }, AV.t("Grátis"))),
       h("b", { "data-notr": "" }, b.title), h("span", { "data-notr": "" }, (b.authors || [])[0] || ""));
   }
   function bookDetail(b) {
-    const ref = { title: b.title, authors: (b.authors || []).map((a) => { const p = a.trim().split(" "); return p.length > 1 ? p.pop().toUpperCase() + ", " + p.join(" ") : a; }), year: b.year, type: "ebook", open: true, url: b.read };
+    const ref = { title: b.title, authors: (b.authors || []).map((a) => { const p = a.trim().split(" "); return p.length > 1 ? p.pop().toUpperCase() + ", " + p.join(" ") : a; }), bookId: b.id, year: b.year, type: "ebook", open: true, url: b.read };
     AV.dialog(b.title, h("div", { class: "book-detail" },
-      h("div", { class: "bk-cover" }, h("img", { src: b.cover, alt: AV.t("Capa de") + " " + b.title })),
+      h("div", { class: "bk-cover" }, b.cover ? h("img", { src: b.cover, alt: AV.t("Capa de") + " " + b.title }) : AV.icon("book")),
       h("div", { style: { display: "grid", gap: "12px", minWidth: 0 } },
         h("p", { class: "muted", "data-notr": "" }, (b.authors || []).join(", ")),
-        h("div", { class: "chips" }, h("span", { class: "chip pri" }, "Domínio público"), b.year ? h("span", { class: "chip", "data-notr": "" }, String(b.year)) : null, h("span", { class: "chip", "data-notr": "" }, LANG_NAME[b.lang] || b.lang), h("span", { class: "chip" }, AV.t(b.group)), b.pages ? h("span", { class: "chip" }, b.pages + " " + AV.t("páginas")) : null),
-        h("p", { class: "small muted" }, "Leitura gratuita e legal: a obra está em domínio público e é disponibilizada pelo Internet Archive e pelo Open Library."),
-        h("div", { class: "row" },
-          h("a", { class: "btn pri", href: b.read, target: "_blank", rel: "noopener noreferrer" }, AV.icon("book"), "Ler grátis"),
-          h("a", { class: "btn", href: b.ol, target: "_blank", rel: "noopener noreferrer" }, AV.icon("link"), "Ver no Open Library")),
+        h("div", { class: "chips" }, h("span", { class: "chip pri" }, b.credit ? "CC BY 4.0" : "Domínio público"), b.year ? h("span", { class: "chip", "data-notr": "" }, String(b.year)) : null, h("span", { class: "chip", "data-notr": "" }, LANG_NAME[b.lang] || b.lang), h("span", { class: "chip" }, AV.t(b.group)), b.pages ? h("span", { class: "chip" }, b.pages + " " + AV.t("páginas")) : null),
+        b.credit ? h("p", { class: "small muted", "data-notr": "" }, b.credit) : null,
+        h("button", { class: "btn pri", onclick: () => readBook(b) }, AV.icon("book"), AV.t("Ler na plataforma")),
         h("div", { class: "row" },
           h("button", { class: "btn sm", onclick: () => AV.copy(AV.abnt(ref)) }, AV.icon("copy"), "Copiar referência ABNT"),
           h("button", { class: "btn sm", onclick: () => RefStore.add(ref) }, AV.icon("plus"), "Salvar"),
@@ -252,6 +273,34 @@
     return { items: res.filter((r) => r.status === "fulfilled").flatMap((r) => r.value).filter((x) => x.title), ok: res.some((r) => r.status === "fulfilled") };
   }
   const TYPES = { "": "Todos os tipos", livro: "Livros", ebook: "E-books gratuitos", artigo: "Artigos", tese: "Teses", dissertacao: "Dissertações", documento: "Documentos oficiais" };
+  AV.drawLivros = function (body) {
+    const st = Object.assign({ q: "", g: "", l: "" }, AV.LS.get("livrosState", {}));
+    const shelf = h("div"), count = h("span", { class: "muted small" });
+    const qi = h("input", { class: "in search-xl", type: "search", id: "lv-q", placeholder: "Busque por título ou autor (ex.: Dom Casmurro, Alice, Dewey)", value: st.q, oninput: AV.debounce((e) => { st.q = e.target.value; save(); render(); }, 160) });
+    const save = () => AV.LS.set("livrosState", st);
+    const gsel = h("select", { class: "in", "aria-label": "Coleção", onchange: (e) => { st.g = e.target.value; save(); render(); } }, h("option", { value: "" }, "Todas as coleções"));
+    const lsel = h("select", { class: "in", "aria-label": "Idioma", "data-notr": "", onchange: (e) => { st.l = e.target.value; save(); render(); } }, h("option", { value: "" }, AV.t("Todos os idiomas")), Object.keys(LANG_NAME).map((k) => h("option", { value: k, selected: st.l === k }, LANG_NAME[k])));
+    body.append(h("p", { class: "note info" }, "Escolha um livro para ler aqui na biblioteca."),
+      h("div", { class: "search-row" }, qi), h("div", { class: "row" }, gsel, lsel, h("span", { class: "spacer" }), count), shelf);
+    shelf.appendChild(h("div", { class: "empty" }, h("span", { class: "spin" }), " " + AV.t("Carregando livros...")));
+    let all = [];
+    loadLivros().then((l) => { all = l; [...new Set(l.map((b) => b.group))].forEach((g) => gsel.appendChild(h("option", { value: g, selected: st.g === g }, g))); render(); })
+      .catch((e) => { shelf.textContent = ""; shelf.appendChild(h("div", { class: "empty" }, e.message)); });
+    function render() {
+      const t = norm(st.q);
+      const l = all.filter((b) => (!st.g || b.group === st.g) && (!st.l || b.lang === st.l) && (!t || norm(b.title + " " + (b.authors || []).join(" ")).includes(t)));
+      count.textContent = l.length + " " + AV.t("livros");
+      shelf.textContent = "";
+      if (!l.length) { shelf.appendChild(h("div", { class: "empty" }, "Nenhum livro encontrado.")); return; }
+      if (!t && !st.g) {
+        [...new Set(l.map((b) => b.group))].forEach((g) => {
+          const row = h("div", { class: "shelf-row" });
+          shelf.append(h("div", { class: "sec-t" }, h("h2", null, g), h("button", { class: "btn sm ghost", onclick: () => { st.g = g; gsel.value = g; save(); render(); } }, AV.t("Ver todos"))), row);
+          AV.renderChunked(row, l.filter((b) => b.group === g), (b) => bookCard(b, bookDetail), 8);
+        });
+      } else { const grid = h("div", { class: "shelf" }); shelf.appendChild(grid); AV.renderChunked(grid, l, (b) => bookCard(b, bookDetail), 24); }
+    }
+  };
   V.acervo = {
     title: "Livros e e-books",
     render(main) {
@@ -269,7 +318,7 @@
       return () => { if (ctrl) ctrl.abort(); };
       function draw() {
         body.textContent = "";
-        if (tab === "livros") { drawLivros(); return; }
+        if (tab === "livros") { AV.drawLivros(body); return; }
         if (tab === "busca") {
           body.append(h("div", { class: "search-row" }, input, h("button", { class: "btn pri", onclick: () => run() }, AV.icon("search"), "Buscar"), h("button", { class: "btn", onclick: smart }, AV.icon("sparkle"), "Busca inteligente")),
             h("div", { class: "row" }, typeSel, areaSel, openChk), aiBox, results, liveBox);
@@ -279,6 +328,7 @@
       }
       function item(o, saved) {
         o = Object.assign({}, o, { url: AV.safeUrl(o.url) });
+        const localBook = saved && livros && livros.find(b => b.id === o.bookId || b.read === o.url || (o.type === "ebook" && b.title === o.title));
         const tags = [TYPES[o.type] ? TYPES[o.type].replace(/s$/, "").replace("E-book gratuito", "E-book") : o.type, o.year, (o.area || [])[0], o.lang && o.lang !== "pt" ? o.lang.toUpperCase() : null, o.source].filter(Boolean);
         return h("article", { class: "book" },
           h("div", { class: "book-cover", style: { background: AV.GRAD[["blue", "teal", "violet", "amber", "rose", "green", "indigo", "orange"][Math.abs(hash(o.title)) % 8]] }, "aria-hidden": "true" }, h("b", null, initials(o.title))),
@@ -287,7 +337,7 @@
             h("div", { class: "chips" }, tags.map((t) => h("span", { class: "chip" }, String(t))), o.open ? h("span", { class: "chip pri" }, "Acesso aberto") : null),
             o.summary ? h("p", { class: "small" }, o.summary) : null,
             h("div", { class: "row" },
-              o.url ? h("a", { class: "btn sm", href: o.url, target: "_blank", rel: "noopener noreferrer" }, AV.icon("link"), o.open ? "Ler / baixar" : "Ver") : h("a", { class: "btn sm", href: "https://scholar.google.com/scholar?q=" + encodeURIComponent('"' + o.title + '" ' + ((o.authors || [])[0] || "").split(",")[0]), target: "_blank", rel: "noopener noreferrer" }, AV.icon("search"), "Encontrar"),
+              localBook ? h("button", { class: "btn sm", onclick: () => readBook(localBook) }, AV.t("Ler na plataforma")) : o.url ? h("a", { class: "btn sm", href: o.url, target: "_blank", rel: "noopener noreferrer" }, AV.icon("link"), o.open ? "Ler / baixar" : "Ver") : h("a", { class: "btn sm", href: "https://scholar.google.com/scholar?q=" + encodeURIComponent('"' + o.title + '" ' + ((o.authors || [])[0] || "").split(",")[0]), target: "_blank", rel: "noopener noreferrer" }, AV.icon("search"), "Encontrar"),
               h("button", { class: "btn sm", onclick: () => AV.copy(AV.abnt(o)) }, AV.icon("copy"), "ABNT"),
               saved ? h("button", { class: "btn sm ghost danger", onclick: () => { RefStore.remove(o.title); draw(); } }, AV.icon("trash"), "Remover") : h("button", { class: "btn sm", onclick: () => RefStore.add(o) }, AV.icon("plus"), "Salvar"),
               h("button", { class: "btn sm", onclick: () => { const l = AV.LS.get("sources", []); l.push({ id: AV.uid(), title: o.title, text: AV.abnt(o) + "\n\n" + (o.summary || "") + "\nPalavras-chave: " + (o.keywords || []).join(", "), on: true }); AV.LS.set("sources", l); AV.toast("Adicionado ao Estúdio de fontes."); } }, AV.icon("book"), "Estúdio"))));
@@ -331,34 +381,6 @@
           const old = input.value; input.value = qq + " " + (out.palavras || []).slice(0, 6).join(" "); run(true); input.value = old;
         } catch (er) { AV.toast(AV.AI.explain(er)); }
         AV.busy(btn, false);
-      }
-      function drawLivros() {
-        const st = Object.assign({ q: "", g: "", l: "" }, AV.LS.get("livrosState", {}));
-        const shelf = h("div"), count = h("span", { class: "muted small" });
-        const qi = h("input", { class: "in search-xl", type: "search", id: "lv-q", placeholder: "Busque por título ou autor (ex.: Dom Casmurro, Alice, Dewey)", value: st.q, oninput: AV.debounce((e) => { st.q = e.target.value; save(); render(); }, 160) });
-        const save = () => AV.LS.set("livrosState", st);
-        const gsel = h("select", { class: "in", "aria-label": "Coleção", onchange: (e) => { st.g = e.target.value; save(); render(); } }, h("option", { value: "" }, "Todas as coleções"));
-        const lsel = h("select", { class: "in", "aria-label": "Idioma", "data-notr": "", onchange: (e) => { st.l = e.target.value; save(); render(); } }, h("option", { value: "" }, AV.t("Todos os idiomas")), Object.keys(LANG_NAME).map((k) => h("option", { value: k, selected: st.l === k }, LANG_NAME[k])));
-        body.append(h("p", { class: "note info" }, "Livros reais em domínio público, com a capa original, para ler grátis e legalmente na internet (Internet Archive / Open Library)."),
-          h("div", { class: "search-row" }, qi), h("div", { class: "row" }, gsel, lsel, h("span", { class: "spacer" }), count), shelf);
-        shelf.appendChild(h("div", { class: "empty" }, h("span", { class: "spin" }), " " + AV.t("Carregando livros...")));
-        let all = [];
-        loadLivros().then((l) => { all = l; [...new Set(l.map((b) => b.group))].forEach((g) => gsel.appendChild(h("option", { value: g, selected: st.g === g }, g))); render(); })
-          .catch((e) => { shelf.textContent = ""; shelf.appendChild(h("div", { class: "empty" }, e.message)); });
-        function render() {
-          const t = norm(st.q);
-          const l = all.filter((b) => (!st.g || b.group === st.g) && (!st.l || b.lang === st.l) && (!t || norm(b.title + " " + (b.authors || []).join(" ")).includes(t)));
-          count.textContent = l.length + " " + AV.t("livros");
-          shelf.textContent = "";
-          if (!l.length) { shelf.appendChild(h("div", { class: "empty" }, "Nenhum livro encontrado.")); return; }
-          if (!t && !st.g) {
-            [...new Set(l.map((b) => b.group))].forEach((g) => {
-              const row = h("div", { class: "shelf-row" });
-              shelf.append(h("div", { class: "sec-t" }, h("h2", null, g), h("button", { class: "btn sm ghost", onclick: () => { st.g = g; gsel.value = g; save(); render(); } }, AV.t("Ver todos"))), row);
-              AV.renderChunked(row, l.filter((b) => b.group === g), (b) => bookCard(b, bookDetail), 8);
-            });
-          } else { const grid = h("div", { class: "shelf" }); shelf.appendChild(grid); AV.renderChunked(grid, l, (b) => bookCard(b, bookDetail), 24); }
-        }
       }
       function drawRepos() {
         repoBox.textContent = ""; const qq = input.value.trim() || "educação";

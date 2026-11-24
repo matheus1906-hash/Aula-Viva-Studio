@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { gunzipSync } from "node:zlib";
 const order = ["core.js", "vault.js", "i18n.js", "i18n-dict.js", "i18n-extra.js", "importers.js", "exporters.js", "atividades.js", "biblioteca-data.js", "providers.js", "ai.js", "ai-live.js", "ai-settings.js", "preview.js", "editor.js", "home-planner.js", "views.js", "chat-studio.js", "animacao.js", "animacao-modelos.js", "views2.js", "auth.js", "main.js"];
 const js = order.filter((f) => fs.existsSync("src/" + f)).map((f) => "/* " + f + " */\n" + fs.readFileSync("src/" + f, "utf8")).join("\n;\n");
 const css = fs.readFileSync("src/app.css", "utf8") + "\n" + fs.readFileSync("src/theme-v4.css", "utf8");
@@ -31,7 +32,21 @@ fs.writeFileSync("dist/data/modelos.json", JSON.stringify(modelos));
 const repos = JSON.parse(fs.readFileSync("data/acervo-repos.json", "utf8"));
 const obras = fs.existsSync("data/acervo-obras.json") ? JSON.parse(fs.readFileSync("data/acervo-obras.json", "utf8")) : [];
 const acervo = { repositorios: repos, obras };
-const livros = fs.existsSync("data/livros.json") ? JSON.parse(fs.readFileSync("data/livros.json", "utf8")) : [];
+const { extras, edicoes } = JSON.parse(fs.readFileSync("data/edicoes.json", "utf8"));
+const livros = JSON.parse(fs.readFileSync("data/livros.json", "utf8")).concat(extras);
+const textosInline = {};
+for (const dir of ["dist/data/textos", "dist/site/data/textos"]) fs.mkdirSync(dir, { recursive: true });
+for (const livro of livros) {
+  const edicao = edicoes[livro.id];
+  Object.assign(livro, edicao);
+  const compressed = fs.readFileSync("data/textos/" + livro.id + ".txt.gz");
+  const texto = gunzipSync(compressed);
+  if (texto.length !== edicao.bytes) throw new Error("Texto incompleto: " + livro.title);
+  livro.local = "data/textos/" + livro.id + ".txt";
+  fs.writeFileSync("dist/" + livro.local, texto);
+  fs.writeFileSync("dist/site/" + livro.local, texto);
+  textosInline[livro.id] = compressed.toString("base64");
+}
 fs.writeFileSync("dist/data/livros.json", JSON.stringify(livros));
 fs.writeFileSync("dist/data/acervo.json", JSON.stringify(acervo));
 // versão para hospedar: arquivo único, modelos embutidos
@@ -45,6 +60,10 @@ fs.writeFileSync("dist/aulaviva-studio-standalone.html", solo.replace('<svg widt
 // site pronto para hospedar (GitHub Pages, Vercel, Netlify): dist/site/index.html
 fs.mkdirSync("dist/site", { recursive: true });
 fs.copyFileSync("dist/aulaviva-studio-standalone.html", "dist/site/index.html");
+// Apenas a distribuição offline transporta o acervo inteiro no HTML.
+const offline = fs.readFileSync("dist/site/index.html", "utf8").replace("AV.STANDALONE=true;", () =>
+  "AV.STANDALONE=true;AV.TEXTOS_INLINE=" + JSON.stringify(textosInline) + ";");
+fs.writeFileSync("dist/aulaviva-studio-standalone.html", offline);
 fs.writeFileSync("dist/site/.nojekyll", "");
 console.log("modelos", modelos.length, "obras", obras.length, "livros", livros.length);
 console.log("dist/aulaviva-studio.html", (html.length / 1024).toFixed(0) + " KB", "missing:", order.filter((f) => !fs.existsSync("src/" + f)));

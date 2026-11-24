@@ -356,3 +356,5 @@ select.in{max-width:100%;text-overflow:ellipsis}
 .chip.acc{color:var(--acc-ink)}
 .chips button.chip[aria-pressed="true"]{background:var(--pri-strong);border-color:var(--pri-strong);color:#fff}
 .btn.pri{background:linear-gradient(135deg,var(--pri-strong),var(--pri-2))}
+
+.book-text { white-space: pre-wrap; overflow-wrap: anywhere; overflow: auto; max-height: 70vh; max-width: 72ch; margin: 0 auto; padding: 1rem; font: 1.1rem/1.65 Georgia, serif; }

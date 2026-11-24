@@ -31,8 +31,8 @@ Desenhos originais com personagens, cenários, balões de fala, legendas e narra
 
 ![Estúdio de vídeos animados](docs/screenshots/video-editor.webp)
 
-### Livros reais, grátis, com a capa original
-118 livros em domínio público (Machado de Assis, Alencar, Eça, Lobato, Kipling, Stevenson, Austen, Twain, Galdós, Quiroga, Dewey, Montessori…) para ler online, com referência ABNT e atividade de leitura gerada por IA. Inclui também um acervo comentado com 196 obras de educação, busca inteligente e atalhos para 20 bibliotecas digitais.
+### Leitura na biblioteca
+121 livros com texto hospedado na plataforma (Machado de Assis, Alencar, Eça, Lobato, Kipling, Stevenson, Austen, Twain, Galdós, Quiroga, Dewey, Montessori…) para ler diretamente na biblioteca, com referência ABNT e atividade de leitura gerada por IA. Inclui também um acervo comentado com 196 obras de educação, busca inteligente e atalhos para 20 bibliotecas digitais.
 
 | Estante | Ficha do livro |
 |---|---|
@@ -129,4 +129,4 @@ docs/       imagens do README
 
 ## Créditos
 
-Os livros da estante "Livros grátis com capa" estão em domínio público e são disponibilizados pelo [Internet Archive](https://archive.org). As capas são miniaturas das digitalizações das próprias edições. Fontes: [Bricolage Grotesque](https://fonts.google.com/specimen/Bricolage+Grotesque) e [Figtree](https://fonts.google.com/specimen/Figtree), pelo Google Fonts.
+A biblioteca hospeda transcrições de edições do [Internet Archive](https://archive.org), do [Project Gutenberg](https://www.gutenberg.org) e do [Standard Ebooks](https://standardebooks.org). Digitalizações convertidas por OCR podem conter erros e perder ilustrações. Os textos estão em `data/textos/`, e os créditos e as informações de edição complementares ficam em `data/edicoes.json`. Fontes: [Bricolage Grotesque](https://fonts.google.com/specimen/Bricolage+Grotesque) e [Figtree](https://fonts.google.com/specimen/Figtree), pelo Google Fonts.

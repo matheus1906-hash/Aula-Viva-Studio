@@ -1,0 +1,416 @@
+{
+  "extras": [
+    {
+      "id": "se-alice",
+      "title": "Alice’s Adventures in Wonderland",
+      "authors": [
+        "Lewis Carroll"
+      ],
+      "group": "Clássicos",
+      "area": "Literatura",
+      "lang": "en",
+      "read": "https://standardebooks.org/ebooks/lewis-carroll/alices-adventures-in-wonderland/john-tenniel"
+    },
+    {
+      "id": "se-frankenstein",
+      "title": "Frankenstein",
+      "authors": [
+        "Mary Shelley"
+      ],
+      "group": "Clássicos",
+      "area": "Literatura",
+      "lang": "en",
+      "read": "https://standardebooks.org/ebooks/mary-shelley/frankenstein"
+    },
+    {
+      "id": "domcasmurro_1899",
+      "title": "Dom Casmurro",
+      "authors": [
+        "Machado de Assis"
+      ],
+      "lang": "pt",
+      "year": 1899,
+      "group": "Literatura brasileira",
+      "area": "Literatura",
+      "read": "https://archive.org/details/domcasmurro_1899"
+    }
+  ],
+  "edicoes": {
+    "3449803": {
+      "bytes": 416472
+    },
+    "livro-o-triste-fim-de-policarpo-quaresma": {
+      "bytes": 438844
+    },
+    "o-cortico_202503": {
+      "bytes": 513320
+    },
+    "a-condessa-vesper": {
+      "bytes": 662200
+    },
+    "cantoscollec00gonuoft": {
+      "bytes": 536785
+    },
+    "ostymbiraspoema00diasgoog": {
+      "bytes": 89526
+    },
+    "passaro_cativo": {
+      "bytes": 5280,
+      "credit": "O Pássaro Cativo · Olavo Bilac · edição digital, CC BY 4.0 · https://creativecommons.org/licenses/by/4.0/"
+    },
+    "guimaraes-bernardo-a-escrava-isaura-lusolivros": {
+      "bytes": 331138
+    },
+    "osromancesdasem00macegoog": {
+      "bytes": 355252
+    },
+    "obras-completas_202503": {
+      "bytes": 8788701
+    },
+    "esauejacob56737gut": {
+      "bytes": 443923
+    },
+    "amaoealuva53101gut": {
+      "bytes": 227897
+    },
+    "quncasborba55682gut": {
+      "bytes": 482495
+    },
+    "papeisavulsos57001gut": {
+      "bytes": 348391
+    },
+    "senhora_202503": {
+      "bytes": 502831
+    },
+    "a-alma-do-la-zaro_202403": {
+      "bytes": 71652
+    },
+    "sonhosdoro": {
+      "bytes": 485519
+    },
+    "uma-lagrima-de-mulher": {
+      "bytes": 230268
+    },
+    "o-japao": {
+      "bytes": 171685
+    },
+    "noite-na-taverna-alvares-de-azevedo": {
+      "bytes": 106614
+    },
+    "lira-dos-vinte-anos": {
+      "bytes": 199665
+    },
+    "monteirolobatocontoscompletos": {
+      "bytes": 1098065
+    },
+    "monteirolobatohistoriasdetianastacia": {
+      "bytes": 235496
+    },
+    "fabulosas-fabulas": {
+      "bytes": 40131
+    },
+    "peter-pan_202503": {
+      "bytes": 122094
+    },
+    "snowdropothertal37381gut": {
+      "bytes": 271828
+    },
+    "rudyandbabetteor40283gut": {
+      "bytes": 222746
+    },
+    "aesopsfables00aeso": {
+      "bytes": 264559
+    },
+    "aesopsfablesanew11339gut": {
+      "bytes": 236710
+    },
+    "DeepartmentalDITIESAndOtherVerses": {
+      "bytes": 284408
+    },
+    "BarrackRoomBalladsAndOtherVerses": {
+      "bytes": 322025
+    },
+    "peter-pan-and-wendy": {
+      "bytes": 277905
+    },
+    "TwinkleAndChubbinsTheirAstatureFairylandL.FrankBaum": {
+      "bytes": 186038
+    },
+    "TwentyThousandLeaguesUnderTherTourOfTheWorldJulesVerne": {
+      "bytes": 867367
+    },
+    "NewPoemsAndVariantReadings": {
+      "bytes": 123235
+    },
+    "achildsgardenofv25608gut": {
+      "bytes": 73257
+    },
+    "thetaleoftwobadm45264gut": {
+      "bytes": 25524
+    },
+    "o-saci": {
+      "bytes": 131389
+    },
+    "emilia-no-pais-da-gramatica": {
+      "bytes": 226688
+    },
+    "a-chave-do-tamanho": {
+      "bytes": 266515
+    },
+    "cacadas-de-pedrinho": {
+      "bytes": 127644
+    },
+    "o-ratinho-o-gato-e-galo": {
+      "bytes": 2247
+    },
+    "marques-de-rabico": {
+      "bytes": 33459
+    },
+    "outheartspokent00andegoog": {
+      "bytes": 451603
+    },
+    "thepopularstoryo43457gut": {
+      "bytes": 41230
+    },
+    "populartales33931gut": {
+      "bytes": 393934
+    },
+    "babysownaesopbei00aeso": {
+      "bytes": 20806
+    },
+    "songsfromalicein36308gut": {
+      "bytes": 42030
+    },
+    "thejunglebook35997gut": {
+      "bytes": 305779
+    },
+    "thesecondjungleb37364gut": {
+      "bytes": 369876
+    },
+    "jules-verne_the-mysterious-island_stephen-w-white": {
+      "bytes": 964559
+    },
+    "fromtheearthtoth44278gut": {
+      "bytes": 568685
+    },
+    "robert-louis-stevenson_treasure-island": {
+      "bytes": 380748
+    },
+    "robert-louis-stevenson_the-strange-case-of-dr-jekyll-and-mr-hyde": {
+      "bytes": 147551
+    },
+    "kidnappedillustr56562gut": {
+      "bytes": 451461
+    },
+    "thestoryofafierc45265gut": {
+      "bytes": 21119
+    },
+    "DemocrayAndEducation": {
+      "bytes": 848918,
+      "read": "https://www.gutenberg.org/ebooks/852",
+      "year": null,
+      "pages": null,
+      "cover": null
+    },
+    "pestalozziandpe01pestgoog": {
+      "bytes": 1356638
+    },
+    "13925922180LockeCommonplaceBook": {
+      "bytes": 131619
+    },
+    "psychologyandsoc40744gut": {
+      "bytes": 66309
+    },
+    "bub_gb_TE1IAAAAMAAJ": {
+      "bytes": 467738
+    },
+    "humannatureandc00dewegoog": {
+      "bytes": 499659
+    },
+    "o-crime-do-padre-amaro-lusolivros": {
+      "bytes": 887610
+    },
+    "ContosEcaDeQueiros": {
+      "bytes": 448993
+    },
+    "AsFarpas.1872": {
+      "bytes": 846145
+    },
+    "os-maias_lusolivros": {
+      "bytes": 1357338
+    },
+    "bub_gb_5E6KJh5Svj8C": {
+      "bytes": 765490,
+      "read": "https://archive.org/details/india.history.resource.72028",
+      "year": 1666,
+      "pages": null,
+      "cover": null
+    },
+    "umafamliaingles00dinigoog": {
+      "bytes": 804996
+    },
+    "o-primo-basilio-lusolivros": {
+      "bytes": 782835
+    },
+    "eca-de-queiros-o-mandarim": {
+      "bytes": 128550
+    },
+    "a-tragedia-da-rua-das-flores-eca-de-queiros-lusolivros": {
+      "bytes": 644000
+    },
+    "o-misterio-da-estrada-de-sintra-lusolivros": {
+      "bytes": 419888
+    },
+    "queiros-eca-de-a-reliquia-lusolivros": {
+      "bytes": 523286
+    },
+    "os-lusiadas-neolivros": {
+      "bytes": 378480
+    },
+    "seroes-da-provincia-lusolivros": {
+      "bytes": 645745
+    },
+    "dinis-julio-as-pupilas-do-sr.-reitor": {
+      "bytes": 596918
+    },
+    "freilusdesous00alme": {
+      "bytes": 432741
+    },
+    "littlewomenormeg37106gut": {
+      "bytes": 1090689
+    },
+    "thepersonalhisto43111gut": {
+      "bytes": 1970674
+    },
+    "mark-twain_the-adventures-of-huckleberry-finn": {
+      "bytes": 594305
+    },
+    "jumpingfrogineng00twai_0": {
+      "bytes": 58613
+    },
+    "luluslibraryvolu40682gut": {
+      "bytes": 291715
+    },
+    "jane-austen_pride-and-prejudice": {
+      "bytes": 710778
+    },
+    "bub_gb_IfWkia6_OloC": {
+      "bytes": 448795,
+      "read": "https://standardebooks.org/ebooks/jane-austen/northanger-abbey",
+      "year": null,
+      "pages": null,
+      "cover": null
+    },
+    "bub_gb_TJYMUGRIUTMC": {
+      "bytes": 920735
+    },
+    "theposthumouspap47534gut": {
+      "bytes": 888541
+    },
+    "olivertwistorthe46675gut": {
+      "bytes": 936573
+    },
+    "thecozylionastol42366gut": {
+      "bytes": 53870
+    },
+    "thegoodwolf42920gut": {
+      "bytes": 75498
+    },
+    "frances-hodgson-burnett_the-secret-garden": {
+      "bytes": 457276
+    },
+    "alittleprincessb37332gut": {
+      "bytes": 390856
+    },
+    "jack-london_the-call-of-the-wild": {
+      "bytes": 183803
+    },
+    "jack-london_white-fang": {
+      "bytes": 412011
+    },
+    "godhisfathersan00londgoog": {
+      "bytes": 307379
+    },
+    "oscar-wilde_the-picture-of-dorian-gray": {
+      "bytes": 448980
+    },
+    "oscar-wilde_the-importance-of-being-earnest": {
+      "bytes": 127262
+    },
+    "thehappyprincean30120gut": {
+      "bytes": 108743
+    },
+    "DonQuijoteMiguelDeCervantesSaavedra": {
+      "bytes": 2196121
+    },
+    "miguel-de-cervantes-saavedra_don-quixote_john-ormsby": {
+      "bytes": 2519320
+    },
+    "ObrasEscogidasGustavoAdolfoBecquer": {
+      "bytes": 585278
+    },
+    "LegendsTalesAndPoemsGustavoAdolfoBecquer": {
+      "bytes": 692154
+    },
+    "CadizBenitoPerezGaldos": {
+      "bytes": 480039
+    },
+    "TorquemadaYSanPedroBenitoPerezGaldos": {
+      "bytes": 391605
+    },
+    "DonaPerfectaBenitoPerezGaldos_201710": {
+      "bytes": 775914
+    },
+    "prosasprofanasob47650gut": {
+      "bytes": 119117
+    },
+    "cuentosdeamordelocuraydemuertehoracioquiroga": {
+      "bytes": 327877
+    },
+    "LasMilNochesYUnaNocheV1": {
+      "bytes": 408540
+    },
+    "arroz_tartana_blasco_ibanez_pg16413": {
+      "bytes": 572597
+    },
+    "juanmartnelempe00goog": {
+      "bytes": 418349
+    },
+    "elequipajedelre00galdgoog": {
+      "bytes": 393111
+    },
+    "dejulio00galdgoog": {
+      "bytes": 325151
+    },
+    "anaconda_201602": {
+      "bytes": 322680
+    },
+    "CuentosDeLaSelva_201901": {
+      "bytes": 109108
+    },
+    "newtonspmathema00newtrich": {
+      "bytes": 1766094
+    },
+    "firstsixbooksofe00eucl": {
+      "bytes": 230838
+    },
+    "thesiderealmesse46036gut": {
+      "bytes": 191437
+    },
+    "theapologyofsocr00socruoft": {
+      "bytes": 85843
+    },
+    "aristotlespoetic00arisiala": {
+      "bytes": 180046
+    },
+    "se-alice": {
+      "bytes": 167820
+    },
+    "se-frankenstein": {
+      "bytes": 448437
+    },
+    "domcasmurro_1899": {
+      "bytes": 411456
+    }
+  }
+}
