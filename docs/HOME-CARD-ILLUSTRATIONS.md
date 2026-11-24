@@ -42,3 +42,7 @@ Atenção: os badges e artes são desenhados pela aplicação em tempo de execu�
 ## Qualidade e deploy
 
 `npm run check:js`, `npm run test:home`, `npm run build` e o fluxo completo CI devem executar após o commit. O estado READY da Vercel comprova build/deploy, não aprovação de todo o fluxo Playwright. Registrar falhas e correções adicionais antes de merge.
+
+## Controle de qualidade adicional
+
+O comando `npm run check:js` agora verifica explicitamente `src/home-card-art.js` antes de liberar o build na Vercel. O teste de navegador `tests/auth.cjs` valida a presença das doze SVGs, dos doze selos, dos IDs de desenho distintos e da ausência de rolagem horizontal no mobile. O teste unitário `tests/home-dashboard.cjs` valida o mapeamento entre categorias e composição. Um deployment com estado READY não equivale, sozinho, à aprovação dos testes completos de navegador.
