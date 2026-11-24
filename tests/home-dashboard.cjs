@@ -23,6 +23,7 @@ const AV = globalThis.AV = {
   aiCreateDialog: args => calls.push(args)
 };
 const source = fs.readFileSync(path.join(__dirname, "../src/home-dashboard.js"), "utf8");
+vm.runInThisContext(fs.readFileSync(path.join(__dirname, "../src/home-card-art.js"), "utf8"), { filename: "home-card-art.js" });
 vm.runInThisContext(source, { filename: "home-dashboard.js" });
 const flatten = root => {
   if (!root || typeof root !== "object") return [];
@@ -58,6 +59,14 @@ assert.ok(nodes.some(n => n.tag === "section" && n.props.class === "home-quote-p
 assert.ok(nodes.some(n => n.props && n.props.href === "#abnt"), "ABNT shortcut visible");
 assert.ok(nodes.some(n => n.props && n.props.href === "#animacao"), "video shortcut visible");
 assert.equal(nodes.filter(n => n.props && /^home-action(?: |$)/.test(n.props.class || "")).length, 12, "12 prominent tool cards");
+const premiumCards = nodes.filter(n => n.props && (n.props.class || "").includes("home-action-illustrated"));
+assert.equal(premiumCards.length, 12, "twelve illustrated cards");
+assert.equal(new Set(premiumCards.map(n => n.props["data-card-art"])).size, 12, "each card has a unique drawing");
+assert.equal(new Set(premiumCards.map(n => n.children.find(c => c.props?.class === "home-action-badge")?.children.join(""))).size, 12, "unique informative badges");
+assert.ok(premiumCards.every(n => n.children.some(c => c.props?.class === "home-action-cta")), "every card has a clear CTA");
+assert.equal(Object.keys(AV.HOME_CARD_ART.palette).length, 12, "all category palettes included");
+console.log("PASS twelve premium custom illustrated cards and badges");
+
 const mainRoot = nodes.find(n => n.props && n.props.class === "wrap home-dashboard");
 const rootChildren = mainRoot.children.filter(x => x && typeof x === "object");
 assert.equal(rootChildren[0].props.class, "home-hero-area", "hero and quote appear before dashboard");
