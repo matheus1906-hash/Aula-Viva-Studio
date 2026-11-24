@@ -39,7 +39,10 @@ let fails = 0; const ok = (c, m) => { console.log((c ? "PASS " : "FAIL ") + m); 
   // Home 4.0: verificações reais de navegador após desbloquear o cofre.
   await p.waitForSelector(".home-welcome h1", { timeout: 15000 });
   ok(await p.locator(".home-welcome h1").isVisible(), "nova tela inicial é visível após entrar");
-  ok(await p.locator(".home-action").count() === 6, "seis cards de criação são exibidos");
+  ok(await p.locator(".home-action").count() === 12, "doze cards de criação são exibidos");
+  ok(await p.locator(".home-hero-area > .home-quote-panel").isVisible(), "frase junto ao banner");
+  ok(await p.locator(".home-plan-card").isVisible(), "plano de aula no canto da página");
+  ok(await p.locator(".home-recent-bottom").isVisible(), "materiais recentes na parte inferior");
   ok(await p.locator(".home-panel h2", { hasText: "Minha agenda" }).isVisible(), "agenda destacada na tela inicial");
   ok(await p.locator(".home-panel h2", { hasText: "Aulas de hoje" }).isVisible(), "horário de aula destacado na tela inicial");
   await p.fill('.home-quick-add input', 'Lembrete de teste');
