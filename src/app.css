@@ -491,3 +491,67 @@ select.in{max-width:100%;text-overflow:ellipsis}
   .home-dashboard > .home-preserved-hero .hero-search .btn{flex:none;padding:8px 13px}
   .home-dashboard > .home-preserved-hero .hero-chips{gap:6px}
 }
+
+/* HOME 4.2 — Banner original intacto; inspiração ao lado, criação em destaque. */
+.home-hero-area{display:grid;grid-template-columns:minmax(0,1fr) minmax(208px,260px);gap:14px;align-items:stretch;min-width:0}
+.home-hero-area:not(:has(.home-quote-panel)){grid-template-columns:minmax(0,1fr)}
+.home-hero-area>.home-preserved-hero{grid-column:auto;width:100%;min-width:0;box-sizing:border-box}
+.home-hero-area>.home-preserved-hero .hero-search{width:100%;box-sizing:border-box}
+.home-hero-area>.home-preserved-hero .hero-search input{min-width:0}
+.home-hero-area>.home-quote-panel{min-width:0;display:flex;flex-direction:column;justify-content:center;gap:4px;padding:20px 19px;border-radius:24px}
+.home-hero-area>.home-quote-panel .home-quote-mark{font-size:3.1rem;line-height:.7}
+.home-hero-area>.home-quote-panel>div{min-width:0}
+.home-hero-area>.home-quote-panel p{font-size:1.03rem;margin:12px 0;line-height:1.42}
+.home-hero-area>.home-quote-panel small{font-size:.73rem}
+.home-main-grid{grid-template-columns:minmax(0,1fr) minmax(245px,285px);gap:17px}
+.home-main-column,.home-side-column{gap:14px}
+.home-action-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.home-action{min-height:132px;padding:17px 15px;display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;gap:10px;position:relative;background:var(--surface)}
+.home-action-icon{height:48px;flex:0 0 48px}
+.home-action-copy{gap:5px;max-width:100%;padding-right:3px}
+.home-action-copy strong{font-size:1rem;letter-spacing:-.015em}
+.home-action-copy small{font-size:.79rem;line-height:1.45}
+.home-action-arrow{position:absolute;right:15px;top:16px;font-size:1.05rem}
+.home-side-column .home-panel{padding:15px;gap:10px;border-radius:16px}
+.home-side-column .home-panel h2{font-size:1.03rem}
+.home-side-column .home-panel-head p{font-size:.79rem}
+.home-side-column .home-quick-add{flex-wrap:wrap}
+.home-side-column .home-quick-add .btn{min-height:34px}
+.home-side-column .home-task{gap:7px}
+.home-side-column .home-task-copy strong{font-size:.8rem}
+.home-plan-card{border:1px solid color-mix(in srgb,var(--pri) 20%,var(--line));border-radius:17px;background:color-mix(in srgb,var(--pri) 8%,var(--surface));padding:16px;display:grid;gap:11px;min-width:0}
+.home-plan-icon{width:45px;height:45px}
+.home-plan-copy{display:grid;gap:5px;min-width:0}
+.home-plan-copy strong{font-size:1.05rem;color:var(--ink)}
+.home-plan-copy p{font-size:.79rem;line-height:1.45;color:var(--ink-3);margin:0}
+.home-plan-card>.btn{justify-self:start}
+.home-recent-bottom{display:grid;gap:13px;padding-top:22px;margin-top:6px;border-top:1px solid var(--line)}
+.home-recent-bottom>.home-panel{max-width:none}
+.home-preferences{padding:16px 20px;display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.home-preferences>p{max-width:47ch}
+.home-preferences>.btn{justify-self:auto}
+@media(max-width:1180px){
+  .home-hero-area{grid-template-columns:minmax(0,1fr) minmax(185px,220px)}
+  .home-main-grid{grid-template-columns:minmax(0,1fr) minmax(225px,255px)}
+  .home-action-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .home-action{min-height:122px}
+}
+@media(max-width:900px){
+  .home-main-grid{grid-template-columns:minmax(0,1fr)}
+  .home-side-column{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}
+  .home-action-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media(max-width:700px){
+  .home-hero-area{grid-template-columns:minmax(0,1fr)}
+  .home-hero-area>.home-quote-panel{display:grid;grid-template-columns:27px minmax(0,1fr);align-items:center;gap:8px;padding:13px 16px;border-radius:16px}
+  .home-hero-area>.home-quote-panel .home-quote-mark{font-size:2.8rem}
+  .home-hero-area>.home-quote-panel p{margin:5px 0;font-size:.96rem}
+  .home-action-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:540px){
+  .home-action-grid,.home-side-column{grid-template-columns:minmax(0,1fr)}
+  .home-action{min-height:96px;display:grid;grid-template-columns:47px minmax(0,1fr);gap:12px;align-items:center}
+  .home-action-arrow{right:12px;top:12px}
+  .home-hero-area>.home-preserved-hero{padding:24px 20px}
+  .home-preferences{align-items:flex-start;flex-direction:column}
+}
