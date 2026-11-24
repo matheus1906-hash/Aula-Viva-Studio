@@ -1,5 +1,9 @@
 # Histórico de versões
 
+## 3.2.0
+
+- 220 modelos novos e originais (total de 290): 50 atividades, 50 apostilas, 50 provas, 30 listas de exercícios, 25 planos de aula com habilidades da BNCC e 15 roteiros com QR codes, da Educação Infantil ao Ensino Médio, em português, inglês e espanhol. Inspirados nos formatos que professores mais usam: avaliação diagnóstica, simulado no estilo SAEB/ENEM, sequência didática, lista de fixação, revisão para prova e roteiro de estudo.
+
 ## 3.1.0
 
 - Tela de boas-vindas e login com vitrine de imagens reais do app, em português, inglês e espanhol.

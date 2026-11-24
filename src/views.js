@@ -41,7 +41,7 @@
       const go = () => AV.aiCreateDialog({ kind: guessKind(q.value), topic: q.value.trim() });
       const guessKind = (t) => { t = t.toLowerCase(); return /plano/.test(t) ? "plano" : /prova|avalia/.test(t) ? "prova" : /lista|exerc/.test(t) ? "lista" : /projeto/.test(t) ? "projeto" : /roteiro/.test(t) ? "roteiro" : /apostila/.test(t) ? "apostila" : "atividade"; };
       const daily = AV.homePlanner();
-      const nModelos = h("b", null, "70+");
+      const nModelos = h("b", null, "290");
       AV.loadModelos().then((m) => (nModelos.textContent = m.length)).catch(() => {});
       main.appendChild(h("div", { class: "wrap" },
         h("div", { class: "bento" },

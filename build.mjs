@@ -17,8 +17,10 @@ fs.writeFileSync("dist/aulaviva-studio.html", html);
 globalThis.AV = {}; const vm = await import("node:vm");
 vm.runInThisContext(fs.readFileSync("src/atividades.js", "utf8"));
 let modelos = JSON.parse(fs.readFileSync("data/modelos.json", "utf8"));
-if (fs.existsSync("data/modelos-extra.json")) {
-  const extra = JSON.parse(fs.readFileSync("data/modelos-extra.json", "utf8")); let seed = 7;
+let seed = 7;
+for (const extraFile of ["data/modelos-extra.json", "data/modelos-novos.json"]) {
+  if (!fs.existsSync(extraFile)) continue;
+  const extra = JSON.parse(fs.readFileSync(extraFile, "utf8"));
   for (const x of extra) {
     x.doc.blocks = x.doc.blocks.flatMap((b) => {
       if (b.type === "gen_wordsearch") return AV.atividades.wordSearch({ title: b.title, words: b.words, seed: seed++ });

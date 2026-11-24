@@ -38,8 +38,8 @@ Desenhos originais com personagens, cenários, balões de fala, legendas e narra
 |---|---|
 | ![Estante de livros](docs/screenshots/livros.webp) | ![Ficha de um livro](docs/screenshots/livro-detalhe.webp) |
 
-### Atividades prontas e 70 modelos
-13 geradores de atividades comuns (caça-palavras, cruzadinha, ligar colunas, lacunas, palavras embaralhadas, ordenar frases, contas, tabuada, sílabas, ordem alfabética, conte e escreva, V/F e quiz) e 70 modelos prontos de várias disciplinas e anos.
+### Atividades prontas e 290 modelos
+13 geradores de atividades comuns (caça-palavras, cruzadinha, ligar colunas, lacunas, palavras embaralhadas, ordenar frases, contas, tabuada, sílabas, ordem alfabética, conte e escreva, V/F e quiz) e 290 modelos prontos (atividades, apostilas, provas, listas, planos de aula e roteiros) de várias disciplinas e anos.
 
 | Atividades | Modelos |
 |---|---|
