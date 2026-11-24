@@ -133,31 +133,45 @@
       const p = preferences();
       const now = new Date();
       const container = h("div", { class: "wrap home-dashboard" });
+      // Preserve the original teacher-requested hero: exact structure, labels, colors
+      // and shortcuts of the previous landing page, with the new dashboard beneath.
+      const greeting = () => {
+        const hour = now.getHours();
+        return hour < 12 ? "Bom dia" : hour < 18 ? "Boa tarde" : "Boa noite";
+      };
+      const guessKind = (text) => {
+        const t = String(text || "").toLowerCase();
+        return /plano/.test(t) ? "plano" : /prova|avalia/.test(t) ? "prova"
+          : /lista|exerc/.test(t) ? "lista" : /projeto/.test(t) ? "projeto"
+          : /roteiro/.test(t) ? "roteiro" : /apostila/.test(t) ? "apostila" : "atividade";
+      };
+      const heroInput = h("input", {
+        id: "hero-q", type: "search",
+        placeholder: "O que você quer criar? Ex.: atividade sobre frações para o 4º ano",
+        "aria-label": "O que você quer criar?",
+        onkeydown: e => { if (e.key === "Enter") submitHero(); }
+      });
+      const submitHero = () => AV.aiCreateDialog({ kind: guessKind(heroInput.value), topic: heroInput.value.trim() });
+      const hero = h("section", { class: "hero home-preserved-hero" },
+        h("div", null,
+          h("div", { class: "eyebrow" }, "AulaViva Studio · PT · EN · ES"),
+          h("h1", null, greeting() + (name ? ", " + name : "") + "!"),
+          h("p", null, "Crie aulas, atividades, provas, projetos e vídeos animados em minutos, com IA, e exporte para PDF interativo, Word e PowerPoint."),
+          h("div", { class: "hero-search" },
+            heroInput, h("button", { type: "button", class: "btn pri", onclick: submitHero }, AV.icon("sparkle"), "Criar")),
+          h("div", { class: "hero-chips" },
+            button("Plano de aula", () => AV.aiCreateDialog({ kind: "plano" }), ""),
+            button("Atividade para imprimir", () => AV.go("atividades"), ""),
+            button("Prova", () => AV.aiCreateDialog({ kind: "prova" }), ""),
+            button("Vídeo animado", () => AV.go("animacao"), ""),
+            button("Livros e artigos", () => AV.go("acervo"), ""))));
       const header = h("div", { class: "home-topline" },
         h("span", { class: "home-top-label" }, "MEU ESPAÇO DOCENTE"),
         h("span", { class: "home-date" }, dateLabel(now)));
-      const hero = h("section", { class: "home-welcome" },
-        h("div", { class: "home-welcome-content" },
-          h("span", { class: "home-eyebrow" }, "AulaViva Studio · Seu dia, mais organizado"),
-          h("h1", null, "Olá" + (name ? ", " + name : "") + "!"),
-          h("p", null, "Planeje suas aulas, organize compromissos e transforme suas ideias em materiais prontos para ensinar."),
-          h("div", { class: "home-hero-buttons" },
-            button("Criar material com IA", () => AV.aiCreateDialog(), "btn pri home-hero-primary"),
-            link("#animacao", "Criar vídeo animado", "btn home-hero-secondary"))),
-        h("div", { class: "home-welcome-decoration", "aria-hidden": "true" },
-          h("div", { class: "home-floating-note note-one" }, "PLANO", h("span", null, "✓ Objetivos")),
-          h("div", { class: "home-floating-note note-two" }, "IDEIAS", h("span", null, "✦ Criatividade")),
-          h("div", { class: "home-floating-ring" })));
       const grid = h("div", { class: "home-main-grid" });
       const large = h("div", { class: "home-main-column" });
       const side = h("div", { class: "home-side-column" });
-      const quickSearch = h("input", { class: "in home-idea-input", type: "search", placeholder: "Ex.: atividade de frações para o 4º ano", "aria-label": "Descreva o material que deseja criar" });
-      const createIdea = () => AV.aiCreateDialog({ topic: quickSearch.value.trim() });
-      quickSearch.addEventListener("keydown", e => { if (e.key === "Enter") createIdea(); });
       large.append(
-        h("section", { class: "home-idea" },
-          h("div", null, h("h2", null, "O que vamos criar hoje?"), h("p", null, "Descreva sua ideia e comece pelo caminho mais rápido.")),
-          h("div", { class: "home-idea-row" }, quickSearch, button("Gerar com IA", createIdea, "btn pri"))),
         h("div", { class: "home-section-heading" }, h("div", null, h("span", null, "FERRAMENTAS"), h("h2", null, "Crie do seu jeito"))),
         h("div", { class: "home-action-grid" }, shortcuts.map(card)));
       if (p.agenda) side.append(agendaPanel());
@@ -175,7 +189,7 @@
           h("div", { class: "home-panel-head" }, h("div", null, h("h2", null, "Sua tela, suas escolhas"), h("p", null, "Mostre apenas o que você precisa."))),
           h("p", null, "Você pode esconder agenda, horários, mensagens e atalhos de estudo sem perder seus registros."),
           link("#config", "Personalizar tela inicial", "btn sm")));
-      container.append(header, hero, grid, footer);
+      container.append(hero, header, grid, footer);
       main.append(container);
       return AV.Store.on(recent.refresh);
     }
