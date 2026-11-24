@@ -10,8 +10,9 @@
     "perf": "node tests/perf.cjs",
     "test:account": "node tests/account-api.cjs",
     "test:teacher": "node tests/teacher-features.cjs",
-    "test:all": "npm test && npm run test:teacher && npm run test:account",
-    "check:js": "node --check src/teacher-tools.js && node --check src/activity-presets.js && node --check src/animacao-extras.js && node --check src/views.js && node --check src/views2.js && node --check src/main.js && node --check build.mjs"
+    "test:all": "npm test && npm run test:teacher && npm run test:home && npm run test:account",
+    "check:js": "node --check src/home-dashboard.js && node --check src/teacher-tools.js && node --check src/activity-presets.js && node --check src/animacao-extras.js && node --check src/views.js && node --check src/views2.js && node --check src/main.js && node --check build.mjs",
+    "test:home": "node tests/home-dashboard.cjs"
   },
   "license": "UNLICENSED",
   "devDependencies": {
