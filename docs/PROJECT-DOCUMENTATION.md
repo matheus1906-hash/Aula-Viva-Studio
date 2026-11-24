@@ -52,3 +52,19 @@ Nenhuma tarefa relevante é considerada concluída apenas porque seu código foi
 ## Publicação GitHub em todas as mudanças
 
 Toda alteração produzida no projeto deve ser registrada no GitHub na mesma entrega, em branch apropriada, com commit e documentação. Manter a `main` protegida de implementações não validadas. Mostrar no chat a diferença entre protótipo visual, código commitado e recurso realmente ativo em produção; nunca tratar uma prévia de interface como implantação concluída.
+
+## Testes obrigatórios em cada entrega
+
+Cada mudança deve ter uma estratégia de testes proporcional ao risco, cobrindo fluxo positivo, falhas, limites e regressões. Antes de declarar uma funcionalidade pronta:
+
+1. **Build e validações estáticas:** build limpo, verificação de sintaxe, dependências e contratos alterados.
+2. **Testes unitários e de integração:** funções, validações, persistência, APIs e casos extremos.
+3. **Testes ponta a ponta:** cadastro, login, recuperação, cofre, materiais, geração por IA, exportações e fluxos afetados, nos navegadores relevantes.
+4. **UI e acessibilidade:** visualização em computador e celular, teclado, contraste e leitores de tela quando aplicável.
+5. **Segurança e privacidade:** autorização por perfil, isolamento entre usuários, RLS, exposição de segredos, criptografia, logs e limites de consumo; usar somente dados de teste.
+6. **Falhas e concorrência:** timeout, retry, cancelamento, indisponibilidade de provedor, limites de crédito e duas sessões simultâneas.
+7. **Deploy de prévia:** verificar o commit publicado, estado READY e testar URL efetiva antes de solicitar merge na produção.
+
+**Registro no GitHub:** documentar, no PR, comandos executados, testes aprovados, falhas encontradas, correções e testes não executados. Nunca afirmar "todos os testes passaram" sem resultado verificável. Mudanças críticas não devem ir para produção com testes obrigatórios pendentes; desenvolvimento deve permanecer em branch separada.
+
+**Cobertura:** priorizar alta cobertura dos caminhos críticos (segurança, pagamentos, autenticação, IA e persistência). A cobertura medida não equivale à ausência de falhas; manter regressões automatizadas e revisão manual.
