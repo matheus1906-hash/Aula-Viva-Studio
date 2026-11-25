@@ -1,5 +1,13 @@
 # Histórico de versões
 
+## 5.1.0
+
+**SEO e buscas por IA**
+- Página própria e leve (sem JavaScript) para cada um dos 290 modelos e para cada uma das 1.580 habilidades da BNCC, com o texto oficial, modelos relacionados e botão "Criar com IA" que já abre o formulário com a habilidade.
+- Páginas-índice de modelos e da BNCC, sitemap.xml (1.874 endereços), robots.txt, llms.txt para buscadores de IA, manifest e favicon.
+- Página principal com título e descrição otimizados, dados estruturados (WebApplication com preços, Organization, FAQ), imagem de compartilhamento e conteúdo para quem não roda JavaScript.
+- Dados estruturados educacionais (LearningResource com alinhamento à BNCC, DefinedTerm, BreadcrumbList).
+
 ## 5.0.0
 
 **BNCC estrita**

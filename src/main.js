@@ -61,7 +61,16 @@
     AV.openCmd = openCmd;
     const cmdBtn = document.getElementById("cmdk"); if (cmdBtn) cmdBtn.addEventListener("click", openCmd);
     document.addEventListener("keydown", (e) => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") { e.preventDefault(); openCmd(); } });
-    addEventListener("hashchange", AV.route);
+    /* link de criação vindo das páginas da BNCC: /#criar?bncc=EF05MA03 */
+    const openFromLink = () => {
+      const m = /^#criar\?bncc=([A-Z0-9]{8,10})$/i.exec(location.hash);
+      if (!m) return false;
+      history.replaceState(null, "", "#inicio");
+      AV.BNCC.load().then(() => { const preset = AV.bnccPreset(m[1].toUpperCase()); if (preset) AV.aiCreateDialog(preset); }).catch(() => {});
+      return true;
+    };
+    addEventListener("hashchange", () => { if (!openFromLink()) AV.route(); });
+    setTimeout(openFromLink, 300);
     const ready = AV.Store.init();   /* a parte local carrega antes da primeira tela */
     AV.route();
     ready.then(() => {

@@ -100,6 +100,15 @@
     };
   };
 
+  /** preenche o formulário a partir de um código (link "Criar atividade para EF05MA03" das páginas da BNCC) */
+  AV.bnccPreset = function (code) {
+    const r = AV.BNCC.get(code);
+    if (!r) return null;
+    const [cod, etapa, sigla, anos] = r;
+    const level = etapa === "EI" ? "Educação Infantil " + (anos[0] === 1 ? "bebês" : anos[0] === 2 ? "crianças bem pequenas" : "crianças pequenas") : etapa === "EM" ? "1ª série do Ensino Médio" : anos[0] + "º ano do Ensino Fundamental";
+    return { bncc: [cod], level, subject: AV.BNCC.componentName(etapa, sigla), topic: "" };
+  };
+
   /** escolhe sozinho as habilidades para um pedido escrito (card da tela inicial); null se faltar ano ou componente */
   AV.bnccAuto = async function (req) {
     await AV.BNCC.load();

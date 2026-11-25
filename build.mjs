@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import { createHash } from "node:crypto";
 import { readingText } from "./reading-text.mjs";
+import { buildSeo, homeHead, HOME_TITLE, NOSCRIPT } from "./seo.mjs";
 import { gunzipSync, gzipSync } from "node:zlib";
 const order = ["core.js", "shield.js", "home-icons.js", "vault.js", "i18n.js", "i18n-dict.js", "i18n-extra.js", "importers.js", "exporters.js", "atividades.js", "biblioteca-data.js", "providers.js", "bncc.js", "bncc-ui.js", "intent.js", "ai.js", "ai-live.js", "ai-settings.js", "preview.js", "editor.js", "home-planner.js", "views.js", "chat-studio.js", "animacao.js", "animacao-modelos.js", "reader.js", "views2.js", "conta.js", "auth.js", "main.js"];
 /* SRI: o navegador só roda as bibliotecas do CDN se forem idênticas às versões verificadas */
@@ -96,7 +97,13 @@ const solo = shellSrc.replace("<!--ICONS-->", () => icons).replace("/*CSS*/", ()
 fs.writeFileSync("dist/aulaviva-studio-standalone.html", solo.replace('<svg width="0"', '</head><body><svg width="0"'));
 // site pronto para hospedar (GitHub Pages, Vercel, Netlify): dist/site/index.html
 fs.mkdirSync("dist/site", { recursive: true });
-fs.copyFileSync("dist/aulaviva-studio-standalone.html", "dist/site/index.html");
+/* site oficial: cabeçalho de SEO (título, descrição, dados estruturados) e conteúdo para quem não roda JavaScript */
+fs.writeFileSync("dist/site/index.html", fs.readFileSync("dist/aulaviva-studio-standalone.html", "utf8")
+  .replace("<title>AulaViva Studio</title>", () => "<title>" + HOME_TITLE + "</title>" + homeHead())
+  .replace("<body>", () => "<body>" + NOSCRIPT));
+fs.copyFileSync("data/og.png", "dist/site/og.png");
+const seo = buildSeo({ outDir: "dist/site", modelos, bncc: JSON.parse(bnccRaw) });
+console.log("SEO: páginas no sitemap", seo.pages);
 // Apenas a distribuição offline transporta o acervo inteiro no HTML.
 const offline = fs.readFileSync("dist/site/index.html", "utf8").replace("AV.STANDALONE=true;", () =>
   "AV.STANDALONE=true;AV.TEXTOS_INLINE=" + JSON.stringify(textosInline) + ";");

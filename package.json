@@ -1,6 +1,6 @@
 {
   "name": "aulaviva-studio",
-  "version": "5.0.0",
+  "version": "5.1.0",
   "description": "AulaViva Studio: app web para professores criarem apostilas, listas, provas, planos, projetos, atividades e vídeos animados com IA, em PT/EN/ES.",
   "scripts": {
     "build": "node build.mjs",
