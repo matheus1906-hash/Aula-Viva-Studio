@@ -143,9 +143,25 @@ create trigger perfis_antes_salvar before insert or update on public.perfis
   for each row execute function public.perfis_antes_salvar();
 
 -- ---------------------------------------------------------------- Row Level Security
+-- RLS SEMPRE LIGADO e FORÇADO: vale também para o dono das tabelas (só a chave service_role do
+-- servidor, que tem BYPASSRLS no Supabase, passa por cima, e só nas rotas do servidor).
 alter table public.perfis enable row level security;
 alter table public.sessoes_verificadas enable row level security;
 alter table public.eventos_seguranca enable row level security;
+alter table public.perfis force row level security;
+alter table public.sessoes_verificadas force row level security;
+alter table public.eventos_seguranca force row level security;
+
+-- as funções internas (security definer) rodam como o dono das tabelas: com o RLS forçado, elas precisam
+-- de uma política própria, só de leitura, restrita a esse papel (os professores nunca ganham esse papel)
+do $$
+declare dono text := (select tableowner from pg_tables where schemaname = 'public' and tablename = 'perfis');
+begin
+  execute 'drop policy if exists perfis_funcoes_internas on public.perfis';
+  execute format('create policy perfis_funcoes_internas on public.perfis for select to %I using (true)', dono);
+  execute 'drop policy if exists sessoes_funcoes_internas on public.sessoes_verificadas';
+  execute format('create policy sessoes_funcoes_internas on public.sessoes_verificadas for all to %I using (true) with check (true)', dono);
+end $$;
 
 drop policy if exists perfis_ler on public.perfis;
 drop policy if exists perfis_criar on public.perfis;
@@ -180,3 +196,40 @@ grant select on public.eventos_seguranca to authenticated;
 create or replace function public.limpar_sessoes() returns void language sql security definer set search_path = public as $$
   delete from public.sessoes_verificadas where expira_em < now();
 $$;
+
+-- ---------------------------------------------------------------- trava do RLS
+-- Toda tabela do esquema public precisa de RLS ligado e forçado:
+--   * tabela nova já nasce com RLS ligado e forçado;
+--   * qualquer comando que desligue o RLS é recusado.
+create or replace function public.rls_obrigatorio() returns event_trigger
+language plpgsql security definer set search_path = pg_catalog, public as $$
+declare t record;
+begin
+  for t in
+    select c.oid::regclass as tabela, c.relrowsecurity as ligado, c.relforcerowsecurity as forcado
+    from pg_class c join pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'public' and c.relkind in ('r', 'p') and (not c.relrowsecurity or not c.relforcerowsecurity)
+  loop
+    if tg_tag in ('CREATE TABLE', 'CREATE TABLE AS', 'SELECT INTO') then
+      begin
+        -- um único comando liga e força juntos (a trava, ao rodar de novo, já encontra o RLS completo)
+        execute format('alter table %s enable row level security, force row level security', t.tabela);
+      exception when insufficient_privilege then
+        raise warning 'Ligue o RLS na tabela % (criada por outro dono).', t.tabela;
+      end;
+    else
+      raise exception 'O RLS é obrigatório no AulaViva: não é permitido desligá-lo na tabela %.', t.tabela
+        using hint = 'As regras de acesso protegem os dados dos professores. Ajuste as políticas em vez de desligar o RLS.';
+    end if;
+  end loop;
+end $$;
+
+do $$
+begin
+  drop event trigger if exists rls_obrigatorio;
+  create event trigger rls_obrigatorio on ddl_command_end
+    when tag in ('CREATE TABLE', 'CREATE TABLE AS', 'SELECT INTO', 'ALTER TABLE')
+    execute function public.rls_obrigatorio();
+exception when insufficient_privilege then
+  raise notice 'Sem permissão para criar a trava automática do RLS neste banco; o RLS das tabelas continua ligado e forçado.';
+end $$;

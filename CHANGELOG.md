@@ -12,6 +12,7 @@
 - Teste gratuito de 14 dias contado pelo servidor; e-mail, CPF e celular únicos (uma conta e um teste por pessoa); depois do teste, a IA pede assinatura.
 - Cadastro com nome, e-mail, celular, CPF (validado e único) e instituição escolhida na base do Censo Escolar 2024 do INEP (181.065 escolas em atividade), com aceite da LGPD.
 - Código enviado ao e-mail no cadastro e em todo login; verificação em 2 etapas com app autenticador; recuperação de senha por código; sair de todos os aparelhos; registro de atividade da conta.
+- RLS sempre ligado e forçado (vale até para o dono do banco); trava que recusa desligar o RLS e o liga em toda tabela nova.
 - As regras valem no banco (Row Level Security): sessão sem o código do e-mail (e sem o app, quando ativado) não lê nem grava nada. Guia: docs/CONTAS.md.
 - Com contas ligadas, a IA exige sessão confirmada.
 

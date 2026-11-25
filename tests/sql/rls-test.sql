@@ -100,4 +100,30 @@ select assert_true(not public.telefone_disponivel('(64) 99999-9999') and public.
 do $$ begin perform count(*) from public.perfis; raise exception 'FALHA: visitante leu perfis';
 exception when insufficient_privilege then raise notice 'PASS visitante sem login não lê nada'; end $$;
 reset role;
+-- 11) RLS sempre ligado
+select assert_true((select bool_and(relrowsecurity and relforcerowsecurity) from pg_class where oid in ('public.perfis'::regclass, 'public.sessoes_verificadas'::regclass, 'public.eventos_seguranca'::regclass)), 'RLS ligado e forçado nas 3 tabelas');
+set role dono;
+select set_config('request.jwt.claims', '', false);
+select assert_true((select count(*) from public.eventos_seguranca) = 0, 'nem o dono das tabelas lê os eventos sem política (RLS forçado)');
+select assert_true(public.cpf_disponivel('000.000.001-91') is not null, 'funções internas continuam funcionando com o RLS forçado');
+reset role;
+do $$ begin
+  alter table public.perfis disable row level security;
+  raise exception 'FALHA: RLS foi desligado';
+exception when raise_exception then
+  if sqlerrm like 'FALHA%' then raise; end if;
+  raise notice 'PASS desligar o RLS é recusado pela trava';
+end $$;
+do $$ begin
+  alter table public.perfis no force row level security;
+  raise exception 'FALHA: RLS deixou de ser forçado';
+exception when raise_exception then
+  if sqlerrm like 'FALHA%' then raise; end if;
+  raise notice 'PASS deixar de forçar o RLS também é recusado';
+end $$;
+set role dono;
+create table public.tabela_nova_teste (id int);
+reset role;
+select assert_true((select relrowsecurity and relforcerowsecurity from pg_class where oid = 'public.tabela_nova_teste'::regclass), 'tabela nova já nasce com RLS ligado e forçado');
+drop table public.tabela_nova_teste;
 select 'TODOS OS TESTES DO BANCO PASSARAM' as resultado;

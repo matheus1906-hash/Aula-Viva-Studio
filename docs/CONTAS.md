@@ -109,6 +109,16 @@ Opcional:
   do professor: `plano` = `mensal` ou `anual` e `assinatura_ate` = a data de vencimento. (O Table Editor usa a chave de
   administrador; o professor não consegue fazer isso pelo site.)
 
+## RLS sempre ligado
+
+O `schema.sql` deixa o **RLS (Row Level Security) ligado e forçado** em todas as tabelas e instala uma trava no banco:
+
+- qualquer comando que **desligue** o RLS (ou deixe de forçá-lo) é **recusado**;
+- toda **tabela nova** criada no esquema `public` já nasce com o RLS ligado e forçado.
+
+No painel do Supabase, em **Table Editor**, cada tabela deve aparecer como **RLS enabled**. Nunca clique em "Disable RLS":
+o próprio banco vai recusar. Para mudar quem pode ver o quê, ajuste as políticas (Policies), nunca desligue o RLS.
+
 ## Como a segurança funciona
 
 - A senha nunca passa pelo nosso servidor: o navegador fala direto com o Supabase.

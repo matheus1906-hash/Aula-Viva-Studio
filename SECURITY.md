@@ -22,6 +22,7 @@ Respondemos em até 7 dias e avisamos quando a correção for publicada.
 
 **Conta institucional (quando ligada, veja docs/CONTAS.md)**
 - Senha + código enviado ao e-mail em todo login; verificação em 2 etapas com app autenticador.
+- RLS sempre ligado e forçado em todas as tabelas; uma trava no banco recusa qualquer comando que o desligue e liga o RLS em toda tabela nova.
 - O banco recusa leitura e gravação de sessões não confirmadas pelo código (e sem o app, quando ativado); só o servidor confirma sessões.
 - Cada professor só vê os próprios dados; CPF validado, único e imutável; limites de tentativas de código e de envio.
 
