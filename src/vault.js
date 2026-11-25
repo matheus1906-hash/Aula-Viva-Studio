@@ -63,10 +63,16 @@
   async function useDK(dkRaw) { V.dkRaw = dkRaw; V.dk = await C.importKey("raw", dkRaw, "AES-GCM", false, ["encrypt", "decrypt"]); await loadAll(); }
 
   /* --- conta --- */
-  V.create = async function (password, name) {
+  V.owner = () => (rjson("vaultmeta", {}) || {}).owner || "";
+  /* apaga o cofre deste aparelho sem recarregar (usado quando outra conta institucional entra) */
+  V.reset = async function () {
+    const ks = []; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith("av:v:")) ks.push(k); }
+    ks.forEach((k) => localStorage.removeItem(k)); raw.del("vaultmeta"); raw.del("lockout"); V.cache.clear(); V.dk = null; V.dkRaw = null; await V.forget();
+  };
+  V.create = async function (password, name, owner) {
     const salt = crypto.getRandomValues(new Uint8Array(16)), rsalt = crypto.getRandomValues(new Uint8Array(16));
     const dkRaw = crypto.getRandomValues(new Uint8Array(32)), rec = newRecovery();
-    const meta = { v: 1, iter: ITER, salt: b64(salt), rsalt: b64(rsalt), wrapPw: await seal(await kek(password, salt), dkRaw), wrapRec: await seal(await kek(rec, rsalt), dkRaw), created: Date.now() };
+    const meta = { v: 1, iter: ITER, salt: b64(salt), rsalt: b64(rsalt), wrapPw: await seal(await kek(password, salt), dkRaw), wrapRec: await seal(await kek(rec, rsalt), dkRaw), created: Date.now(), owner: owner || "" };
     await useDK(dkRaw);
     // migra dados antigos em texto puro para dentro do cofre
     const old = []; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith("av:") && !k.startsWith("av:v:")) old.push(k.slice(3)); }

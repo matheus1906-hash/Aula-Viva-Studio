@@ -22,6 +22,7 @@
     if (!loaded[url]) loaded[url] = new Promise((ok, fail) => {
       const s = document.createElement("script");
       s.src = url; s.async = true; s.crossOrigin = "anonymous"; s.referrerPolicy = "no-referrer";
+      s.dataset.avTrusted = "1"; /* o Escudo só permite scripts carregados pelo próprio app */
       const integrity = sriFor(url); if (integrity) s.integrity = integrity;
       s.onload = () => ok(); s.onerror = () => { delete loaded[url]; fail(new Error("Não foi possível carregar um recurso. Verifique a internet e tente de novo.")); };
       document.head.appendChild(s);

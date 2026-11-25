@@ -534,6 +534,11 @@
     if (!(file.size <= MAX_BYTES)) throw new Error("Arquivo muito grande (máx. 25 MB).");
     const buf = await file.arrayBuffer();
     if (buf.byteLength > MAX_BYTES) throw new Error("Arquivo muito grande (máx. 25 MB).");
+    /* Escudo: varredura antes de abrir qualquer arquivo */
+    if (AV.Shield) {
+      const verdict = AV.Shield.scanBuffer(buf, ext, name);
+      if (!verdict.ok) { AV.Shield.record("arquivo", "bloqueado: " + name + " (" + verdict.reason + ")"); throw new Error("Arquivo bloqueado pelo Escudo de segurança: " + verdict.reason + "."); }
+    }
     const base = name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").trim().slice(0, 200) || "Material importado";
     const res = { title: base, text: "", blocks: [], warnings: [] };
     try {

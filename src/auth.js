@@ -16,14 +16,21 @@
     async gate() {
       if (!AV.Vault) return;
       if (top !== self) { document.body.textContent = "O AulaViva Studio não pode ser aberto dentro de outra página por segurança."; throw new Error("framed"); }
+      const institutional = AV.Conta ? await AV.Conta.loadConfig() : false;
+      if (institutional) {
+        /* conta institucional: sessão confirmada no servidor + cofre local da mesma conta */
+        if ((await AV.Conta.restore()) && AV.Vault.exists() && (await AV.Vault.resume())) { startIdle(); return; }
+        await new Promise((resolve) => screen(resolve, true));
+        startIdle(); return;
+      }
       if (AV.Vault.exists() && (await AV.Vault.resume())) { startIdle(); return; }
-      await new Promise((resolve) => screen(resolve));
+      await new Promise((resolve) => screen(resolve, false));
       startIdle();
     },
     lockNow() { if (AV.Vault) { AV.Vault.forget(); AV.Vault.lock(); } }
   };
 
-  function screen(done) {
+  function screen(done, institutional) {
     const exists = AV.Vault.exists();
     let mode = exists ? "login" : "signup";
     const root = h("div", { class: "auth", role: "main", "aria-label": "Entrar no AulaViva Studio" });
@@ -66,7 +73,20 @@
     add(root, showcase, card);
     document.body.appendChild(root);
     document.documentElement.classList.add("auth-on");
-    draw();
+    if (institutional) mountInstitutional(); else draw();
+
+    /* cadastro e login institucional (Supabase): substitui o formulário local no mesmo cartão */
+    function mountInstitutional() {
+      tabs.remove(); form.remove(); altLinks.remove();
+      const slot = h("div");
+      card.insertBefore(slot, card.lastChild);
+      card.lastChild.lastChild.textContent = AV.t("Conta institucional protegida por senha, código enviado ao e-mail e verificação em 2 etapas. Seus materiais ficam criptografados neste aparelho.");
+      AV.Conta.mount(slot, async ({ password, user }) => {
+        try { await openVault(password, user); finish(); }
+        catch (e) { AV.toast(AV.t("Não foi possível abrir os materiais deste aparelho.")); }
+      });
+      card.insertBefore(h("div", { class: "auth-links" }, h("button", { type: "button", class: "btn ghost sm", onclick: () => { AV.Vault.guestMode(); finish(); AV.toast(AV.t("Modo visitante: nada é salvo e a IA exige entrar na conta.")); } }, AV.t("Explorar sem entrar"))), card.lastChild);
+    }
 
     function add(el, ...kids) { el.append(...kids.filter(Boolean)); }
   function field(label, el, extra) { return h("label", { class: "f" }, AV.t(label), extra ? h("div", { class: "row", style: { flexWrap: "nowrap", gap: "6px" } }, el, extra) : el); }
@@ -140,6 +160,45 @@
     function finish() { clearInterval(timer); root.remove(); document.documentElement.classList.remove("auth-on"); done(); }
   }
 
+  /* cofre local dos materiais na conta institucional: mesma senha, vinculado ao id da conta */
+  async function openVault(password, user) {
+    if (AV.Vault.exists() && AV.Vault.owner() && AV.Vault.owner() !== user.id) await AV.Vault.reset(); // materiais de outra pessoa neste aparelho
+    if (AV.Vault.exists()) {
+      try { await AV.Vault.unlock(password); return; } catch (e) { return askVaultRecovery(password, user); }
+    }
+    const code = await AV.Vault.create(password, (user.user_metadata && user.user_metadata.nome) || "", user.id);
+    showDeviceCode(code);
+  }
+  /* a senha da conta mudou (recuperação por e-mail): traz os materiais com a senha antiga ou o código do aparelho */
+  function askVaultRecovery(password, user) {
+    return new Promise((resolve) => {
+      const old = h("input", { class: "in", type: "password", autocomplete: "off", placeholder: AV.t("Senha anterior ou código de recuperação do aparelho") });
+      const st = h("p", { class: "small", role: "alert" });
+      const d = AV.dialog(AV.t("Trazer seus materiais deste aparelho"), h("div", { style: { display: "grid", gap: "10px" } },
+        h("p", { class: "small muted" }, AV.t("Os materiais salvos aqui estão protegidos com a sua senha anterior. Digite a senha anterior ou o código de recuperação do aparelho para trazê-los.")),
+        old, st,
+        h("div", { class: "row" },
+          h("button", { class: "btn pri", onclick: async () => {
+            const v = old.value.trim();
+            try {
+              if (/^([A-Z2-9]{4}-){5}[A-Z2-9]{4}$/i.test(v)) await AV.Vault.recover(v, password);
+              else { await AV.Vault.unlock(v); await AV.Vault.changePassword(v, password); }
+              d.close(); resolve();
+            } catch (e) { st.textContent = AV.t("Não confere. Tente de novo."); }
+          } }, AV.t("Trazer materiais")),
+          h("button", { class: "btn ghost danger", onclick: async () => {
+            if (!(await AV.confirm(AV.t("Começar do zero?"), AV.t("Os materiais antigos deste aparelho serão apagados."), AV.t("Começar do zero")))) return;
+            await AV.Vault.reset(); const code = await AV.Vault.create(password, "", user.id); d.close(); showDeviceCode(code); resolve();
+          } }, AV.t("Começar do zero")))));
+    });
+  }
+  function showDeviceCode(code) {
+    setTimeout(() => AV.dialog(AV.t("Código de recuperação dos materiais deste aparelho"), h("div", { style: { display: "grid", gap: "10px" } },
+      h("p", { class: "small muted" }, AV.t("Guarde este código: ele recupera os materiais salvos neste aparelho se a senha da conta for trocada pela opção \"Esqueci minha senha\".")),
+      h("code", { class: "auth-code", "data-notr": "" }, code),
+      h("button", { class: "btn sm", onclick: () => AV.copy(code) }, AV.icon("copy"), AV.t("Copiar")))), 400);
+  }
+
   /* bloqueio por inatividade */
   function startIdle() {
     if (!AV.Vault || AV.Vault.guest) return;
@@ -152,6 +211,7 @@
   /* seção de segurança nas Configurações */
   AV.securityPanel = function () {
     if (!AV.Vault) return null;
+    if (AV.Conta && AV.Conta.active()) return h("div", { style: { display: "grid", gap: "16px" } }, AV.Conta.panel(), shieldPanel());
     const box = h("section", { class: "card", style: { display: "grid", gap: "12px" } }, h("h2", null, "Conta e segurança"));
     if (AV.Vault.guest) { box.append(h("p", { class: "note" }, "Você está no modo visitante: nada é salvo. Recarregue a página e crie uma conta para guardar seus materiais.")); return box; }
     const ui = AV.LS.get("ui", {});
@@ -172,6 +232,29 @@
         h("button", { class: "btn", onclick: async () => { const c = await AV.Vault.newRecoveryCode(); AV.dialog("Novo código de recuperação", h("div", { style: { display: "grid", gap: "10px" } }, h("p", { class: "small muted" }, "O código anterior deixou de valer. Guarde este em um lugar seguro."), h("code", { class: "auth-code", "data-notr": "" }, c), h("button", { class: "btn sm", onclick: () => AV.copy(c) }, AV.icon("copy"), "Copiar"))); } }, "Gerar novo código de recuperação"),
         h("button", { class: "btn", onclick: async () => { await AV.Vault.forget(); AV.toast("Este aparelho não vai mais manter você conectado."); } }, "Esquecer este aparelho")),
       st);
-    return box;
+    return h("div", { style: { display: "grid", gap: "16px" } }, box, shieldPanel());
   };
+
+  /* Escudo: estado da proteção e eventos bloqueados */
+  /* eventos do Escudo vão para o registro de segurança da conta institucional */
+  if (AV.Shield) AV.Shield.onEvent((e) => { if (e.kind !== "info" && AV.Conta) AV.Conta.report(e.kind === "arquivo" ? "arquivo-bloqueado" : e.kind === "csp" ? "csp" : "escudo", e.detail); });
+  function shieldPanel() {
+    if (!AV.Shield) return null;
+    const list = h("ul", { class: "small cd-events" });
+    const checks = h("ul", { class: "small shield-checks" });
+    const draw = () => {
+      checks.textContent = "";
+      AV.Shield.selfCheck().forEach((c) => checks.appendChild(h("li", { class: c.ok ? "ok" : "bad" }, (c.ok ? "✓ " : "✗ ") + AV.t(c.label))));
+      list.textContent = "";
+      const ev = AV.Shield.events().filter((e) => e.kind !== "info").slice(0, 15);
+      if (!ev.length) list.appendChild(h("li", { class: "muted" }, AV.t("Nenhuma ameaça bloqueada nesta sessão.")));
+      ev.forEach((e) => list.appendChild(h("li", null, new Date(e.at).toLocaleTimeString() + " · " + AV.t(e.detail))));
+    };
+    draw();
+    return h("section", { class: "card", style: { display: "grid", gap: "10px" } },
+      h("div", { class: "row" }, h("h2", { style: { margin: 0 } }, AV.t("Escudo de segurança")), h("span", { class: "chip pri" }, AV.t("Proteção ativa")), h("span", { class: "spacer" }),
+        h("button", { class: "btn sm", onclick: () => { draw(); AV.toast(AV.t("Verificação concluída.")); } }, AV.icon("check"), AV.t("Verificar agora"))),
+      h("p", { class: "small muted" }, AV.t("O Escudo vigia a página o tempo todo e bloqueia códigos injetados, quadros e links perigosos, além de examinar cada arquivo antes de abrir (programas disfarçados, macros, PDFs com código, bombas de compressão).")),
+      checks, h("h3", null, AV.t("Ameaças bloqueadas")), list);
+  }
 })(globalThis.AV = globalThis.AV || {});

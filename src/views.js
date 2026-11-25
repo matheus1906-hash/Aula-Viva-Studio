@@ -44,7 +44,12 @@
         if (text.length < 3) { q.focus(); AV.toast(AV.t("Escreva o que você quer criar. Ex.: apostila sobre o ciclo da água para o 3º ano")); return; }
         const req = Object.assign(AV.parseRequest(text), { lang: AV.lang() });
         if (!req.subject) req.subject = AV.profile().subject || "";
-        AV.liveCreate(req, { onRetry: () => { AV.closeDialogs(); AV.aiCreateDialog(req); } });
+        /* BNCC é obrigatória: com ano e componente reconhecidos, escolhe as habilidades e cria; senão, abre o formulário */
+        AV.bnccAuto(req).then((auto) => {
+          if (!auto) { AV.aiCreateDialog(req); AV.toast(AV.t("Escolha o ano, o componente e as habilidades da BNCC para continuar.")); return; }
+          Object.assign(req, { bncc: auto.codes, subject: auto.subject, level: req.level });
+          AV.liveCreate(req, { onRetry: () => { AV.closeDialogs(); AV.aiCreateDialog(req); } });
+        }).catch(() => AV.aiCreateDialog(req));
       };
       const daily = AV.homePlanner();
       const nModelos = h("b", null, "290");
@@ -142,6 +147,7 @@
       main.appendChild(h("div", { class: "wrap" }, AV.pageHead("Modelos prontos", "Apostilas, listas, provas, roteiros, atividades e planos de várias disciplinas, em português, inglês e espanhol. Abra, ajuste e exporte.", "book", "blue"),
         h("input", { class: "in", type: "search", id: "mod-search", placeholder: "Buscar modelo", "aria-label": "Buscar modelo", oninput: AV.debounce((e) => { q = e.target.value.toLowerCase(); draw(); }, 150) }), filters, grid));
       let all = [];
+      AV.BNCC.load().catch(() => {});
       AV.loadModelos().then((m) => {
         all = m;
         const sel = (lbl, opts, set) => h("select", { class: "in", style: { width: "auto" }, "aria-label": lbl, onchange: (e) => { set(e.target.value); draw(); } }, h("option", { value: "" }, lbl), opts.map((o) => h("option", { value: o }, o)));
@@ -159,10 +165,12 @@
             AV.modelThumb(x, () => preview(x)),
             h("div", { class: "chips" }, h("span", { class: "chip", style: { background: k[1], color: "#fff", borderColor: "transparent" } }, x.kind), h("span", { class: "chip" }, x.subject), h("span", { class: "chip" }, x.level), x.lang && x.lang !== "pt-BR" && x.lang !== "pt" ? h("span", { class: "lang-badge", "data-notr": "" }, AV.LANGS[String(x.lang).slice(0, 2)] ? AV.LANGS[String(x.lang).slice(0, 2)][2] + " " + String(x.lang).slice(0, 2).toUpperCase() : x.lang) : null),
             h("h3", null, x.title), h("p", null, x.description),
+            x.bncc && x.bncc.length ? h("p", { class: "small bncc-chips", "data-notr": "" }, h("b", null, "BNCC "), x.bncc.join(" · ")) : null,
             h("div", { class: "row" }, h("button", { class: "btn sm", onclick: () => preview(x) }, AV.icon("eye"), "Visualizar"), h("button", { class: "btn sm pri", onclick: () => use(x) }, "Usar modelo"))));
         });
       }
-      function use(x) { const d = AV.normalize(AV.clone(x.doc)); d.id = AV.uid(); d.meta.kind = AV.kindFrom(x.kind); const p = AV.profile(); d.meta.author = d.meta.author || p.name; d.meta.school = d.meta.school || p.school; AV.openDoc(d); AV.toast("Modelo aberto. Personalize à vontade."); }
+      function use(x) { const d = AV.normalize(AV.clone(x.doc)); d.id = AV.uid();
+        if (x.bncc && x.bncc.length && AV.BNCC.ready() && !d.blocks.some((b) => b.title === "Habilidades da BNCC")) { const hb = AV.BNCC.block(x.bncc); if (hb) d.blocks.unshift(Object.assign({ id: AV.uid() }, hb)); } d.meta.kind = AV.kindFrom(x.kind); const p = AV.profile(); d.meta.author = d.meta.author || p.name; d.meta.school = d.meta.school || p.school; AV.openDoc(d); AV.toast("Modelo aberto. Personalize à vontade."); }
       function preview(x) {
         const d = AV.normalize(AV.clone(x.doc)); let v = "aluno";
         const box = h("div", { style: { background: "var(--track)", padding: "12px", borderRadius: "12px" } }, AV.renderPaper(d, v));

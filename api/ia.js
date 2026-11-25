@@ -17,6 +17,9 @@
  */
 "use strict";
 
+const S = require("./_seguranca");
+const SB = require("./_supabase");
+
 /* ------------------------------------------------------------------ configuração */
 
 const ENGINES = {
@@ -44,25 +47,9 @@ const LIMITS = {
   totalMs: +process.env.IA_TOTAL_MS || 280000 // abaixo do maxDuration do vercel.json
 };
 
-const DEFAULT_ORIGINS = ["https://aulavivastudio.vercel.app", "https://matheus1906-hash.github.io"];
-
 /* ------------------------------------------------------------------ utilidades */
 
 const fail = (status, message, code) => Object.assign(new Error(message), { status, code });
-
-function isOriginAllowed(origin, host) {
-  if (!origin || origin === "null") return true; // mesma origem, arquivo aberto do computador ou servidor (todos sob o limite de uso)
-  const extra = String(process.env.ALLOWED_ORIGINS || "").split(",").map((s) => s.trim()).filter(Boolean);
-  if (DEFAULT_ORIGINS.concat(extra).includes(origin)) return true;
-  try {
-    const u = new URL(origin);
-    if (u.protocol !== "https:" && u.hostname !== "localhost") return false;
-    if (host && u.host === host) return true; // o próprio domínio do deploy
-    return /^aulavivastudio[a-z0-9-]*\.vercel\.app$/.test(u.host); // prévias do Vercel deste projeto
-  } catch (e) {
-    return false;
-  }
-}
 
 const enabledEngines = () => Object.keys(ENGINES).filter((id) => ENGINES[id].keyless || !!process.env[ENGINES[id].key]);
 const stripControl = (s) => s.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "");
@@ -259,44 +246,41 @@ async function generate(req, onStart, onText, signal) {
 
 /* ------------------------------------------------------------------ resposta HTTP */
 
-function setSecurityHeaders(res, origin, allowed) {
-  if (allowed && origin) { res.setHeader("Access-Control-Allow-Origin", origin); res.setHeader("Vary", "Origin"); }
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "content-type");
-  res.setHeader("Access-Control-Max-Age", "600");
-  res.setHeader("Cache-Control", "no-store");
-  res.setHeader("X-Content-Type-Options", "nosniff");
-  res.setHeader("Referrer-Policy", "no-referrer");
-  res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
-  res.setHeader("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'");
-}
-function sendJson(res, status, obj) {
-  res.statusCode = status;
-  res.setHeader("content-type", "application/json; charset=utf-8");
-  res.end(JSON.stringify(obj));
-}
+const sendJson = S.sendJson;
 const friendly = (status) =>
   status === 429 ? { error: "rate_limited", message: "As IAs gratuitas estão no limite agora. Tente de novo em alguns minutos." }
     : status === 503 ? { error: "no_engine", message: "A IA está em manutenção. Tente de novo em instantes." }
       : { error: "upstream", message: "Não foi possível falar com a IA agora. Tente de novo." };
 
-module.exports = async function handler(req, res) {
-  const origin = req.headers.origin || "";
-  const host = req.headers["x-forwarded-host"] || req.headers.host || "";
-  const allowed = isOriginAllowed(origin, host);
-  setSecurityHeaders(res, origin, allowed);
+/* com contas institucionais ligadas, a IA só atende sessões confirmadas (senha + código do e-mail) */
+const loginRequired = () => SB.enabled() && process.env.IA_REQUIRE_LOGIN !== "0";
+const authCache = new Map();
+async function verifiedUser(token) {
+  const hit = authCache.get(token);
+  if (hit && hit.until > Date.now()) return hit.userId;
+  const auth = await SB.userFromToken(token);
+  const userId = auth && (await SB.isVerified(auth)) ? auth.user.id : null;
+  authCache.set(token, { userId, until: Date.now() + 60e3 });
+  if (authCache.size > 5000) authCache.delete(authCache.keys().next().value);
+  return userId;
+}
 
-  if (req.method === "OPTIONS") { res.statusCode = 204; return res.end(); }
-  if (!allowed) return sendJson(res, 403, { error: "forbidden", message: "Origem não permitida." });
-  if (req.method === "GET") { const on = enabledEngines(); return sendJson(res, 200, { ok: on.length > 0, engines: on }); }
+module.exports = async function handler(req, res) {
+  if (!S.guard(req, res)) return;
+  if (req.method === "GET") { const on = enabledEngines(); return sendJson(res, 200, { ok: on.length > 0, engines: on, login: loginRequired() }); }
   if (req.method !== "POST") { res.setHeader("Allow", "GET, POST, OPTIONS"); return sendJson(res, 405, { error: "method" }); }
   if (!/^application\/json\b/i.test(String(req.headers["content-type"] || ""))) return sendJson(res, 415, { error: "content_type", message: "Envie JSON." });
 
-  const ip = String(req.headers["x-forwarded-for"] || (req.socket && req.socket.remoteAddress) || "?").split(",")[0].trim();
+  let who = S.clientIp(req);
+  if (loginRequired()) {
+    const userId = await verifiedUser(S.bearer(req)).catch(() => null);
+    if (!userId) return sendJson(res, 401, { error: "unauthorized", message: "Entre na sua conta para usar a IA." });
+    who = "u:" + userId;
+  }
   let parsed;
   try { parsed = parseRequest(req.body); } catch (e) { return sendJson(res, e.status || 400, { error: "bad_request", message: e.message }); }
-  if (!takeQuota(ip)) return sendJson(res, 429, { error: "rate_limited", message: "Muitos pedidos seguidos. Aguarde alguns minutos e tente de novo." });
-  if (!enter(ip)) return sendJson(res, 429, { error: "rate_limited", message: "Aguarde o pedido anterior terminar." });
+  if (!takeQuota(who)) return sendJson(res, 429, { error: "rate_limited", message: "Muitos pedidos seguidos. Aguarde alguns minutos e tente de novo." });
+  if (!enter(who)) return sendJson(res, 429, { error: "rate_limited", message: "Aguarde o pedido anterior terminar." });
 
   const abort = new AbortController();
   if (req.on) req.on("close", () => { if (!res.writableEnded) abort.abort(); });
@@ -310,7 +294,7 @@ module.exports = async function handler(req, res) {
     if (res.headersSent) return res.end();
     return sendJson(res, e.status === 429 ? 429 : 502, friendly(e.status === 429 ? 429 : 502));
   } finally {
-    leave(ip);
+    leave(who);
   }
 };
 
@@ -337,6 +321,6 @@ async function streamResponse(res, req, signal) {
 /* exportados para os testes */
 module.exports.ENGINES = ENGINES;
 module.exports.LIMITS = LIMITS;
-module.exports.isOriginAllowed = isOriginAllowed;
+module.exports.isOriginAllowed = S.isOriginAllowed;
 module.exports.parseRequest = parseRequest;
 module.exports.engineOrder = engineOrder;

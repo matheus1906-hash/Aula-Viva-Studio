@@ -6,7 +6,7 @@ const srv = http.createServer((q, r) => { const f = path.join(root, "dist", deco
   for (const scheme of ["light", "dark"]) {
     const p = await b.newPage({ viewport: { width: 1280, height: 900 }, colorScheme: scheme });
     await p.route("https://**", (r) => r.abort()); await p.addInitScript(() => localStorage.setItem("av:profile", JSON.stringify({ lang: "pt" })));
-    await p.goto("http://localhost:8781/aulaviva-studio.html"); await p.waitForTimeout(300); await p.addScriptTag({ content: axe });
+    await p.goto("http://localhost:8781/aulaviva-studio.html"); await p.waitForTimeout(300); await p.evaluate(axe);
     for (const v of ["inicio", "materiais", "modelos", "biblioteca", "atividades", "animacao", "acervo", "estudio", "chat", "ferramentas", "config"]) {
       await p.evaluate((v) => (location.hash = v), v); await p.waitForTimeout(500);
       const res = await p.evaluate(async () => (await axe.run(document, { runOnly: ["wcag2a", "wcag2aa"], resultTypes: ["violations"] })).violations.map((x) => ({ id: x.id, impact: x.impact, n: x.nodes.length, ex: x.nodes.slice(0, 3).map((n) => n.target.join(" ") + " :: " + (n.failureSummary || "").split("\n").slice(1, 2).join("")) })));

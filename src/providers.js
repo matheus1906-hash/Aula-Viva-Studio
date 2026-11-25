@@ -134,13 +134,16 @@
   /* IA interna: o servidor do site fala com o motor gratuito usando as chaves guardadas lá.
      opts.exclude: motores a evitar (usado ao tentar de novo depois de uma resposta ruim). */
   const INTERNAL_ERRORS = {
+    401: ["login", "Entre na sua conta para usar a IA."],
     429: ["rate_limited", "Muitos pedidos seguidos. Aguarde alguns minutos e tente de novo."],
     503: ["internal_off", "A IA está em manutenção. Tente de novo em instantes."]
   };
   async function postInternal(body, opts) {
     let r;
     try {
-      r = await fetch(AV.iaEndpoint(), { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body), signal: opts.signal, credentials: "omit", referrerPolicy: "no-referrer", cache: "no-store" });
+      const headers = { "content-type": "application/json" };
+      if (AV.Conta && AV.Conta.token()) headers.authorization = "Bearer " + AV.Conta.token(); /* conta institucional: a IA exige sessão confirmada */
+      r = await fetch(AV.iaEndpoint(), { method: "POST", headers, body: JSON.stringify(body), signal: opts.signal, credentials: "omit", referrerPolicy: "no-referrer", cache: "no-store" });
     } catch (e) {
       if (e && e.name === "AbortError") throw e;
       throw err(window.claude ? "blocked" : "network", "Sem conexão com a IA do AulaViva. Verifique a internet.");

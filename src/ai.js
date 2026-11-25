@@ -65,7 +65,7 @@
       opts = opts || {};
       return AV.AI.run([{ role: "user", content: prompt + "\n\nResponda SOMENTE com JSON válido, sem comentários e sem texto fora do JSON." }], Object.assign({}, opts, { json: true, system: roleFor(opts.lang) }));
     },
-    /* Gera um documento AulaViva completo */
+    /* Gera um documento AulaViva completo, estritamente nas habilidades da BNCC escolhidas */
     async document(req, opts) {
       const kindName = (AV.KINDS[req.kind] || AV.KINDS.apostila)[0];
       const schema = `Formato do JSON: {"title": string, "subtitle": string, "blocks": [bloco...]}.
@@ -96,6 +96,7 @@ Tipos de bloco permitidos (use só estes campos):
 Tema: ${req.topic}
 Componente curricular: ${req.subject || "a definir pelo tema"}
 Ano/turma: ${req.level || "a definir"}
+${bnccPrompt(req)}
 ${req.count ? "Quantidade aproximada de questões: " + req.count : ""}
 ${req.extra ? "Pedidos do professor: " + req.extra : ""}
 ${req.sources ? "Use como base estas fontes (priorize o conteúdo delas):\n" + req.sources.slice(0, 24000) : ""}
@@ -121,10 +122,30 @@ ${schema}`;
         if (b.type === "true_false" && Array.isArray(b.answers)) b.answers = b.answers.map((x) => x === true || /^(v|t|true|verdadeiro|verdadero|sim|si|sí|yes)$/i.test(String(x).trim()));
         return b;
       }).filter(Boolean);
-      doc.blocks = doc.blocks.filter((b) => b.type === "callout").concat(blocks);
+      const codes = (req.bncc || []).filter((c) => AV.BNCC && AV.BNCC.get(c));
+      const clean = codes.length ? blocks.map((b) => sanitizeCodes(b, codes)) : blocks;
+      const header = codes.length ? AV.BNCC.block(codes) : null;
+      doc.meta.bncc = codes;
+      doc.blocks = doc.blocks.filter((b) => b.type === "callout").concat(header ? [header] : [], clean);
       return AV.normalize(doc);
     }
   };
+
+  /* instruções da BNCC para a IA: só as habilidades escolhidas, com o texto oficial */
+  function bnccPrompt(req) {
+    const rows = (req.bncc || []).map((c) => AV.BNCC && AV.BNCC.get(c)).filter(Boolean);
+    if (!rows.length) return "";
+    return "HABILIDADES DA BNCC (obrigatórias, texto oficial):\n" + rows.map((r) => "- " + r[0] + ": " + r[4]).join("\n") +
+      "\nREGRAS: todo o conteúdo, os exemplos e cada questão devem desenvolver SOMENTE essas habilidades, no nível de complexidade do ano indicado. " +
+      "Não cite nem invente outros códigos da BNCC. Se o tema pedido fugir dessas habilidades, aproxime o material delas.";
+  }
+  /* remove de todos os textos de um bloco os códigos BNCC que não foram escolhidos */
+  function sanitizeCodes(value, codes) {
+    if (typeof value === "string") return AV.BNCC.sanitize(value, codes);
+    if (Array.isArray(value)) return value.map((v) => sanitizeCodes(v, codes));
+    if (value && typeof value === "object") { const o = {}; for (const k in value) o[k] = sanitizeCodes(value[k], codes); return o; }
+    return value;
+  }
 
   /* Diálogo "Criar com IA" reutilizável */
   AV.aiCreateDialog = function (preset) {
@@ -132,13 +153,13 @@ ${schema}`;
     const p = AV.profile();
     const f = {
       kind: h("select", { class: "in", id: "ai-kind" }, Object.keys(AV.KINDS).filter((k) => k !== "branco").map((k) => h("option", { value: k, selected: k === (preset.kind || "apostila") }, AV.KINDS[k][0]))),
-      topic: h("input", { class: "in", id: "ai-topic", placeholder: "Ex.: Ciclo da água", value: preset.topic || "" }),
-      subject: h("input", { class: "in", id: "ai-subject", list: "dl-subjects", placeholder: "Ex.: Ciências", value: preset.subject || p.subject || "" }),
-      level: h("input", { class: "in", id: "ai-level", list: "dl-levels", placeholder: "Ex.: 5º ano", value: preset.level || "" }),
+      topic: h("input", { class: "in", id: "ai-topic", placeholder: "Ex.: Ciclo da água", value: preset.topic || "", oninput: AV.debounce((e) => bncc.setTopic(e.target.value), 300) }),
+
       count: h("input", { class: "in", id: "ai-count", type: "number", min: 0, max: 40, value: preset.count || 8 }),
       lang: h("select", { class: "in", id: "ai-lang", "data-notr": "" }, Object.keys(AV.LANGS).map((k) => h("option", { value: k, selected: k === (preset.lang || AV.lang()) }, AV.LANGS[k][2] + " " + AV.LANGS[k][0]))),
       extra: h("textarea", { class: "in", id: "ai-extra", placeholder: "Ex.: linguagem simples, incluir uma tabela, foco na realidade de Goiás..." }, preset.extra || "")
     };
+    const bncc = AV.bnccPicker({ level: preset.level, subject: preset.subject || p.subject, topic: preset.topic, codes: preset.bncc });
     const go = h("button", { class: "btn pri", onclick: run }, AV.icon("sparkle"), "Gerar material");
     const status = h("p", { class: "muted small", "aria-live": "polite" });
     const aiName = h("b", null, "...");
@@ -148,18 +169,19 @@ ${schema}`;
       h("div", { class: "form" },
         h("label", { class: "f" }, "Tipo de material", f.kind),
         h("label", { class: "f full" }, "Tema *", f.topic),
-        h("label", { class: "f" }, "Componente curricular", f.subject),
-        h("label", { class: "f" }, "Ano / turma", f.level),
         h("label", { class: "f" }, "Nº de questões", f.count),
         h("label", { class: "f" }, "Idioma do material", f.lang),
         h("label", { class: "f full" }, "Pedidos extras (opcional)", f.extra)),
+      bncc.el,
       preset.sources ? h("p", { class: "note info" }, "As fontes selecionadas no Estúdio serão usadas como base.") : null,
       h("p", { class: "small muted" }, "IA: ", aiName, " · ", h("a", { href: "#config", onclick: () => { AV.LS.set("cfgJump", 1); d.close(); } }, "trocar o motor de IA")),
       status, h("div", { class: "row end" }, h("button", { class: "btn", onclick: () => d.close() }, "Cancelar"), go));
     const d = AV.dialog("Criar com IA", body, { onClose: () => ctrl && ctrl.abort() });
     async function run() {
-      if (!f.topic.value.trim()) { f.topic.focus(); status.textContent = "Informe o tema."; return; }
-      const req = { kind: f.kind.value, topic: f.topic.value.trim(), subject: f.subject.value.trim(), level: f.level.value.trim(), count: +f.count.value || 0, extra: f.extra.value.trim(), sources: preset.sources, lang: f.lang.value };
+      if (!f.topic.value.trim()) { f.topic.focus(); status.textContent = AV.t("Informe o tema."); return; }
+      const b = bncc.read();
+      if (!b.ok) { status.textContent = AV.t(b.error); bncc.el.scrollIntoView({ block: "center" }); return; }
+      const req = { kind: f.kind.value, topic: f.topic.value.trim(), subject: b.subject, level: b.level, bncc: b.codes, count: +f.count.value || 0, extra: f.extra.value.trim(), sources: preset.sources, lang: f.lang.value };
       AV.liveCreate(req, { dialog: d, onRetry: () => { d.close(); AV.aiCreateDialog(Object.assign({}, preset, req)); } });
     }
   };

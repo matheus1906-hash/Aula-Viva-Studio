@@ -2,7 +2,7 @@ import fs from "node:fs";
 import { createHash } from "node:crypto";
 import { readingText } from "./reading-text.mjs";
 import { gunzipSync, gzipSync } from "node:zlib";
-const order = ["core.js", "home-icons.js", "vault.js", "i18n.js", "i18n-dict.js", "i18n-extra.js", "importers.js", "exporters.js", "atividades.js", "biblioteca-data.js", "providers.js", "intent.js", "ai.js", "ai-live.js", "ai-settings.js", "preview.js", "editor.js", "home-planner.js", "views.js", "chat-studio.js", "animacao.js", "animacao-modelos.js", "reader.js", "views2.js", "auth.js", "main.js"];
+const order = ["core.js", "shield.js", "home-icons.js", "vault.js", "i18n.js", "i18n-dict.js", "i18n-extra.js", "importers.js", "exporters.js", "atividades.js", "biblioteca-data.js", "providers.js", "bncc.js", "bncc-ui.js", "intent.js", "ai.js", "ai-live.js", "ai-settings.js", "preview.js", "editor.js", "home-planner.js", "views.js", "chat-studio.js", "animacao.js", "animacao-modelos.js", "reader.js", "views2.js", "conta.js", "auth.js", "main.js"];
 /* SRI: o navegador só roda as bibliotecas do CDN se forem idênticas às versões verificadas */
 const SRI_FILES = { jspdf: "jspdf/dist/jspdf.umd.min.js", docx: "docx/build/index.umd.js", pptx: "pptxgenjs/dist/pptxgen.bundle.js", jszip: "jszip/dist/jszip.min.js", mammoth: "mammoth/mammoth.browser.min.js", pdfjs: "pdfjs-dist/build/pdf.min.js" };
 const SRI = {};
@@ -44,6 +44,19 @@ for (const extraFile of ["data/modelos-extra.json", "data/modelos-novos.json"]) 
   }
   const ids = new Set(modelos.map((m) => m.id)); modelos = modelos.concat(extra.filter((x) => !ids.has(x.id)));
 }
+/* BNCC nos modelos prontos: habilidades oficiais do ano e componente mais ligadas ao tema de cada modelo */
+vm.runInThisContext(fs.readFileSync("src/bncc.js", "utf8"));
+AV.BNCC.use(JSON.parse(fs.readFileSync("data/bncc.json", "utf8")));
+let semBncc = 0;
+for (const m of modelos) {
+  const info = AV.BNCC.levelInfo(m.level || (m.doc && m.doc.meta && m.doc.meta.level));
+  const sigla = AV.BNCC.siglaFor(m.subject, info.etapa);
+  const list = info.etapa ? AV.BNCC.filter({ etapa: info.etapa, ano: info.etapa === "EM" ? 0 : info.ano, sigla }) : [];
+  const codes = AV.BNCC.suggest(m.title + " " + (m.description || ""), list, 2).map((r) => r[0]);
+  m.bncc = codes; if (m.doc && m.doc.meta) m.doc.meta.bncc = codes;
+  if (!codes.length) semBncc++;
+}
+console.log("modelos com BNCC:", modelos.length - semBncc, "de", modelos.length);
 fs.writeFileSync("dist/data/modelos.json", JSON.stringify(modelos));
 const repos = JSON.parse(fs.readFileSync("data/acervo-repos.json", "utf8"));
 const obras = fs.existsSync("data/acervo-obras.json") ? JSON.parse(fs.readFileSync("data/acervo-obras.json", "utf8")) : [];
@@ -66,6 +79,10 @@ for (const livro of livros) {
   textosInline[livro.id] = gzipSync(formatted).toString("base64");
 }
 fs.writeFileSync("dist/data/livros.json", JSON.stringify(livros));
+/* BNCC oficial e escolas do Censo Escolar (INEP): o site carrega sob demanda */
+const bnccRaw = fs.readFileSync("data/bncc.json", "utf8");
+for (const dir of ["dist/data", "dist/site/data"]) { fs.mkdirSync(dir + "/escolas", { recursive: true }); fs.writeFileSync(dir + "/bncc.json", bnccRaw); }
+for (const f of fs.readdirSync("data/escolas")) fs.copyFileSync("data/escolas/" + f, "dist/site/data/escolas/" + f);
 fs.writeFileSync("dist/data/acervo.json", JSON.stringify(acervo));
 // versão para hospedar: arquivo único, modelos embutidos
 const shots = fs.existsSync("data/login-shots.json") ? fs.readFileSync("data/login-shots.json", "utf8") : "[]";
@@ -73,7 +90,7 @@ const shots = fs.existsSync("data/login-shots.json") ? fs.readFileSync("data/log
 const CSP = JSON.parse(fs.readFileSync("vercel.json", "utf8")).headers[0].headers.find((x) => x.key === "Content-Security-Policy").value.replace(/;\s*frame-ancestors[^;]*/, "");
 
 fs.writeFileSync("dist/csp.txt", CSP);
-const inline = "globalThis.AV=globalThis.AV||{};AV.STANDALONE=true;AV.LOGIN_SHOTS=" + shots + ";AV.MODELOS_INLINE=" + JSON.stringify(modelos).replace(/<\//g, "<\\/") + ";AV.ACERVO_INLINE=" + JSON.stringify(acervo).replace(/<\//g, "<\\/") + ";AV.LIVROS_INLINE=" + JSON.stringify(livros).replace(/<\//g, "<\\/") + ";\n";
+const inline = "globalThis.AV=globalThis.AV||{};AV.STANDALONE=true;AV.BNCC_INLINE=" + bnccRaw.replace(/<\//g, "<\\/") + ";AV.LOGIN_SHOTS=" + shots + ";AV.MODELOS_INLINE=" + JSON.stringify(modelos).replace(/<\//g, "<\\/") + ";AV.ACERVO_INLINE=" + JSON.stringify(acervo).replace(/<\//g, "<\\/") + ";AV.LIVROS_INLINE=" + JSON.stringify(livros).replace(/<\//g, "<\\/") + ";\n";
 const solo = shellSrc.replace("<!--ICONS-->", () => icons).replace("/*CSS*/", () => css).replace("/*JS*/", () => inline + js)
   .replace("<title>", '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta http-equiv="Content-Security-Policy" content="' + CSP + '"><meta name="referrer" content="no-referrer"><title>').replace("<style>", "<style>body{margin:0}") + "</body></html>";
 fs.writeFileSync("dist/aulaviva-studio-standalone.html", solo.replace('<svg width="0"', '</head><body><svg width="0"'));
