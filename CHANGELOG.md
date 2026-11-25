@@ -1,5 +1,11 @@
 # Histórico de versões
 
+## 5.2.0
+
+- Estante com 571 livros em domínio público (450 novos), escolhidos pela relevância (mais lidos e autores mais trabalhados nas escolas), em português, inglês e espanhol.
+- Separação por disciplina: Literatura brasileira, Literatura em língua portuguesa, Infantil e juvenil, Língua Portuguesa, Ciências, Matemática, Geografia, História, Filosofia e Sociologia, Arte e Música, Educação, Inglês e Espanhol, com botões e contagem.
+- Capas ilustradas geradas pelo app (cor por disciplina) para livros sem capa própria; leitura gratuita no acervo do Projeto Gutenberg (cópia no Internet Archive).
+
 ## 5.1.0
 
 **SEO e buscas por IA**

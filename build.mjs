@@ -68,6 +68,7 @@ const textosInline = {};
 for (const dir of ["dist/data/textos", "dist/site/data/textos"]) fs.mkdirSync(dir, { recursive: true });
 for (const livro of livros) {
   const edicao = edicoes[livro.id];
+  if (!edicao) continue; // livros com leitura no acervo externo (Internet Archive), sem texto hospedado aqui
   Object.assign(livro, edicao);
   const compressed = fs.readFileSync("data/textos/" + livro.id + ".txt.gz");
   const texto = gunzipSync(compressed);

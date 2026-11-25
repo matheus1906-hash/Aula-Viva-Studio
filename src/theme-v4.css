@@ -492,5 +492,11 @@ input[type="range"],input[type="checkbox"],input[type="radio"]{accent-color:var(
 .bncc-chips{margin:0;color:var(--pri);font-family:var(--f-d);font-size:.8rem}.bncc-chips b{color:var(--ink-3);font-weight:800}.cd-results{display:grid;gap:4px;max-height:220px;overflow:auto}.cd-opt{display:grid;gap:2px;text-align:left;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface);cursor:pointer;font:inherit;color:var(--ink)}.cd-opt:hover{border-color:var(--pri)}.cd-opt small{color:var(--ink-3)}.cd-two>label{flex:1 1 140px}.cd-qr{width:200px;height:200px;border-radius:12px;background:#fff;padding:8px;justify-self:center}.cd-events{margin:0;padding-left:18px;display:grid;gap:4px}.shield-checks{list-style:none;margin:0;padding:0;display:grid;gap:4px}.shield-checks .ok{color:var(--ok)}.shield-checks .bad{color:var(--bad)}.cd .auth-form{gap:12px}
 .chips.nichos{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}
 .chips.nichos .chip{cursor:pointer;border:1px solid var(--line);background:var(--surface)}
-.chips.nichos .chip[aria-pressed=true]{background:var(--pri);color:#fff;border-color:var(--pri)}
-.chips.nichos small{opacity:.7}
+.chips.nichos .chip[aria-pressed=true]{background:var(--pri);color:var(--bg);border-color:var(--pri)}
+.chips.nichos small{color:inherit;font-weight:700}
+.bk-gen{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:space-between;padding:12px 10px 14px 16px;background:linear-gradient(160deg,var(--bg),color-mix(in srgb,var(--bg) 70%,#000));color:var(--fg);text-align:left;overflow:hidden}
+.bk-gen::before{content:"";position:absolute;left:6px;top:0;bottom:0;width:3px;background:color-mix(in srgb,var(--fg) 45%,transparent)}
+.bk-gen small{font:800 .58rem var(--f-b,sans-serif);letter-spacing:.08em;text-transform:uppercase;opacity:.85}
+.bk-gen strong{font:700 .92rem/1.15 Georgia,serif;display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;overflow:hidden}
+.bk-gen span{font-size:.7rem;opacity:.9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.book-detail .bk-gen strong{font-size:1.2rem;-webkit-line-clamp:7}

@@ -220,15 +220,26 @@
   /* disciplinas (nichos) da estante, na ordem em que aparecem */
   const NICHOS = ["Literatura brasileira", "Literatura em língua portuguesa", "Infantil e juvenil", "Língua Portuguesa", "Ciências", "Matemática", "Geografia", "História", "Filosofia e Sociologia", "Arte e Música", "Educação", "Inglês", "Espanhol"];
   const nichoOrder = (g) => { const i = NICHOS.indexOf(g); return i < 0 ? 99 : i; };
+  /* capa ilustrada gerada pelo app (cor por disciplina, título e autor) para livros sem capa própria */
+  const COVER_COLORS = { "Literatura brasileira": ["#0B6E5F", "#F4C95D"], "Literatura em língua portuguesa": ["#7C2D12", "#FDE68A"], "Infantil e juvenil": ["#DB2777", "#FFF1F2"], "Língua Portuguesa": ["#1D4ED8", "#DBEAFE"],
+    "Ciências": ["#047857", "#D1FAE5"], "Matemática": ["#4338CA", "#E0E7FF"], "Geografia": ["#0369A1", "#E0F2FE"], "História": ["#92400E", "#FEF3C7"], "Filosofia e Sociologia": ["#374151", "#F3F4F6"],
+    "Arte e Música": ["#9D174D", "#FCE7F3"], "Educação": ["#0F766E", "#CCFBF1"], "Inglês": ["#1E3A8A", "#FEE2E2"], "Espanhol": ["#B91C1C", "#FEF9C3"] };
+  function genCover(b) {
+    const [bg, fg] = COVER_COLORS[b.group] || ["#334155", "#E2E8F0"];
+    const el = h("div", { class: "bk-gen", "aria-hidden": "true" },
+      h("small", null, AV.t(b.group)), h("strong", { "data-notr": "" }, b.title.length > 70 ? b.title.slice(0, 68) + "…" : b.title), h("span", { "data-notr": "" }, (b.authors || [])[0] || ""));
+    el.style.setProperty("--bg", bg); el.style.setProperty("--fg", fg); /* variáveis CSS só funcionam com setProperty */
+    return el;
+  }
   function bookCard(b, onOpen) {
     return h("button", { class: "bk", type: "button", "aria-label": b.title + ", " + (b.authors || []).join(", "), onclick: () => onOpen(b) },
-      h("div", { class: "bk-cover" }, b.cover ? h("img", { src: b.cover, alt: "", loading: "lazy", decoding: "async" }) : AV.icon("book"), h("span", { class: "free" }, AV.t("Grátis"))),
+      h("div", { class: "bk-cover" }, b.cover ? h("img", { src: b.cover, alt: "", loading: "lazy", decoding: "async" }) : genCover(b), h("span", { class: "free" }, AV.t("Grátis"))),
       h("b", { "data-notr": "" }, b.title), h("span", { "data-notr": "" }, (b.authors || [])[0] || ""));
   }
   function bookDetail(b) {
     const ref = { title: b.title, authors: (b.authors || []).map((a) => { const p = a.trim().split(" "); return p.length > 1 ? p.pop().toUpperCase() + ", " + p.join(" ") : a; }), bookId: b.id, year: b.year, type: "ebook", open: true, url: b.read };
     AV.dialog(b.title, h("div", { class: "book-detail" },
-      h("div", { class: "bk-cover" }, b.cover ? h("img", { src: b.cover, alt: AV.t("Capa de") + " " + b.title }) : AV.icon("book")),
+      h("div", { class: "bk-cover" }, b.cover ? h("img", { src: b.cover, alt: AV.t("Capa de") + " " + b.title }) : genCover(b)),
       h("div", { style: { display: "grid", gap: "12px", minWidth: 0 } },
         h("p", { class: "muted", "data-notr": "" }, (b.authors || []).join(", ")),
         h("div", { class: "chips" }, h("span", { class: "chip pri" }, b.credit ? "CC BY 4.0" : "Domínio público"), b.year ? h("span", { class: "chip", "data-notr": "" }, String(b.year)) : null, h("span", { class: "chip", "data-notr": "" }, LANG_NAME[b.lang] || b.lang), h("span", { class: "chip" }, AV.t(b.group)), b.pages ? h("span", { class: "chip" }, b.pages + " " + AV.t("páginas")) : null),
