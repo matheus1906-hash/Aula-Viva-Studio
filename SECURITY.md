@@ -20,6 +20,16 @@ Respondemos em até 7 dias e avisamos quando a correção for publicada.
 - Código de recuperação, bloqueio progressivo após senhas erradas e bloqueio automático por inatividade.
 - Dados pessoais de alunos nunca são enviados às IAs.
 
+**Conta institucional (quando ligada, veja docs/CONTAS.md)**
+- Senha + código enviado ao e-mail em todo login; verificação em 2 etapas com app autenticador.
+- O banco recusa leitura e gravação de sessões não confirmadas pelo código (e sem o app, quando ativado); só o servidor confirma sessões.
+- Cada professor só vê os próprios dados; CPF validado, único e imutável; limites de tentativas de código e de envio.
+
+**Escudo de segurança (antivírus da página)**
+- Vigia o DOM o tempo todo e remove scripts, quadros, objetos, formulários e atributos de evento injetados; neutraliza links perigosos.
+- Varre cada arquivo antes de importar (executáveis disfarçados, macros, bombas de compressão, PDFs com código, RTF com objetos OLE, imagens falsas).
+- Registra violações da política de segurança e alterações em funções críticas.
+
 **Site**
 - Content-Security-Policy restrita: só os endereços necessários podem ser contatados; sem `eval`, sem plugins, sem formulários externos, sem `<base>`.
 - Proteção contra clickjacking (`frame-ancestors 'none'`, `X-Frame-Options: DENY`) e verificação na própria página.

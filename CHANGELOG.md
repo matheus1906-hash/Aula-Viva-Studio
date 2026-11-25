@@ -1,5 +1,24 @@
 # Histórico de versões
 
+## 5.0.0
+
+**BNCC estrita**
+- Base oficial da BNCC (1.580 aprendizagens: 1.304 do Fundamental, 183 do Médio e 93 objetivos da Educação Infantil), rastreável às planilhas e ao PDF do MEC (dados do projeto bncc-dados, CC BY 4.0).
+- Criar com IA exige ano/turma, componente e de 1 a 4 habilidades da BNCC (com sugestão pelo tema). A IA recebe só essas habilidades e qualquer código não escolhido é removido; o material abre com o quadro "Habilidades da BNCC" (texto oficial).
+- O card da tela inicial escolhe as habilidades sozinho quando reconhece ano e componente; senão, abre o formulário.
+- Modelos prontos mostram as habilidades relacionadas e as incluem ao usar o modelo.
+
+**Contas institucionais (Supabase)**
+- Cadastro com nome, e-mail, celular, CPF (validado e único) e instituição escolhida na base do Censo Escolar 2024 do INEP (181.065 escolas em atividade), com aceite da LGPD.
+- Código enviado ao e-mail no cadastro e em todo login; verificação em 2 etapas com app autenticador; recuperação de senha por código; sair de todos os aparelhos; registro de atividade da conta.
+- As regras valem no banco (Row Level Security): sessão sem o código do e-mail (e sem o app, quando ativado) não lê nem grava nada. Guia: docs/CONTAS.md.
+- Com contas ligadas, a IA exige sessão confirmada.
+
+**Escudo de segurança**
+- Vigia a página o tempo todo e remove scripts, quadros, objetos, formulários e atributos de evento injetados, e links javascript:.
+- Examina cada arquivo antes de importar: programas disfarçados, extensão dupla, macros, objetos ativos, bombas de compressão, PDFs com JavaScript/Launch/arquivos embutidos, RTF com objetos OLE e imagens falsas.
+- Painel com verificação e ameaças bloqueadas; eventos vão para o registro da conta.
+
 ## 4.1.0
 
 **Criação com IA mais confiável**

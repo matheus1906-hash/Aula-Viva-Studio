@@ -1,11 +1,11 @@
 {
   "name": "aulaviva-studio",
-  "version": "4.1.0",
+  "version": "5.0.0",
   "description": "AulaViva Studio: app web para professores criarem apostilas, listas, provas, planos, projetos, atividades e vídeos animados com IA, em PT/EN/ES.",
   "scripts": {
     "build": "node build.mjs",
-    "test": "node tests/importers.test.mjs && node tests/exporters.test.mjs && node tests/atividades.test.mjs && node tests/api.test.mjs && node tests/intent.test.mjs",
-    "test:e2e": "node tests/smoke.cjs && node tests/regress.cjs && node tests/standalone.cjs && node tests/auth.cjs && node tests/reader.cjs",
+    "test": "node tests/importers.test.mjs && node tests/exporters.test.mjs && node tests/atividades.test.mjs && node tests/api.test.mjs && node tests/intent.test.mjs && node tests/shield.test.mjs && node tests/conta.test.mjs",
+    "test:e2e": "node tests/smoke.cjs && node tests/regress.cjs && node tests/standalone.cjs && node tests/auth.cjs && node tests/reader.cjs && node tests/conta-ui.cjs",
     "test:a11y": "node tests/a11y.cjs",
     "perf": "node tests/perf.cjs"
   },

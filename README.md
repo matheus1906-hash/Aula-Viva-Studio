@@ -101,6 +101,10 @@ Quem já assina uma IA paga (Claude API, ChatGPT, DeepSeek ou outra compatível)
 
 **Como funciona:** o site chama a função `api/ia.js` no Vercel, que fala com os motores gratuitos usando chaves guardadas só nas **variáveis de ambiente do Vercel** (`GROQ_API_KEY`, `MISTRAL_API_KEY`, `OPENROUTER_API_KEY`, `OLLAMA_API_KEY`). As chaves nunca ficam no código nem chegam ao navegador. Se nenhuma chave estiver configurada, ou se todos os motores falharem, um motor reserva gratuito e sem chave mantém a IA funcionando. A função limita pedidos por pessoa para proteger a cota gratuita e só atende o próprio site. Dados pessoais de alunos nunca são enviados às IAs.
 
+## BNCC
+
+Todo material criado com IA segue **estritamente** as habilidades da BNCC: o professor escolhe ano/turma, componente e as habilidades (com sugestão pelo tema), e a IA trabalha só dentro delas. A base oficial (1.580 aprendizagens) vem do projeto [bncc-dados](https://github.com/bncc-dev/bncc-dados), rastreável às planilhas e ao PDF homologado do MEC (CC BY 4.0).
+
 ## Segurança e privacidade
 
 O site abre com uma tela de boas-vindas e login. A conta é **local**: nada vai para servidores.
@@ -112,6 +116,8 @@ O site abre com uma tela de boas-vindas e login. A conta é **local**: nada vai 
 - **Bloqueio progressivo** após 5 senhas erradas e **bloqueio automático** por inatividade (5 a 60 min).
 - **"Manter conectado"** opcional, com chave não exportável guardada no próprio aparelho por 7 dias.
 - **Modo visitante** para explorar sem conta, sem gravar nada.
+- **Contas institucionais** (opcional, com Supabase): cadastro com e-mail, celular, CPF e escola (Censo Escolar INEP), código no e-mail em todo login e verificação em 2 etapas. Veja [docs/CONTAS.md](docs/CONTAS.md).
+- **Escudo de segurança:** vigia a página contra código injetado e examina cada arquivo antes de abrir.
 - **Cabeçalhos de segurança:** Content-Security-Policy, proteção contra abertura em iframe (clickjacking), `no-referrer`, HSTS, `nosniff` e Permissions-Policy (no Vercel, via `vercel.json`).
 
 ## Privacidade e acessibilidade

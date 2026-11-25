@@ -53,7 +53,7 @@ const srv = http.createServer((q, r) => { const f = path.join(root, "dist", deco
   assert.match(await p.locator(".planner-preview").innerText(), /Nenhum lembrete/);
 
   // criar com IA
-  await p.click("text=Criar com IA"); await p.fill("#ai-topic", "Ciclo da água"); await p.click("text=Gerar material"); await p.click("text=Abrir no editor", { timeout: 30000 }); await p.waitForSelector(".ed-title");
+  await p.click("text=Criar com IA"); await p.fill("#ai-topic", "Ciclo da água"); await p.waitForSelector("#bncc-level option[value='EF-5']", { state: "attached" }); await p.selectOption("#bncc-level", "EF-5"); await p.selectOption("#bncc-comp", "CI"); await p.waitForSelector(".bncc-item.on"); await p.click("text=Gerar material"); await p.click("text=Abrir no editor", { timeout: 30000 }); await p.waitForSelector(".ed-title");
   console.log("editor title:", await p.inputValue(".ed-title"), "blocks:", await p.locator(".blk").count());
   await p.waitForTimeout(500); await shot("editor");
   // exportar todos os formatos

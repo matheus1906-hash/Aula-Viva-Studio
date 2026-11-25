@@ -30,7 +30,7 @@ const root = path.join(__dirname, "..");
   await p.click("text=Testar a IA"); await p.waitForTimeout(800);
   console.log("test:", await p.locator("#cfg-ia p[aria-live]").first().innerText());
   await p.evaluate(() => (location.hash = "inicio")); await p.waitForTimeout(200);
-  await p.click("text=Criar com IA"); await p.fill("#ai-topic", "Frações"); await p.click("text=Gerar material"); await p.click("text=Abrir no editor", { timeout: 30000 }); await p.waitForSelector(".ed-title");
+  await p.click("text=Criar com IA"); await p.fill("#ai-topic", "Frações"); await p.waitForSelector("#bncc-level option[value='EF-5']", { state: "attached" }); await p.selectOption("#bncc-level", "EF-5"); await p.selectOption("#bncc-comp", "MA"); await p.waitForSelector(".bncc-item.on"); await p.click("text=Gerar material"); await p.click("text=Abrir no editor", { timeout: 30000 }); await p.waitForSelector(".ed-title");
   console.log("doc via IA interna:", await p.inputValue(".ed-title"), await p.locator(".blk").count(), "blocks");
   const [dl] = await Promise.all([p.waitForEvent("download"), (async () => { await p.click("text=Exportar"); await p.locator(".dlg .menu button", { hasText: "Word" }).click(); })()]);
   console.log("download:", dl.suggestedFilename());

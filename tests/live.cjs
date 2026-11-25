@@ -21,7 +21,7 @@ const srv = http.createServer((q, r) => { const f = path.join(root, "dist", deco
   }, DOC);
   const p = await ctx.newPage(); p.on("pageerror", (e) => errs.push(e.message));
   await p.goto("http://localhost:8801/aulaviva-studio.html"); await p.waitForTimeout(400);
-  await p.click("text=Criar com IA"); await p.fill("#ai-topic", "Ciclo da água"); await p.click("text=Gerar material");
+  await p.click("text=Criar com IA"); await p.fill("#ai-topic", "Ciclo da água"); await p.waitForSelector("#bncc-level option[value='EF-5']", { state: "attached" }); await p.selectOption("#bncc-level", "EF-5"); await p.selectOption("#bncc-comp", "CI"); await p.waitForSelector(".bncc-item.on"); await p.click("text=Gerar material");
   await p.waitForTimeout(1300);
   const mid = await p.evaluate(() => ({ blocks: +document.querySelector(".live-stat b").textContent, paper: !!document.querySelector(".live-paper .paper"), stage: (document.querySelector(".live-steps li.on") || {}).dataset?.k, title: document.querySelector(".live-title").textContent }));
   ok(mid.paper && mid.blocks >= 1 && mid.stage === "write", "folha aparece durante a escrita (" + JSON.stringify(mid) + ")");
@@ -34,7 +34,7 @@ const srv = http.createServer((q, r) => { const f = path.join(root, "dist", deco
   ok((await p.inputValue(".ed-title")) === "O ciclo da água", "abre no editor com o material");
   // cancelar no meio
   await p.evaluate(() => (location.hash = "inicio")); await p.waitForTimeout(300);
-  await p.click("text=Criar com IA"); await p.fill("#ai-topic", "Teste"); await p.click("text=Gerar material"); await p.waitForTimeout(500);
+  await p.click("text=Criar com IA"); await p.fill("#ai-topic", "Teste"); await p.waitForSelector("#bncc-level option[value='EF-5']", { state: "attached" }); await p.selectOption("#bncc-level", "EF-5"); await p.selectOption("#bncc-comp", "CI"); await p.waitForSelector(".bncc-item.on"); await p.click("text=Gerar material"); await p.waitForTimeout(500);
   await p.click(".live button:has-text('Cancelar')"); await p.waitForTimeout(400);
   const cTxt = await p.locator(".live-side p.muted").innerText(); ok(/cancelada/i.test(cTxt), "cancelar interrompe a geração (" + cTxt + ")");
   await ctx.close();
@@ -50,7 +50,7 @@ const srv = http.createServer((q, r) => { const f = path.join(root, "dist", deco
   await c2.addInitScript(() => { localStorage.setItem("av:profile", JSON.stringify({ lang: "pt" })); localStorage.setItem("av:aicfg", JSON.stringify({ active: "groq", keys: {}, models: {}, base: {} })); });
   const p2 = await c2.newPage(); p2.on("pageerror", (e) => errs.push(e.message));
   await p2.goto("file://" + path.join(root, "dist/aulaviva-studio-standalone.html")); await p2.click("text=Explorar sem criar conta"); await p2.waitForTimeout(400);
-  await p2.click("text=Criar com IA"); await p2.fill("#ai-topic", "Ciclo da água"); await p2.click("text=Gerar material");
+  await p2.click("text=Criar com IA"); await p2.fill("#ai-topic", "Ciclo da água"); await p2.waitForSelector("#bncc-level option[value='EF-5']", { state: "attached" }); await p2.selectOption("#bncc-level", "EF-5"); await p2.selectOption("#bncc-comp", "CI"); await p2.waitForSelector(".bncc-item.on"); await p2.click("text=Gerar material");
   await p2.waitForSelector("text=Abrir no editor", { timeout: 15000 });
   /* card da tela inicial: entende o pedido e já cria, sem segundo clique; resposta quebrada troca de motor */
   let calls = [];
