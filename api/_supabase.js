@@ -49,6 +49,15 @@ async function isVerified(auth) {
   return !hasMfa || auth.claims.aal === "aal2";
 }
 
+/** teste gratuito (14 dias) ou assinatura válida? */
+async function accessActive(userId) {
+  const r = await call("/rest/v1/perfis?select=teste_ate,assinatura_ate&id=eq." + encodeURIComponent(userId), { key: "service" });
+  const p = r.ok && Array.isArray(r.data) ? r.data[0] : null;
+  if (!p) return false;
+  const until = Math.max(Date.parse(p.teste_ate) || 0, Date.parse(p.assinatura_ate) || 0);
+  return Date.now() < until;
+}
+
 async function markVerified(auth, ip, agent) {
   return call("/rest/v1/sessoes_verificadas", {
     method: "POST", key: "service",
@@ -64,4 +73,4 @@ async function logEvent(userId, tipo, detalhe, ip) {
   }).catch(() => {});
 }
 
-module.exports = { cfg, enabled, call, claims, userFromToken, isVerified, markVerified, logEvent };
+module.exports = { cfg, enabled, call, claims, userFromToken, isVerified, accessActive, markVerified, logEvent };

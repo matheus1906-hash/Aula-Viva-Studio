@@ -100,6 +100,15 @@ Opcional:
 3. Ative a verificação em 2 etapas e leia o QR code com o Google Authenticator.
 4. Em **Configurações**, veja **Conta institucional e segurança** e o **Escudo de segurança**.
 
+## Teste gratuito de 14 dias e contas únicas
+
+- Todo cadastro começa com **14 dias grátis**, contados pelo relógio do servidor. O professor não consegue alterar a data.
+- **E-mail, CPF e celular são únicos**: a mesma pessoa não cria outra conta (nem ganha outro teste grátis).
+- Depois dos 14 dias, sem assinatura, a IA responde "Assine um plano" (os materiais continuam salvos).
+- Para liberar uma assinatura (até existir o pagamento on-line), no Supabase → **Table Editor → perfis**, edite a linha
+  do professor: `plano` = `mensal` ou `anual` e `assinatura_ate` = a data de vencimento. (O Table Editor usa a chave de
+  administrador; o professor não consegue fazer isso pelo site.)
+
 ## Como a segurança funciona
 
 - A senha nunca passa pelo nosso servidor: o navegador fala direto com o Supabase.

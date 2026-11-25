@@ -60,6 +60,7 @@
     if (/email not confirmed/.test(m)) return "Confirme o e-mail com o código enviado.";
     if (/rate|too many|seconds/.test(m) || status === 429) return "Muitas tentativas. Aguarde um pouco e tente de novo.";
     if (/duplicate key.*cpf|perfis_cpf_key/.test(m)) return "Este CPF já está cadastrado.";
+    if (/perfis_telefone_unico|duplicate key.*telefone/.test(m)) return "Este celular já está cadastrado.";
     return status >= 500 ? "Serviço indisponível no momento. Tente de novo." : "Não foi possível concluir. Confira os dados.";
   }
 
@@ -206,6 +207,7 @@
         return offer2fa();
       }
       onDone({ password, user: session.user });
+      trialNotice();
     }
 
     /* ---- verificação em 2 etapas no login ---- */
@@ -247,7 +249,8 @@
         if (problem) return err(problem);
         busy(go, true, "Criando conta…");
         try {
-          if ((await sb("/rest/v1/rpc/cpf_disponivel", { method: "POST", body: { p_cpf: digits(cpf.value) }, token: config.anon })) !== true) throw new Error(AV.t("Este CPF já está cadastrado."));
+          if ((await sb("/rest/v1/rpc/cpf_disponivel", { method: "POST", body: { p_cpf: digits(cpf.value) }, token: config.anon })) !== true) throw new Error(AV.t("Este CPF já está cadastrado. Use \"Entrar\" ou \"Esqueci minha senha\"."));
+          if ((await sb("/rest/v1/rpc/telefone_disponivel", { method: "POST", body: { p_telefone: digits(tel.value) }, token: config.anon })) !== true) throw new Error(AV.t("Este celular já está cadastrado. Use \"Entrar\" ou \"Esqueci minha senha\"."));
           await sb("/auth/v1/signup", { method: "POST", body: { email: email.value.trim().toLowerCase(), password: pw.value, data: { nome: nome.value.trim() } }, token: config.anon });
           password = pw.value; pw.value = pw2.value = "";
           pendingProfile = Object.assign({ nome: nome.value.trim(), telefone: digits(tel.value), cpf: digits(cpf.value) }, escola);
@@ -311,6 +314,25 @@
     login();
   }
 
+  /* ------------------------------------------------------------ teste gratuito (14 dias) */
+  async function accessInfo() {
+    const [p] = await sb("/rest/v1/perfis?select=plano,teste_ate,assinatura_ate&id=eq." + session.user.id);
+    if (!p) return null;
+    const until = Math.max(Date.parse(p.teste_ate) || 0, Date.parse(p.assinatura_ate) || 0);
+    return { plano: p.plano, until, days: Math.max(0, Math.ceil((until - Date.now()) / 864e5)), active: Date.now() < until };
+  }
+  async function trialNotice() {
+    try {
+      const a = await accessInfo();
+      if (!a) return;
+      if (!a.active) AV.dialog(AV.t("Seu teste gratuito terminou"), h("div", { style: { display: "grid", gap: "10px" } },
+        h("p", null, AV.t("Os seus materiais continuam salvos. Para voltar a criar com a IA, assine o plano mensal ou anual.")),
+        h("ul", { class: "small" }, h("li", null, AV.t("Mensal: R$ 49,90 por mês")), h("li", null, AV.t("Anual: R$ 479,04 por ano (20% de desconto, R$ 39,92 por mês)"))),
+        h("a", { class: "btn pri", href: "planos.html", target: "_blank", rel: "noopener" }, AV.t("Ver planos"))));
+      else if (a.plano === "teste") AV.toast(AV.t("Teste gratuito: faltam") + " " + a.days + " " + AV.t(a.days === 1 ? "dia" : "dias") + ".", 6000);
+    } catch (e) {}
+  }
+
   /* ------------------------------------------------------------ 2 etapas: ativar */
   async function enroll2fa(container, done) {
     const area = h("div", { class: "auth-form" });
@@ -353,16 +375,22 @@
         const [p] = await sb("/rest/v1/perfis?select=nome,email,telefone,cpf,uf,municipio,escola_nome,escola_inep&id=eq." + session.user.id);
         info.textContent = "";
         if (p) info.append(h("p", null, h("b", { "data-notr": "" }, p.nome), " · ", h("span", { "data-notr": "" }, p.email)), h("p", { class: "muted" }, h("span", { "data-notr": "" }, p.escola_nome + " (INEP " + p.escola_inep + ") · " + p.municipio + "/" + p.uf), " · CPF ***." + p.cpf.slice(3, 6) + ".***-" + p.cpf.slice(9)));
+        const a = await accessInfo().catch(() => null);
+        if (a) info.append(h("p", null, h("span", { class: "chip " + (a.active ? "pri" : "acc") }, a.plano === "teste" ? AV.t("Teste gratuito") : AV.t(a.plano === "anual" ? "Plano anual" : "Plano mensal")), " ",
+          a.active ? AV.t("válido até") + " " + new Date(a.until).toLocaleDateString() + " (" + a.days + " " + AV.t(a.days === 1 ? "dia" : "dias") + ")" : h("a", { href: "planos.html", target: "_blank", rel: "noopener" }, AV.t("Teste encerrado: ver planos"))));
         const user = await sb("/auth/v1/user");
         const f = (user.factors || []).find((x) => x.factor_type === "totp" && x.status === "verified");
         twofa.textContent = "";
         twofa.append(h("span", { class: "chip " + (f ? "pri" : "acc") }, AV.t(f ? "Ativada" : "Desativada")),
           f ? h("button", { class: "btn sm", onclick: async () => { try { await sb("/auth/v1/factors/" + f.id, { method: "DELETE" }); conta("evento", { tipo: "2fa-desativada" }).catch(() => {}); AV.toast(AV.t("Verificação em 2 etapas desativada.")); AV.route(); } catch (x) { AV.toast(x.message); } } }, AV.t("Desativar"))
             : h("button", { class: "btn sm pri", onclick: () => { const d = AV.dialog(AV.t("Verificação em 2 etapas"), h("div")); enroll2fa(d.el.lastChild, () => { d.close(); AV.route(); }); } }, AV.t("Ativar")));
+      } catch (x) { info.textContent = AV.t("Não foi possível carregar os dados da conta."); }
+      try {
         const ev = await sb("/rest/v1/eventos_seguranca?select=tipo,detalhe,ip,criado_em&order=criado_em.desc&limit=12");
         events.textContent = "";
-        ev.forEach((e) => events.appendChild(h("li", null, new Date(e.criado_em).toLocaleString() + " · " + e.tipo + (e.detalhe ? " (" + e.detalhe + ")" : ""))));
-      } catch (x) { info.textContent = AV.t("Não foi possível carregar os dados da conta."); }
+        (Array.isArray(ev) ? ev : []).forEach((e) => events.appendChild(h("li", null, new Date(e.criado_em).toLocaleString() + " · " + e.tipo + (e.detalhe ? " (" + e.detalhe + ")" : ""))));
+        if (!events.childElementCount) events.appendChild(h("li", { class: "muted" }, AV.t("Nenhuma atividade registrada ainda.")));
+      } catch (x) { events.textContent = AV.t("Não foi possível carregar a atividade da conta."); }
     })();
     return box;
   }

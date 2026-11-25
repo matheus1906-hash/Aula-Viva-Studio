@@ -11,7 +11,7 @@ const now = () => Math.floor(Date.now() / 1000);
 const USER = { id: "u-1", email: "ana@escola.br", factors: [] };
 const PASSWORD_TOKEN = jwt({ sub: "u-1", session_id: "sess-A", aal: "aal1", amr: [{ method: "password", timestamp: now() }] });
 const OTP_TOKEN = jwt({ sub: "u-1", session_id: "sess-B", aal: "aal1", amr: [{ method: "otp", timestamp: now() }] });
-let calls = [], verified = new Set(), otpOk = true;
+let calls = [], verified = new Set(), otpOk = true, trialEnds = Date.now() + 5 * 864e5;
 globalThis.fetch = async (url, opts = {}) => {
   const u = new URL(url), auth = (opts.headers || {}).authorization || "", body = opts.body ? JSON.parse(opts.body) : null;
   calls.push({ path: u.pathname + u.search, method: opts.method || "GET", apikey: (opts.headers || {}).apikey, body });
@@ -24,6 +24,7 @@ globalThis.fetch = async (url, opts = {}) => {
   if (u.pathname === "/rest/v1/sessoes_verificadas" && opts.method === "DELETE") { verified.clear(); return new Response(null, { status: 204 }); }
   if (u.pathname === "/rest/v1/sessoes_verificadas") { const sid = u.searchParams.get("session_id").replace("eq.", ""); return json(verified.has(sid) ? [{ session_id: sid }] : []); }
   if (u.pathname === "/rest/v1/eventos_seguranca") return new Response(null, { status: 201 });
+  if (u.pathname === "/rest/v1/perfis") return json([{ teste_ate: new Date(trialEnds).toISOString(), assinatura_ate: null }]);
   if (u.hostname === "api.groq.com") return new Response("data: " + JSON.stringify({ choices: [{ delta: { content: "oi" } }] }) + "\n\ndata: [DONE]\n\n", { status: 200 });
   return json({}, 404);
 };
@@ -78,6 +79,10 @@ r = await run(ia, { body: { messages: [{ role: "user", content: "oi" }] }, token
 ok(r.statusCode === 401, "a IA recusa sessão não confirmada pelo código");
 r = await run(ia, { body: { messages: [{ role: "user", content: "oi" }] }, token: PASSWORD_TOKEN, ip: "6.6.6.6" });
 ok(r.statusCode === 200 && /oi/.test(r.out), "a IA atende sessão confirmada (senha + código)");
+trialEnds = Date.now() - 864e5;
+const ia2 = (delete require.cache[require.resolve("../api/ia.js")], require("../api/ia.js"));
+r = await run(ia2, { body: { messages: [{ role: "user", content: "oi" }] }, token: PASSWORD_TOKEN, ip: "6.6.6.7" });
+ok(r.statusCode === 402 && /14 dias/.test(r.out), "depois dos 14 dias grátis sem assinatura, a IA pede assinatura");
 r = await run(conta, { body: { acao: "sair-de-todos" }, token: PASSWORD_TOKEN });
 ok(r.statusCode === 200 && verified.size === 0, "sair de todos os aparelhos derruba todas as sessões confirmadas");
 

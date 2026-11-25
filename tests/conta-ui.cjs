@@ -26,6 +26,8 @@ const srv = http.createServer((q, r) => { let f = path.join(root, decodeURICompo
     if (req.method() === "OPTIONS") return route.fulfill({ status: 204, headers: { "access-control-allow-origin": "*", "access-control-allow-headers": "*", "access-control-allow-methods": "*" } });
     const p = u.pathname;
     if (p === "/rest/v1/rpc/cpf_disponivel") return json(route, body.p_cpf === "52998224725");
+    if (p === "/rest/v1/rpc/telefone_disponivel") return json(route, body.p_telefone !== "64911112222");
+    if (p === "/rest/v1/perfis" && req.method() === "GET") return json(route, [{ plano: "teste", teste_ate: new Date(Date.now() + 14 * 864e5).toISOString(), assinatura_ate: null, nome: "Ana Souza", email: "ana@escola.br", telefone: "64999998888", cpf: "52998224725", uf: "GO", municipio: "Rio Verde", escola_nome: "Escola", escola_inep: 1 }]);
     if (p === "/auth/v1/signup") { st.users[body.email] = body.password; return json(route, { id: "u-1" }); }
     if (p === "/auth/v1/verify") { current = "sess-signup"; return json(route, { access_token: tok(current), refresh_token: "r1", expires_in: 3600, user: { id: "u-1", email: "ana@escola.br" } }); }
     if (p === "/auth/v1/token" && u.searchParams.get("grant_type") === "password") { if (st.users[body.email] !== body.password) return json(route, { msg: "Invalid login credentials" }, 400); current = "sess-login"; return json(route, { access_token: tok(current), refresh_token: "r2", expires_in: 3600, user: { id: "u-1", email: body.email } }); }
@@ -58,7 +60,10 @@ const srv = http.createServer((q, r) => { let f = path.join(root, decodeURICompo
   await p.locator(".cd-opt").first().click();
   await p.click(".auth-go"); await p.waitForTimeout(200);
   ok(/aceite/.test(await p.textContent(".auth-msg")), "aceite da política de privacidade (LGPD) é obrigatório");
-  await p.check("#cd-aceite"); await p.click(".auth-go");
+  await p.check("#cd-aceite");
+  await p.fill("#cd-tel", "64911112222"); await p.click(".auth-go"); await p.waitForTimeout(300);
+  ok(/celular já está cadastrado/.test(await p.textContent(".auth-msg")), "celular já cadastrado não cria outra conta");
+  await p.fill("#cd-tel", "64999998888"); await p.click(".auth-go");
   await p.waitForSelector("#cd-code");
   ok(await p.locator("text=Confirme que é você").isVisible(), "cadastro pede o código enviado ao e-mail");
   await p.fill("#cd-code", "123456");
@@ -86,6 +91,9 @@ const srv = http.createServer((q, r) => { let f = path.join(root, decodeURICompo
   ok(await p.evaluate(() => AV.Vault.unlocked() && AV.Conta.active()), "login completo: senha + e-mail + app, cofre aberto");
   await p.evaluate(() => (location.hash = "config")); await p.waitForSelector("text=Escudo de segurança");
   ok(await p.locator("text=Proteção ativa").first().isVisible(), "painel do Escudo de segurança nas configurações");
+  await p.waitForSelector("text=Teste gratuito", { timeout: 8000 }).catch(() => {});
+  const cfgText = await p.locator("main").innerText(); if (!/válido até/.test(cfgText)) console.log("DEBUG", cfgText.slice(cfgText.indexOf("Conta institucional"), cfgText.indexOf("Conta institucional") + 400));
+  ok(/válido até/.test(cfgText), "configurações mostram o teste gratuito e até quando vale");
   ok(!errs.length, "sem erros de página " + errs.join(" | "));
   await b.close(); srv.close(); process.exit(fails ? 1 : 0);
 })().catch((e) => { console.error(e); process.exit(1); });

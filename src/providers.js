@@ -135,6 +135,7 @@
      opts.exclude: motores a evitar (usado ao tentar de novo depois de uma resposta ruim). */
   const INTERNAL_ERRORS = {
     401: ["login", "Entre na sua conta para usar a IA."],
+    402: ["trial", "Seu teste gratuito de 14 dias terminou. Assine um plano para continuar criando com a IA."],
     429: ["rate_limited", "Muitos pedidos seguidos. Aguarde alguns minutos e tente de novo."],
     503: ["internal_off", "A IA está em manutenção. Tente de novo em instantes."]
   };

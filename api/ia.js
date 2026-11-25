@@ -257,12 +257,13 @@ const loginRequired = () => SB.enabled() && process.env.IA_REQUIRE_LOGIN !== "0"
 const authCache = new Map();
 async function verifiedUser(token) {
   const hit = authCache.get(token);
-  if (hit && hit.until > Date.now()) return hit.userId;
+  if (hit && hit.until > Date.now()) return hit;
   const auth = await SB.userFromToken(token);
   const userId = auth && (await SB.isVerified(auth)) ? auth.user.id : null;
-  authCache.set(token, { userId, until: Date.now() + 60e3 });
+  const entry = { userId, active: userId ? await SB.accessActive(userId) : false, until: Date.now() + 60e3 };
+  authCache.set(token, entry);
   if (authCache.size > 5000) authCache.delete(authCache.keys().next().value);
-  return userId;
+  return entry;
 }
 
 module.exports = async function handler(req, res) {
@@ -273,9 +274,10 @@ module.exports = async function handler(req, res) {
 
   let who = S.clientIp(req);
   if (loginRequired()) {
-    const userId = await verifiedUser(S.bearer(req)).catch(() => null);
-    if (!userId) return sendJson(res, 401, { error: "unauthorized", message: "Entre na sua conta para usar a IA." });
-    who = "u:" + userId;
+    const v = await verifiedUser(S.bearer(req)).catch(() => ({}));
+    if (!v.userId) return sendJson(res, 401, { error: "unauthorized", message: "Entre na sua conta para usar a IA." });
+    if (!v.active) return sendJson(res, 402, { error: "trial_expired", message: "Seu teste gratuito de 14 dias terminou. Assine um plano para continuar criando com a IA." });
+    who = "u:" + v.userId;
   }
   let parsed;
   try { parsed = parseRequest(req.body); } catch (e) { return sendJson(res, e.status || 400, { error: "bad_request", message: e.message }); }

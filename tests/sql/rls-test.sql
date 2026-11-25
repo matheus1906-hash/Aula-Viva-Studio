@@ -27,6 +27,10 @@ insert into public.perfis (id, nome, email, telefone, cpf, uf, municipio, munici
 values ('11111111-1111-1111-1111-111111111111', 'Ana Souza', 'falso@x.com', '(64) 99999-9999', '529.982.247-25', 'GO', 'Rio Verde', 5218805, 52000001, 'Escola A');
 select assert_true((select email from public.perfis) = 'ana@escola.br', 'e-mail do perfil vem da conta, não do navegador');
 select assert_true((select cpf from public.perfis) = '52998224725', 'CPF guardado só com números');
+select assert_true((select plano from public.perfis) = 'teste' and (select teste_ate from public.perfis) between now() + interval '13 days 23 hours' and now() + interval '14 days 1 hour', 'cadastro começa com 14 dias grátis');
+select assert_true(public.acesso_ativo(), 'dentro do teste gratuito o acesso está ativo');
+update public.perfis set teste_ate = now() + interval '10 years', plano = 'anual', assinatura_ate = now() + interval '10 years';
+select assert_true((select plano from public.perfis) = 'teste' and (select assinatura_ate from public.perfis) is null and (select teste_ate from public.perfis) < now() + interval '15 days', 'professor não consegue estender o teste nem se dar assinatura');
 -- 4) CPF não pode ser trocado
 update public.perfis set cpf = '11144477735', nome = 'Ana S. Souza';
 select assert_true((select cpf from public.perfis) = '52998224725' and (select nome from public.perfis) = 'Ana S. Souza', 'CPF não muda; nome pode mudar');
@@ -57,10 +61,42 @@ do $$ begin
 exception when insufficient_privilege then raise notice 'PASS eventos de segurança só pelo servidor';
 end $$;
 reset role;
+-- 9b) teste vencido: acesso inativo; servidor grava assinatura e o acesso volta
+select set_config('request.jwt.claims', '{"role":"service_role"}', false);
+update public.perfis set teste_ate = now() - interval '1 day' where id = '11111111-1111-1111-1111-111111111111';
+set role authenticated;
+select pg_temp.como('11111111-1111-1111-1111-111111111111', 'aaaaaaaa-0000-0000-0000-000000000001', 'aal2');
+select assert_true(not public.acesso_ativo(), 'depois dos 14 dias, sem assinatura, o acesso fica inativo');
+reset role;
+select set_config('request.jwt.claims', '{"role":"service_role"}', false);
+update public.perfis set plano = 'mensal', assinatura_ate = now() + interval '30 days';
+set role authenticated;
+select pg_temp.como('11111111-1111-1111-1111-111111111111', 'aaaaaaaa-0000-0000-0000-000000000001', 'aal2');
+select assert_true(public.acesso_ativo(), 'com assinatura gravada pelo servidor, o acesso volta');
+reset role;
+-- 9c) celular repetido não cria outra conta
+insert into auth.users values ('33333333-3333-3333-3333-333333333333', 'cai@escola.br');
+insert into public.sessoes_verificadas (session_id, user_id) values ('eeeeeeee-0000-0000-0000-000000000005', '33333333-3333-3333-3333-333333333333');
+set role authenticated;
+select pg_temp.como('33333333-3333-3333-3333-333333333333', 'eeeeeeee-0000-0000-0000-000000000005', 'aal1');
+do $$ begin
+  insert into public.perfis (id, nome, email, telefone, cpf, uf, municipio, municipio_ibge, escola_inep, escola_nome)
+  values ('33333333-3333-3333-3333-333333333333', 'Caio Lima', 'x@x.com', '(64) 99999-9999', '111.444.777-35', 'GO', 'Rio Verde', 5218805, 52000001, 'Escola A');
+  raise exception 'FALHA: celular repetido aceito';
+exception when unique_violation then raise notice 'PASS celular repetido não cria outra conta';
+end $$;
+do $$ begin
+  insert into public.perfis (id, nome, email, telefone, cpf, uf, municipio, municipio_ibge, escola_inep, escola_nome)
+  values ('33333333-3333-3333-3333-333333333333', 'Caio Lima', 'x@x.com', '(64) 98888-7777', '529.982.247-25', 'GO', 'Rio Verde', 5218805, 52000001, 'Escola A');
+  raise exception 'FALHA: CPF repetido aceito';
+exception when unique_violation then raise notice 'PASS CPF repetido não cria outra conta (nem outro teste grátis)';
+end $$;
+reset role;
 -- 10) CPF duplicado e consulta de disponibilidade
 set role anon;
 select assert_true(public.cpf_disponivel('111.444.777-35'), 'CPF livre aparece disponível');
 select assert_true(not public.cpf_disponivel('529.982.247-25'), 'CPF já cadastrado aparece indisponível');
+select assert_true(not public.telefone_disponivel('(64) 99999-9999') and public.telefone_disponivel('(64) 97777-6666'), 'consulta de celular já cadastrado');
 do $$ begin perform count(*) from public.perfis; raise exception 'FALHA: visitante leu perfis';
 exception when insufficient_privilege then raise notice 'PASS visitante sem login não lê nada'; end $$;
 reset role;

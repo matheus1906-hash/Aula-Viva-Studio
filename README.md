@@ -13,7 +13,7 @@ Para professores da educação básica, em português, inglês e espanhol.
 
 ## Planos de acesso
 
-A distribuição prevê 14 dias gratuitos, seguidos de assinatura mensal ou anual. [Ver planos](https://aulavivastudio.vercel.app/planos.html)
+14 dias grátis; depois, plano mensal de **R$ 49,90** ou anual de **R$ 479,04** (20% de desconto sobre 12 meses). [Ver planos](https://aulavivastudio.vercel.app/planos.html)
 
 ![Planos de acesso](docs/screenshots/planos.webp)
 

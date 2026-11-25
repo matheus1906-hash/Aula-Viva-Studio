@@ -44,6 +44,13 @@ create table if not exists public.perfis (
   atualizado_em    timestamptz not null default now()
 );
 
+-- teste gratuito de 14 dias e assinatura: definidos só pelo servidor/banco, nunca pelo navegador
+alter table public.perfis add column if not exists plano text not null default 'teste' check (plano in ('teste', 'mensal', 'anual'));
+alter table public.perfis add column if not exists teste_ate timestamptz not null default now() + interval '14 days';
+alter table public.perfis add column if not exists assinatura_ate timestamptz;
+-- celular também não pode se repetir (uma conta por pessoa, um teste gratuito por pessoa)
+create unique index if not exists perfis_telefone_unico on public.perfis (telefone);
+
 create table if not exists public.sessoes_verificadas (
   session_id  uuid primary key,
   user_id     uuid not null references auth.users (id) on delete cascade,
@@ -84,6 +91,23 @@ $$;
 revoke all on function public.sessao_verificada() from public;
 grant execute on function public.sessao_verificada() to authenticated;
 
+-- acesso ativo: dentro do teste gratuito ou com assinatura válida
+create or replace function public.acesso_ativo() returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.perfis p where p.id = auth.uid() and now() < greatest(p.teste_ate, coalesce(p.assinatura_ate, '-infinity'::timestamptz)));
+$$;
+revoke all on function public.acesso_ativo() from public;
+grant execute on function public.acesso_ativo() to authenticated;
+
+-- celular já usado?
+drop function if exists public.telefone_disponivel(text);
+create function public.telefone_disponivel(p_telefone text) returns boolean
+language sql stable security definer set search_path = public as $$
+  select not exists (select 1 from public.perfis p where p.telefone = regexp_replace(p_telefone, '\D', '', 'g'));
+$$;
+revoke all on function public.telefone_disponivel(text) from public;
+grant execute on function public.telefone_disponivel(text) to anon, authenticated;
+
 -- CPF já usado? (para avisar no cadastro; não revela de quem é)
 -- o parâmetro se chama p_cpf para não se confundir com a coluna perfis.cpf
 drop function if exists public.cpf_disponivel(text);
@@ -100,8 +124,18 @@ language plpgsql security definer set search_path = public, auth as $$
 begin
   new.email := (select email from auth.users where id = new.id);
   new.cpf := regexp_replace(new.cpf, '\D', '', 'g');
+  new.telefone := regexp_replace(new.telefone, '\D', '', 'g');
   new.atualizado_em := now();
-  if tg_op = 'UPDATE' then new.cpf := old.cpf; new.criado_em := old.criado_em; new.aceite_termos_em := old.aceite_termos_em; end if; -- CPF não muda
+  if tg_op = 'INSERT' then
+    -- todo cadastro começa com 14 dias grátis, contados pelo relógio do servidor
+    new.plano := 'teste'; new.teste_ate := now() + interval '14 days'; new.assinatura_ate := null; new.criado_em := now(); new.aceite_termos_em := now();
+  else
+    -- CPF, datas e plano não mudam pelo navegador (a assinatura é gravada só pelo servidor com a chave secreta)
+    new.cpf := old.cpf; new.criado_em := old.criado_em; new.aceite_termos_em := old.aceite_termos_em;
+    if current_setting('request.jwt.claims', true)::jsonb ->> 'role' is distinct from 'service_role' then
+      new.plano := old.plano; new.teste_ate := old.teste_ate; new.assinatura_ate := old.assinatura_ate;
+    end if;
+  end if;
   return new;
 end $$;
 drop trigger if exists perfis_antes_salvar on public.perfis;
