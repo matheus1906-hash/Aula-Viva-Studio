@@ -217,6 +217,9 @@
   async function loadLivros() { if (livros) return livros; if (AV.LIVROS_INLINE) return (livros = AV.LIVROS_INLINE); const r = await fetch("data/livros.json"); if (!r.ok) throw new Error("Não foi possível carregar os livros."); return (livros = await r.json()); }
   AV.loadLivros = loadLivros;
   const LANG_NAME = { pt: "Português", en: "English", es: "Español" };
+  /* disciplinas (nichos) da estante, na ordem em que aparecem */
+  const NICHOS = ["Literatura brasileira", "Literatura em língua portuguesa", "Infantil e juvenil", "Língua Portuguesa", "Ciências", "Matemática", "Geografia", "História", "Filosofia e Sociologia", "Arte e Música", "Educação", "Inglês", "Espanhol"];
+  const nichoOrder = (g) => { const i = NICHOS.indexOf(g); return i < 0 ? 99 : i; };
   function bookCard(b, onOpen) {
     return h("button", { class: "bk", type: "button", "aria-label": b.title + ", " + (b.authors || []).join(", "), onclick: () => onOpen(b) },
       h("div", { class: "bk-cover" }, b.cover ? h("img", { src: b.cover, alt: "", loading: "lazy", decoding: "async" }) : AV.icon("book"), h("span", { class: "free" }, AV.t("Grátis"))),
@@ -230,7 +233,10 @@
         h("p", { class: "muted", "data-notr": "" }, (b.authors || []).join(", ")),
         h("div", { class: "chips" }, h("span", { class: "chip pri" }, b.credit ? "CC BY 4.0" : "Domínio público"), b.year ? h("span", { class: "chip", "data-notr": "" }, String(b.year)) : null, h("span", { class: "chip", "data-notr": "" }, LANG_NAME[b.lang] || b.lang), h("span", { class: "chip" }, AV.t(b.group)), b.pages ? h("span", { class: "chip" }, b.pages + " " + AV.t("páginas")) : null),
         b.credit ? h("p", { class: "small muted", "data-notr": "" }, b.credit) : null,
-        h("button", { class: "btn pri", onclick: () => AV.readBook(b) }, AV.icon("book"), AV.t("Ler na plataforma")),
+        b.bytes ? h("button", { class: "btn pri", onclick: () => AV.readBook(b) }, AV.icon("book"), AV.t("Ler na plataforma"))
+          : h("div", { class: "row" }, h("a", { class: "btn pri", href: b.read, target: "_blank", rel: "noopener noreferrer" }, AV.icon("book"), AV.t("Ler grátis online")),
+            b.epub ? h("a", { class: "btn", href: b.epub, target: "_blank", rel: "noopener noreferrer" }, AV.icon("download"), AV.t("Baixar e-book (EPUB)")) : null),
+        b.subjects ? h("p", { class: "small muted", "data-notr": "" }, b.subjects) : null,
         h("div", { class: "row" },
           h("button", { class: "btn sm", onclick: () => AV.copy(AV.abnt(ref)) }, AV.icon("copy"), "Copiar referência ABNT"),
           h("button", { class: "btn sm", onclick: () => RefStore.add(ref) }, AV.icon("plus"), "Salvar"),
@@ -255,13 +261,20 @@
     const shelf = h("div"), count = h("span", { class: "muted small" });
     const qi = h("input", { class: "in search-xl", type: "search", id: "lv-q", placeholder: "Busque por título ou autor (ex.: Dom Casmurro, Alice, Dewey)", value: st.q, oninput: AV.debounce((e) => { st.q = e.target.value; save(); render(); }, 160) });
     const save = () => AV.LS.set("livrosState", st);
-    const gsel = h("select", { class: "in", "aria-label": "Coleção", onchange: (e) => { st.g = e.target.value; save(); render(); } }, h("option", { value: "" }, "Todas as coleções"));
+    const gsel = h("select", { class: "in", "aria-label": "Disciplina", onchange: (e) => { st.g = e.target.value; save(); drawChips(); render(); } }, h("option", { value: "" }, "Todas as disciplinas"));
     const lsel = h("select", { class: "in", "aria-label": "Idioma", "data-notr": "", onchange: (e) => { st.l = e.target.value; save(); render(); } }, h("option", { value: "" }, AV.t("Todos os idiomas")), Object.keys(LANG_NAME).map((k) => h("option", { value: k, selected: st.l === k }, LANG_NAME[k])));
-    body.append(h("p", { class: "note info" }, "Escolha um livro para ler aqui na biblioteca."),
-      h("div", { class: "search-row" }, qi), h("div", { class: "row" }, gsel, lsel, h("span", { class: "spacer" }), count), shelf);
+    const chips = h("div", { class: "chips nichos", role: "group", "aria-label": AV.t("Disciplinas") });
+    body.append(h("p", { class: "note info" }, "Livros em domínio público, separados por disciplina. Escolha um para ler."),
+      h("div", { class: "search-row" }, qi), chips, h("div", { class: "row" }, gsel, lsel, h("span", { class: "spacer" }), count), shelf);
+    const drawChips = () => {
+      chips.textContent = "";
+      const groups = [...new Set(all.map((b) => b.group))].sort((a, b) => nichoOrder(a) - nichoOrder(b));
+      [["", AV.t("Todas")]].concat(groups.map((g) => [g, AV.t(g)])).forEach(([g, label]) => chips.appendChild(h("button", { type: "button", class: "chip", "aria-pressed": String(st.g === g), onclick: () => { st.g = g; gsel.value = g; save(); drawChips(); render(); } },
+        label, g ? h("small", null, " " + all.filter((b) => b.group === g).length) : null)));
+    };
     shelf.appendChild(h("div", { class: "empty" }, h("span", { class: "spin" }), " " + AV.t("Carregando livros...")));
     let all = [];
-    loadLivros().then((l) => { all = l; [...new Set(l.map((b) => b.group))].forEach((g) => gsel.appendChild(h("option", { value: g, selected: st.g === g }, g))); render(); })
+    loadLivros().then((l) => { all = l; [...new Set(l.map((b) => b.group))].sort((a, b) => nichoOrder(a) - nichoOrder(b)).forEach((g) => gsel.appendChild(h("option", { value: g, selected: st.g === g }, g))); drawChips(); render(); })
       .catch((e) => { shelf.textContent = ""; shelf.appendChild(h("div", { class: "empty" }, e.message)); });
     function render() {
       const t = norm(st.q);
@@ -270,7 +283,7 @@
       shelf.textContent = "";
       if (!l.length) { shelf.appendChild(h("div", { class: "empty" }, "Nenhum livro encontrado.")); return; }
       if (!t && !st.g) {
-        [...new Set(l.map((b) => b.group))].forEach((g) => {
+        [...new Set(l.map((b) => b.group))].sort((a, b) => nichoOrder(a) - nichoOrder(b)).forEach((g) => {
           const row = h("div", { class: "shelf-row" });
           shelf.append(h("div", { class: "sec-t" }, h("h2", null, g), h("button", { class: "btn sm ghost", onclick: () => { st.g = g; gsel.value = g; save(); render(); } }, AV.t("Ver todos"))), row);
           AV.renderChunked(row, l.filter((b) => b.group === g), (b) => bookCard(b, bookDetail), 8);
