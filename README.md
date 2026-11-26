@@ -140,7 +140,7 @@ node tests/auth.cjs   # login, criptografia, bloqueio e recuperação
 node tests/screenshots.cjs   # atualiza as imagens deste README
 ```
 
-O app é uma página única, sem framework: os módulos em `src/` se registram em `window.AV` e são unidos pelo `build.mjs`. As bibliotecas pesadas (jsPDF, docx, PptxGenJS, JSZip, mammoth, pdf.js) carregam sob demanda. O site pronto fica em `dist/site/index.html` e é publicado no GitHub Pages (`.github/workflows/pages.yml`) e na Vercel (`vercel.json`) a cada atualização do `main`.
+O app é uma página única, sem framework: os módulos em `src/` se registram em `window.AV` e são unidos pelo `build.mjs`. As bibliotecas pesadas (jsPDF, docx, PptxGenJS, JSZip, mammoth, pdf.js) carregam sob demanda. O site pronto fica em `dist/site/index.html` e é publicado na Vercel (`vercel.json`) a cada atualização do `main`, no endereço oficial https://aulavivastudio.vercel.app.
 
 ```
 src/        núcleo, idiomas, editor, telas, IA, exportação, importação, atividades, animação, estilos, ícones

@@ -4,8 +4,8 @@ const root = path.join(__dirname, "..");
 const map = {
   "jspdf@4.2.1/dist/jspdf.umd.min.js": "node_modules/jspdf/dist/jspdf.umd.min.js",
   "docx@8.5.0/build/index.umd.js": "node_modules/docx/build/index.umd.js",
-  "pptxgenjs@3.12.0/dist/pptxgen.bundle.js": "node_modules/pptxgenjs/dist/pptxgen.bundle.js",
-  "jszip@3.10.1/dist/jszip.min.js": "node_modules/jszip/dist/jszip.min.js",
+  "pptxgenjs@4.0.1/dist/pptxgen.bundle.js": "node_modules/pptxgenjs/dist/pptxgen.bundle.js",
+  "jszip@3.10.2/dist/jszip.min.js": "node_modules/jszip/dist/jszip.min.js",
   "mammoth@1.13.0/mammoth.browser.min.js": "node_modules/mammoth/mammoth.browser.min.js",
   "pdfjs-dist@3.11.174/build/pdf.min.js": "node_modules/pdfjs-dist/build/pdf.min.js",
   "pdfjs-dist@3.11.174/build/pdf.worker.min.js": "node_modules/pdfjs-dist/build/pdf.worker.min.js"

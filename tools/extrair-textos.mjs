@@ -1,3 +1,4 @@
+// Ferramenta de manutenção: extrai os textos da interface para i18n/strings.json. Rode na raiz: node tools/extrair-textos.mjs
 import fs from "node:fs";
 const files = ["views2.js","i18n.js","animacao.js","ai.js","ai-settings.js","preview.js","editor.js","views.js","chat-studio.js","main.js","biblioteca-data.js","atividades.js","providers.js"];
 const out = new Set();

@@ -68,7 +68,8 @@ const srv = http.createServer((q, r) => { const f = path.join(root, "dist", deco
   await p3.waitForSelector("text=Abrir no editor", { timeout: 15000 });
   const sentPrompt = calls[0].messages[0].content;
   ok(/"Apostila"/.test(sentPrompt) && /Tema: Ciclo da água/.test(sentPrompt) && /3º ano/.test(sentPrompt), "card da tela inicial entende tipo, tema e ano e cria direto");
-  ok(calls.length === 2 && JSON.stringify(calls[1].exclude) === '["reserva"]', "resposta quebrada: tenta de novo sozinho evitando o motor que falhou");
+  ok(calls.length >= 2 && JSON.stringify(calls[1].exclude) === '["reserva"]', "resposta quebrada: tenta de novo sozinho evitando o motor que falhou");
+  ok(calls.length === 3 && /saiu ERRADA/.test(calls[2].messages[0].content), "apostila com cara de prova: a IA é mandada refazer no formato certo");
   ok(streamed && !sentKey, "IA interna (motor Rápida/Groq) em tempo real, sem chave no navegador");
   ok(+(await p2.locator(".live-stat b").first().innerText()) >= 6, "blocos montados a partir do streaming da IA interna");
   await c2.close();
