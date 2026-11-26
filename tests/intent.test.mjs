@@ -20,6 +20,8 @@ const cases = [
   ["faça um vídeo animado sobre o ciclo da água para o 2º ano", { kind: "video", topic: "Ciclo da água", level: "2º ano do Ensino Fundamental" }],
   ["desenho animado sobre higiene das mãos para a educação infantil", { kind: "video", topic: "Higiene das mãos", level: "Educação Infantil" }],
   ["apostila sobre animais vertebrados", { kind: "apostila", topic: "Animais vertebrados" }],
+  ["apostila para ministrar a aula, sem exercícios nem prova", { kind: "apostila" }],
+  ["prova baseada na apostila", { kind: "prova" }],
   ["", { kind: "atividade", topic: "" }]
 ];
 for (const [input, want] of cases) {

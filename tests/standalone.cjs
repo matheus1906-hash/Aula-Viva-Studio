@@ -11,7 +11,7 @@ const root = path.join(__dirname, "..");
   await ctx.route("https://api.groq.com/**", (r) => { calls.push("DIRETO-GROQ"); r.abort(); });
   await ctx.route("https://aulavivastudio.vercel.app/api/ia", async (r) => {
     const body = JSON.parse(r.request().postData() || "{}"); calls.push("ia:" + body.engine + (body.json ? ":json" : ""));
-    const content = body.json ? JSON.stringify({ title: "Frações", subtitle: "via IA interna", blocks: [{ type: "heading", text: "Parte 1", level: 1 }, { type: "open_question", prompt: "O que é fração?", lines: 3, answer: "parte" }] }) : "OK";
+    const content = body.json ? JSON.stringify({ title: "Frações", subtitle: "via IA interna", blocks: [{"type":"heading","text":"Fração","level":1},{"type":"callout","style":"definicao","text":"Uma fração representa partes iguais da unidade."},{"type":"paragraph","text":"Divida uma folha em quatro partes iguais."},{"type":"paragraph","text":"Uma parte representa um quarto."},{"type":"paragraph","text":"Duas dessas partes representam dois quartos."},{"type":"paragraph","text":"Dois quartos equivalem à metade da folha."},{"type":"heading","text":"Resumo","level":1},{"type":"bullets","items":["Dois quartos equivalem à metade da folha."]}] }) : "OK";
     if (body.stream) return r.fulfill({ contentType: "text/event-stream", headers: { "access-control-allow-origin": "null" }, body: "data: " + JSON.stringify({ engine: body.engine === "auto" ? "groq" : body.engine, choices: [{ delta: { content: "" } }] }) + "\n\ndata: " + JSON.stringify({ choices: [{ delta: { content } }] }) + "\n\ndata: [DONE]\n\n" });
     r.fulfill({ json: { text: content, engine: body.engine === "auto" ? "groq" : body.engine }, headers: { "access-control-allow-origin": "null" } });
   });

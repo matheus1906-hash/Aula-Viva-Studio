@@ -92,6 +92,7 @@ ${req.count && ["prova", "lista", "atividade"].includes(req.kind) ? "Quantidade 
 ${req.extra ? "Pedidos do professor: " + req.extra : ""}
 ${req.sources ? "Use como base estas fontes (priorize o conteúdo delas):\n" + req.sources.slice(0, 24000) : ""}
 ${spec.guide}
+${req.kind === "apostila" ? (AV.KindSpecs.practiceRequested(req) ? "Depois do resumo, acrescente a prática solicitada, com até cinco exercícios." : "Entregue somente conteúdo de estudo. Não proponha questões, mesmo disfarçadas em parágrafos ou listas. Uma pergunta de abertura deve ser respondida pelo próprio texto.") : ""}
 ${schema}`;
       const langNote = req.lang && req.lang !== "pt" ? "\nIMPORTANTE: escreva título, textos, instruções e questões em " + AV.contentLangName(req.lang) + "." : "";
       const jsonOpts = Object.assign({ tier: "complex", lang: req.lang, validate: (o) => !!o && Array.isArray(o.blocks) && o.blocks.length >= 2 }, opts);
@@ -100,8 +101,10 @@ ${schema}`;
       const issue = AV.KindSpecs.check(req.kind, out, req);
       if (issue) {
         if (opts && opts.onRetry) opts.onRetry("format");
-        const again = await AV.AI.json(prompt + langNote + "\n\nATENÇÃO: uma versão anterior saiu ERRADA porque " + issue + ". Refaça do zero respeitando exatamente a estrutura de " + kindName + ".", jsonOpts).catch(() => null);
-        if (again) out = again; // a segunda versão já recebeu a correção; a limpeza final garante o resto
+        const again = await AV.AI.json(prompt + langNote + "\n\nATENÇÃO: uma versão anterior saiu ERRADA porque " + issue + ". Refaça do zero respeitando exatamente a estrutura de " + kindName + ".", jsonOpts);
+        const remaining = AV.KindSpecs.check(req.kind, again, req);
+        if (remaining) throw Object.assign(new Error("O material gerado ainda precisa de correção: " + remaining + ". Tente gerar novamente."), { code: "format" });
+        out = again;
       }
       return AV.AI.toDoc(out, req);
     },
