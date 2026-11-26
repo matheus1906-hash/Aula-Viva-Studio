@@ -88,17 +88,19 @@
   AV.parseRequest = function (input) {
     const text = String(input || "").replace(/\s+/g, " ").trim();
     const t = text.toLowerCase();
-    const kindRule = KIND_RULES.find(([, re]) => re.test(t));
+    // O primeiro formato nomeado é o produto; os seguintes podem ser fontes ou complementos.
+    const kindRule = KIND_RULES.map(([kind, re]) => ({ kind, index: t.search(re) }))
+      .filter((match) => match.index >= 0).sort((a, b) => a.index - b.index)[0];
     const subject = (SUBJECTS.find(([, named]) => named.test(t)) || SUBJECTS.find(([, , hint]) => hint && hint.test(t)) || [""])[0];
     const countMatch = /\b(\d{1,2})\s+(?:quest[oõ]es|exerc[ií]cios|perguntas|itens)\b/.exec(t);
     const extra = EXTRA_HINTS.filter(([re]) => re.test(t)).map(([, hint]) => hint).join(" ");
     return {
-      kind: kindRule ? kindRule[0] : "atividade",
+      kind: kindRule ? kindRule.kind : "atividade",
       topic: extractTopic(text) || subject || text,
       level: detectLevel(t),
       subject,
       count: countMatch ? Math.min(40, +countMatch[1]) : 0,
-      extra
+      extra: [text, extra].filter(Boolean).join("\n")
     };
   };
 })(globalThis.AV = globalThis.AV || {});
