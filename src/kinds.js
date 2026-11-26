@@ -27,6 +27,14 @@
     };
   }
 
+  function practiceRequested(req) {
+    const request = [req.topic, req.extra].filter(Boolean).join(" ").normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    const practice = "(?:questoes|perguntas|exercicios|atividades|questions|exercises|ejercicios|preguntas)";
+    if (new RegExp("\\b(?:sem|nao (?:inclua|quero|incluir)|without|no|sin)\\s+(?:nenhum[a]?s?\\s+)?" + practice).test(request)) return false;
+    return new RegExp("\\b(?:com|inclua|incluir|incluindo|quero|with|include|con|incluye)\\s+(?:(?:\\d+|alguns|algumas|poucos|poucas|breves)\\s+)?" + practice).test(request);
+  }
+
   const SPECS = {
     apostila: {
       role: "Você é um professor-autor de apostilas didáticas.",
@@ -37,15 +45,16 @@ Estrutura obrigatória, nesta ordem:
 3. Pelo menos 1 exemplo resolvido explicado (paragraph começando com "Exemplo:").
 4. Uma callout "curiosidade" e uma callout "atencao" (erro comum dos alunos).
 5. heading "Resumo" + bullets com 4 a 6 ideias principais.
-6. SÓ NO FIM: heading "Para praticar" com no máximo 5 questões curtas.
+6. Termine na síntese. Para ministração, desenvolva uma explicação que o professor possa usar em voz alta: parta de uma situação concreta, apresente o conceito, demonstre seu uso e retome a situação inicial. Mostre o raciocínio do exemplo já resolvido.
 Proibido: cabeçalho de prova, instruções de prova, valor/nota, numerar como avaliação, começar com questões. Pelo menos 70% dos blocos devem ser texto explicativo.`,
-      check(s) {
-        if (s.q > 6) return "tem " + s.q + " questões; apostila pode ter no máximo 5, só na seção final 'Para praticar'";
-        if (s.textBlocks < 0.65 * s.total) return "tem pouco texto explicativo; pelo menos 70% dos blocos devem explicar o conteúdo";
+      check(s, req) {
+        if (!practiceRequested(req) && (s.q || s.hasHeading(/para praticar|exercícios propostos|practice questions|ejercicios propuestos/))) return "a apostila solicitada é expositiva; retire a seção de questões e desenvolva exemplos já explicados";
+        if (s.q > 5) return "tem " + s.q + " questões; apostila pode ter no máximo 5, só na seção final 'Para praticar'";
+        if (s.textBlocks < 0.70 * s.total) return "tem pouco texto explicativo; pelo menos 70% dos blocos devem explicar o conteúdo";
         if (s.paragraphs < 4) return "precisa de pelo menos 4 parágrafos explicativos";
         if (s.firstQ < 0.6 * s.total) return "as questões aparecem cedo demais; ficam só no fim, depois das explicações";
         if (!s.blocks.some((b) => b.type === "callout" && b.style === "definicao")) return "falta a caixa de definição (callout 'definicao') com o conceito-chave";
-        if (!s.hasHeading(/resumo/)) return "falta a seção 'Resumo'";
+        if (!s.hasHeading(/resumo|síntese|summary|recap|resumen|síntesis/)) return "falta a seção 'Resumo'";
         return "";
       }
     },
@@ -56,14 +65,15 @@ Estrutura obrigatória:
 1. callout "importante" com as instruções: tempo, valor total e como responder.
 2. Somente questões, em ordem crescente de dificuldade, misturando choice_question (4 alternativas), true_false, fill_blank, match e open_question (com critério de correção em "answer").
 3. Se usar texto-base (interpretação), coloque-o em 1 paragraph logo antes das questões que dependem dele.
-Proibido: seções explicativas, callouts de curiosidade/dica/definição, resumos, "Para saber mais". No máximo 3 parágrafos (só texto-base). Toda questão tem gabarito correto.`,
+Proibido: seções explicativas, callouts de curiosidade/dica/definição, resumos, "Para saber mais". No máximo 3 parágrafos (só texto-base). Cada item verifica uma habilidade identificável. Use um estímulo quando necessário, comando inequívoco e alternativas plausíveis com uma única correta. Reserve justificativas ao gabarito do professor.`,
       check(s, req) {
-        const min = Math.max(6, (req.count || 8) - 2);
+        const min = req.count || 6;
+        if (req.count && s.q !== req.count) return "entregue exatamente " + req.count + " itens, conforme solicitado";
         if (s.q < min) return "tem só " + s.q + " questões; a prova precisa de pelo menos " + min;
         if (s.blocks.some((b) => b.type === "callout" && /curiosidade|dica|definicao/.test(b.style))) return "tem caixas explicativas (curiosidade/dica/definição), que não cabem em prova";
         if (s.paragraphs > 3) return "tem texto explicativo demais; prova só pode ter parágrafos de texto-base";
         if (!s.blocks.some((b) => b.type === "callout" && /importante|atencao/.test(b.style))) return "faltam as instruções da prova em uma callout 'importante'";
-        if (s.qTypes < 2) return "use pelo menos 2 tipos diferentes de questão";
+        if (min >= 2 && s.qTypes < 2) return "use pelo menos 2 tipos diferentes de questão";
         return "";
       }
     },
@@ -73,14 +83,15 @@ Proibido: seções explicativas, callouts de curiosidade/dica/definição, resum
 Estrutura obrigatória:
 1. paragraph curto (1 frase) com a orientação ao aluno.
 2. heading "Nível 1: aquecimento", heading "Nível 2: prática" e heading "Nível 3: desafio", cada um com exercícios.
-3. De 10 a 15 exercícios no total, variados (choice_question, fill_blank, true_false, match, open_question), todos com gabarito.
+3. Use a quantidade solicitada; por padrão, 10 exercícios, variados (choice_question, fill_blank, true_false, match, open_question), todos com gabarito. Passe de aplicação direta a situações de transferência, variando o contexto e a dificuldade.
 Proibido: seções teóricas longas, callouts de curiosidade/definição, valor/nota de prova.`,
       check(s, req) {
-        const min = Math.max(8, (req.count || 10) - 2);
+        const min = req.count || 8;
+        if (req.count && s.q !== req.count) return "entregue exatamente " + req.count + " itens, conforme solicitado";
         if (s.q < min) return "tem só " + s.q + " exercícios; a lista precisa de pelo menos " + min;
         if (s.paragraphs > 3) return "tem texto explicativo demais; lista é só prática";
         if (s.blocks.some((b) => b.type === "callout" && /curiosidade|definicao/.test(b.style))) return "tem caixas teóricas, que não cabem em lista de exercícios";
-        if (!s.hasHeading(/n[ií]vel/)) return "organize os exercícios em níveis (Nível 1, Nível 2, Nível 3)";
+        if (!s.hasHeading(/n[ií]vel|level/)) return "organize os exercícios em níveis (Nível 1, Nível 2, Nível 3)";
         return "";
       }
     },
@@ -89,12 +100,13 @@ Proibido: seções teóricas longas, callouts de curiosidade/definição, valor/
       guide: `ATIVIDADE PARA IMPRIMIR = tarefas PRÁTICAS e LÚDICAS para o aluno fazer na folha.
 Estrutura obrigatória:
 1. paragraph curto com a instrução geral, em linguagem do aluno.
-2. De 4 a 8 atividades variadas (pelo menos 3 tipos: match, fill_blank, true_false, choice_question, open_question com desenho ou escrita), cada uma com enunciado claro e divertido.
-3. Pode ter 1 callout "dica" para ajudar.
+2. Use a quantidade solicitada; por padrão, 4 a 8 tarefas variadas. Combine formatos conforme a quantidade ( match, fill_blank, true_false, choice_question, open_question com desenho ou escrita), cada uma com enunciado claro e divertido.
+3. Pode ter 1 callout "dica" para ajudar. Conecte as tarefas por uma finalidade concreta, como classificar objetos e registrar o padrão observado. Diga o que o aluno fará e onde registrará o resultado.
 Proibido: textos teóricos longos, cabeçalho de prova, valor/nota.`,
-      check(s) {
-        if (s.q < 4) return "tem só " + s.q + " atividades; precisa de pelo menos 4";
-        if (s.qTypes < 3) return "use pelo menos 3 tipos diferentes de atividade";
+      check(s, req) {
+        if (req.count && s.q !== req.count) return "entregue exatamente " + req.count + " tarefas";
+        if (!req.count && s.q < 4) return "tem só " + s.q + " atividades; precisa de pelo menos 4";
+        if (s.qTypes < Math.min(3, req.count || 3)) return "use pelo menos 3 tipos diferentes de atividade";
         if (s.paragraphs > 4) return "tem texto demais; atividade é para fazer, não para ler";
         return "";
       }
@@ -104,13 +116,14 @@ Proibido: textos teóricos longos, cabeçalho de prova, valor/nota.`,
       guide: `PLANO DE AULA = documento do PROFESSOR (não é material do aluno: não tem questões para o aluno responder).
 Estrutura obrigatória, com estes títulos (heading nível 1):
 "Identificação" (bullets: componente, ano, duração), "Habilidades da BNCC", "Objetivos de aprendizagem" (bullets com verbos observáveis), "Conteúdos", "Desenvolvimento da aula" (table com colunas Etapa | Tempo | O que o professor faz | O que os alunos fazem, de 4 a 6 linhas), "Recursos", "Avaliação" (critérios observáveis), "Adaptações e inclusão", "Referências".
+Relacione cada objetivo a uma ação docente e a uma evidência de aprendizagem observável ao final da aula.
 Proibido: choice_question, true_false, fill_blank, match e open_question.`,
       check(s) {
         if (s.q > 0) return "tem questões para o aluno; plano de aula é documento do professor, sem questões";
         if (!s.tables) return "falta a tabela do desenvolvimento da aula (Etapa | Tempo | Professor | Alunos)";
-        if (!s.hasHeading(/objetivo/)) return "falta a seção 'Objetivos de aprendizagem'";
-        if (!s.hasHeading(/avalia/)) return "falta a seção 'Avaliação'";
-        if (!s.hasHeading(/desenvolvimento|metodologia|etapas/)) return "falta a seção 'Desenvolvimento da aula'";
+        if (!s.hasHeading(/objetiv|objective/)) return "falta a seção 'Objetivos de aprendizagem'";
+        if (!s.hasHeading(/avalia|evaluaci|assessment|evaluation/)) return "falta a seção 'Avaliação'";
+        if (!s.hasHeading(/desenvolvimento|desarrollo|development|procedure|metodologia|etapas|stages/)) return "falta a seção 'Desenvolvimento da aula'";
         return "";
       }
     },
@@ -121,10 +134,11 @@ Estrutura obrigatória:
 1. callout "importante" com o objetivo do roteiro.
 2. De 3 a 6 passos (heading "Passo 1: ...", "Passo 2: ..."), cada um com paragraph curto do que fazer e, quando fizer sentido, um link ou video de sites oficiais e estáveis.
 3. Ao final, heading "Registro" com 2 a 4 open_question para o aluno anotar o que aprendeu.
+Em cada passo, indique o recurso, a ação e o registro que prepara o passo seguinte.
 Proibido: virar apostila (explicações longas) ou prova.`,
       check(s) {
-        if (!s.hasHeading(/passo/)) return "organize em passos (Passo 1, Passo 2...)";
-        if (s.headings.filter((t) => /passo/.test(t)).length < 3) return "precisa de pelo menos 3 passos";
+        if (!s.hasHeading(/passo|paso|step/)) return "organize em passos (Passo 1, Passo 2...)";
+        if (s.headings.filter((t) => /passo|paso|step/.test(t)).length < 3) return "precisa de pelo menos 3 passos";
         if (s.links < 1) return "inclua pelo menos 1 link ou vídeo de site oficial";
         if (s.q > 6) return "tem questões demais; roteiro termina com poucas perguntas de registro";
         return "";
@@ -134,13 +148,14 @@ Proibido: virar apostila (explicações longas) ou prova.`,
       role: "Você é um coordenador pedagógico que escreve projetos educacionais.",
       guide: `PROJETO EDUCACIONAL = documento de PLANEJAMENTO de várias aulas (não é material do aluno).
 Estrutura obrigatória (heading nível 1): "Apresentação", "Justificativa", "Objetivos" (geral e específicos em bullets), "Habilidades da BNCC", "Público-alvo", "Etapas e cronograma" (table com Etapa | Semana | Atividades | Produto), "Recursos", "Produto final", "Avaliação", "Referências".
+Parta de um problema real e articule investigação, produção, revisão e apresentação a um público definido. Use critérios vinculados ao produto final.
 Proibido: questões para o aluno responder.`,
       check(s) {
-        if (s.q > 2) return "tem questões para o aluno; projeto é documento de planejamento";
+        if (s.q > 0) return "tem questões para o aluno; projeto é documento de planejamento";
         if (!s.tables) return "falta a tabela de etapas e cronograma";
-        if (!s.hasHeading(/justificativa/)) return "falta a seção 'Justificativa'";
-        if (!s.hasHeading(/objetivo/)) return "falta a seção 'Objetivos'";
-        if (!s.hasHeading(/avalia/)) return "falta a seção 'Avaliação'";
+        if (!s.hasHeading(/justificativa|justificaci|rationale|justification/)) return "falta a seção 'Justificativa'";
+        if (!s.hasHeading(/objetiv|objective/)) return "falta a seção 'Objetivos'";
+        if (!s.hasHeading(/avalia|evaluaci|assessment|evaluation/)) return "falta a seção 'Avaliação'";
         return "";
       }
     }
@@ -148,11 +163,13 @@ Proibido: questões para o aluno responder.`,
 
   AV.KindSpecs = {
     get: (kind) => SPECS[kind] || SPECS.apostila,
+    practiceRequested,
     stats,
     /** "" quando o material respeita a ficha do tipo; senão o motivo, em linguagem para a IA corrigir */
     check(kind, out, req) {
       const s = stats(out);
-      if (s.total < 4) return "o material veio vazio ou curto demais";
+      if (!s.total) return "o material veio vazio";
+      if (s.total < 4 && !(req && req.count > 0 && req.count < 4 && ["prova", "atividade"].includes(kind))) return "o material veio vazio ou curto demais";
       const spec = SPECS[kind];
       return spec ? spec.check(s, req || {}) : "";
     },
