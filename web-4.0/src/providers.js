@@ -1,0 +1,124 @@
+(function (AV) {
+  "use strict";
+  /* Provedores de IA. "claude" = IA incluída no claude.ai (sem chave). Os demais usam a chave do próprio professor,
+     guardada só neste navegador. Nenhuma chave vem embutida no app. */
+  const P = {
+    claude:      { name: "Claude (incluída)", cost: "Grátis, já vem pronta", tag: "free", nokey: true, builtin: true, note: "Funciona dentro do claude.ai, sem chave." },
+    gemini:      { name: "Google Gemini", cost: "Plano gratuito", tag: "free", keyUrl: "https://aistudio.google.com/apikey", models: ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash"], kind: "gemini" },
+    groq:        { name: "Groq", cost: "Plano gratuito", tag: "free", keyUrl: "https://console.groq.com/keys", base: "https://api.groq.com/openai/v1", models: ["llama-3.3-70b-versatile", "openai/gpt-oss-120b", "meta-llama/llama-4-maverick", "qwen/qwen3-32b", "llama-3.1-8b-instant"] },
+    cerebras:    { name: "Cerebras", cost: "Plano gratuito", tag: "free", keyUrl: "https://cloud.cerebras.ai/platform/", base: "https://api.cerebras.ai/v1", models: ["llama-3.3-70b", "gpt-oss-120b", "qwen-3-235b", "qwen-3-32b", "llama3.1-8b"] },
+    openrouter:  { name: "OpenRouter", cost: "Modelos gratuitos", tag: "free", keyUrl: "https://openrouter.ai/keys", base: "https://openrouter.ai/api/v1", models: ["openrouter/free", "meta-llama/llama-3.3-70b-instruct:free", "deepseek/deepseek-chat-v3-0324:free"], freeOnly: true },
+    mistral:     { name: "Mistral", cost: "Plano gratuito (experimental)", tag: "free", keyUrl: "https://console.mistral.ai/api-keys", base: "https://api.mistral.ai/v1", models: ["mistral-small-latest", "mistral-medium-latest", "mistral-large-latest", "open-mistral-nemo"] },
+    huggingface: { name: "Hugging Face", cost: "Créditos gratuitos mensais", tag: "free", keyUrl: "https://huggingface.co/settings/tokens", base: "https://router.huggingface.co/v1", models: ["meta-llama/Llama-3.3-70B-Instruct", "openai/gpt-oss-120b", "Qwen/Qwen2.5-72B-Instruct", "deepseek-ai/DeepSeek-V3"] },
+    ollama:      { name: "Ollama (no seu computador)", cost: "Grátis e 100% privado", tag: "local", nokey: true, keyUrl: "https://ollama.com/download", base: "http://localhost:11434/v1", models: ["qwen2.5:7b", "llama3.1:8b", "gemma2:9b"], note: "Instale o Ollama, rode \"ollama pull qwen2.5:7b\" e libere o acesso do navegador (OLLAMA_ORIGINS=*)." },
+    anthropic:   { name: "Claude API (Anthropic)", cost: "Pago", tag: "paid", keyUrl: "https://console.anthropic.com/settings/keys", models: ["claude-sonnet-5-5", "claude-haiku-5-5", "claude-opus-5-5"], kind: "anthropic" },
+    openai:      { name: "ChatGPT (OpenAI)", cost: "Pago", tag: "paid", keyUrl: "https://platform.openai.com/api-keys", base: "https://api.openai.com/v1", models: ["gpt-4.1-mini", "gpt-5-mini", "gpt-4o-mini", "gpt-4.1"] },
+    deepseek:    { name: "DeepSeek", cost: "Pago (barato)", tag: "paid", keyUrl: "https://platform.deepseek.com/api_keys", base: "https://api.deepseek.com/v1", models: ["deepseek-chat"] },
+    custom:      { name: "Outra IA compatível (OpenAI)", cost: "Variável", tag: "paid", custom: true, models: [], note: "LM Studio, servidor da escola ou outro serviço compatível com a API da OpenAI." }
+  };
+  const NOT_CHAT = /whisper|tts|embed|guard|moderation|audio|image|dall-e|transcri|realtime|search|ocr|playai|distil|rerank/i;
+  AV.PROVIDERS = P;
+
+  /* configurações: { active, keys:{id:key}, models:{id:model}, base:{custom:url} } (só neste navegador) */
+  AV.aiCfg = () => Object.assign({ active: "auto", keys: {}, models: {}, base: {} }, AV.LS.get("aicfg", {}));
+  AV.setAiCfg = (c) => AV.LS.set("aicfg", c);
+  AV.cleanKey = (k) => String(k || "").trim().replace(/^["']|["']$/g, "").replace(/^Bearer\s+/i, "").replace(/^[A-Z_]+=/, "").trim();
+  AV.hasKey = (id) => { const p = P[id]; if (!p) return false; if (p.builtin) return !!window.claude; if (p.nokey) return id !== "ollama" || !!AV.aiCfg().models.ollama; if (p.custom) return !!AV.aiCfg().base.custom; return !!AV.aiCfg().keys[id]; };
+
+  function err(code, message) { const e = new Error(message); e.code = code; return e; }
+  async function http(url, opts, id) {
+    let r;
+    try { r = await fetch(url, opts); }
+    catch (e) {
+      if (e && e.name === "AbortError") throw e;
+      if (window.claude) throw err("blocked", "Dentro do claude.ai a página não pode falar com outras IAs. Use a IA incluída aqui ou a versão para hospedar (Configurações).");
+      throw err("network", id === "ollama" ? "Não encontrei o Ollama neste computador. Ele está aberto e com OLLAMA_ORIGINS liberado?" : "Sem conexão com " + P[id].name + ". Verifique a internet.");
+    }
+    if (!r.ok) {
+      let body = ""; try { body = await r.text(); } catch (e) {}
+      const b = body.toLowerCase();
+      if (r.status === 401 || r.status === 403 || /api key|invalid.*key|unauthorized/.test(b)) throw err("bad_key", "Chave inválida ou sem permissão em " + P[id].name + ". Confira se copiou a chave inteira.");
+      if (r.status === 404 || /model/.test(b) && /not (found|supported|exist)|does not exist|no such|unknown/.test(b)) throw err("model", "O modelo escolhido não está disponível em " + P[id].name + ". Clique em \"Buscar modelos\".");
+      if (r.status === 429 || /rate.?limit|quota|resource.?exhausted|too many requests/.test(b)) throw err("rate_limited", "Limite do plano de " + P[id].name + " atingido. Aguarde um pouco ou use outra IA.");
+      if (r.status === 402) throw err("payment", P[id].name + " pede créditos para este modelo. Escolha um modelo gratuito.");
+      const e2 = err("http", P[id].name + " respondeu com erro " + r.status + "."); e2.status = r.status; throw e2;
+    }
+    return r.json();
+  }
+  function headersFor(id, key) {
+    const hd = { "content-type": "application/json" };
+    if (key) hd.authorization = "Bearer " + key;
+    if (id === "openrouter") hd["X-Title"] = "AulaViva Studio";
+    return hd;
+  }
+  const baseOf = (id) => (P[id].custom ? String(AV.aiCfg().base.custom || "").replace(/\/+$/, "") : P[id].base);
+
+  /* lista modelos disponíveis na conta e escolhe o melhor */
+  AV.listModels = async function (id) {
+    const c = AV.aiCfg(), key = c.keys[id] || "";
+    if (P[id].kind === "gemini") {
+      const j = await http("https://generativelanguage.googleapis.com/v1beta/models?pageSize=200&key=" + encodeURIComponent(key), {}, id);
+      return (j.models || []).filter((m) => (m.supportedGenerationMethods || []).includes("generateContent")).map((m) => m.name.replace(/^models\//, "")).filter((n) => /flash|gemini-2|gemini-3/.test(n) && !/image|tts|audio|embed|live/.test(n));
+    }
+    if (P[id].kind === "anthropic") {
+      const j = await http("https://api.anthropic.com/v1/models", { headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" } }, id);
+      return (j.data || []).map((m) => m.id);
+    }
+    const j = await http(baseOf(id) + "/models", { headers: headersFor(id, key) }, id);
+    let names = (j.data || j.models || []).map((m) => m.id || m.name).filter((n) => n && !NOT_CHAT.test(n));
+    if (P[id].freeOnly) { const free = (j.data || []).filter((m) => /:free$/.test(m.id) || (m.pricing && +m.pricing.prompt === 0 && +m.pricing.completion === 0)).map((m) => m.id); names = (free.length ? ["openrouter/free"] : []).concat(free.sort()); }
+    return names;
+  };
+  AV.pickModel = function (id, names) {
+    for (const pref of P[id].models) { const hit = names.find((n) => n === pref) || names.find((n) => n.startsWith(pref)); if (hit) return hit; }
+    return names[0] || P[id].models[0] || "";
+  };
+
+  /* chamada principal: messages = [{role, content}] */
+  AV.callProvider = async function (id, messages, opts) {
+    opts = opts || {};
+    const c = AV.aiCfg(), key = c.keys[id] || "", model = c.models[id] || P[id].models[0];
+    const sys = opts.system || "";
+    if (!P[id].nokey && !P[id].custom && !key) throw err("no_key", "Cole a sua chave de " + P[id].name + " em Configurações.");
+    if (!model) throw err("model", "Escolha um modelo para " + P[id].name + ".");
+    let text = "";
+    if (P[id].kind === "gemini") {
+      const body = { contents: messages.map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] })), generationConfig: { temperature: 0.7, maxOutputTokens: 16384 } };
+      if (sys) body.systemInstruction = { parts: [{ text: sys }] };
+      if (opts.json) body.generationConfig.responseMimeType = "application/json";
+      const j = await http("https://generativelanguage.googleapis.com/v1beta/models/" + encodeURIComponent(model) + ":generateContent?key=" + encodeURIComponent(key), { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body), signal: opts.signal }, id);
+      const cand = (j.candidates || [])[0] || {};
+      text = ((cand.content || {}).parts || []).map((p) => p.text || "").join("");
+      if (!text && cand.finishReason === "MAX_TOKENS") throw err("truncated", "A resposta ficou grande demais para o Gemini. Peça menos questões ou escolha outro modelo.");
+      if (!text && j.promptFeedback) throw err("blocked_content", "O Gemini recusou o pedido. Reformule o tema.");
+    } else if (P[id].kind === "anthropic") {
+      const j = await http("https://api.anthropic.com/v1/messages", { method: "POST", signal: opts.signal, headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" }, body: JSON.stringify({ model, max_tokens: 8000, system: sys || undefined, messages }) }, id);
+      text = (j.content || []).map((b) => b.text || "").join("");
+    } else {
+      const body = { model, messages: (sys ? [{ role: "system", content: sys }] : []).concat(messages), temperature: 0.7 };
+      if (opts.json && id !== "ollama" && id !== "huggingface") body.response_format = { type: "json_object" };
+      const call = () => http(baseOf(id) + "/chat/completions", { method: "POST", signal: opts.signal, headers: headersFor(id, key), body: JSON.stringify(body) }, id);
+      let j;
+      try { j = await call(); }
+      catch (e) { if (body.response_format && e.code === "http" && e.status === 400) { delete body.response_format; j = await call(); } else throw e; }
+      text = ((((j.choices || [])[0] || {}).message) || {}).content || "";
+    }
+    text = String(text).replace(/<think>[\s\S]*?<\/think>/g, "").trim();
+    if (!text) throw err("empty", P[id].name + " devolveu uma resposta vazia. Tente de novo.");
+    if (opts.onText) opts.onText({ text, delta: text });
+    return text;
+  };
+  AV.parseJSON = function (t) {
+    t = String(t).replace(/^```(?:json)?\s*|\s*```$/g, "").trim();
+    try { return JSON.parse(t); } catch (e) {}
+    const a = t.indexOf("{"), b = t.lastIndexOf("}");
+    if (a >= 0 && b > a) { try { return JSON.parse(t.slice(a, b + 1)); } catch (e) {} }
+    throw err("bad_json", "A IA respondeu fora do formato esperado. Tente de novo.");
+  };
+  /* testa uma IA com um pedido curtinho */
+  AV.testProvider = async function (id) {
+    if (id === "claude") { const s = await AV.cap.sample; if (!s) throw err("unavailable", "Disponível só dentro do claude.ai."); const r = await s("Responda só: OK", { modelTier: "quick", cache: false }); return "Funcionando (" + (r.modelApplied || "Claude") + ")"; }
+    const t = await AV.callProvider(id, [{ role: "user", content: "Responda apenas: OK" }], {});
+    return "Funcionando (" + (AV.aiCfg().models[id] || P[id].models[0]) + "): " + t.slice(0, 40);
+  };
+})(globalThis.AV = globalThis.AV || {});

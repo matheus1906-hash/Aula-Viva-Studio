@@ -1,0 +1,22 @@
+{"id":"fx1","version":1,"updated":0,"meta":{"title":"Frações no dia a dia","subtitle":"Lista de exercícios","author":"Profa. Ana","school":"E.M. Rio Verde","subject":"Matemática","level":"4º ano","kind":"lista","theme":"Laranja giz","cover":true,"toc":true,"page_numbers":true,"answer_key":true,"student_fields":true,"footer":"Rio Verde (GO)","protect":false,"owner_password":"","allow_print":true,"allow_copy":true,"lang":"pt"},
+"blocks":[
+{"id":"b1","type":"heading","text":"Parte 1: conceitos","level":1},
+{"id":"b2","type":"paragraph","text":"Uma **fração** representa *partes iguais* de um inteiro.\nLeia com atenção."},
+{"id":"b3","type":"bullets","items":["Numerador: partes tomadas","Denominador: partes do inteiro"]},
+{"id":"b4","type":"callout","style":"dica","title":"Dica","text":"Desenhe a pizza antes de responder."},
+{"id":"b5","type":"image","data":"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGP8z8DAwMDAxMDAwMDAAAANHQEDasKb6QAAAABJRU5ErkJggg==","caption":"Figura 1","width":60},
+{"id":"b6","type":"qrcode","url":"https://www.ibge.gov.br","caption":"Aponte a câmera","size":30},
+{"id":"b7","type":"link","label":"Simulador de frações","url":"https://phet.colorado.edu/pt_BR/","description":"PhET"},
+{"id":"b8","type":"word","label":"Lista extra (Word)","url":"https://example.org/lista.docx","mode":"link","filename":"lista.docx"},
+{"id":"b9","type":"video","title":"Videoaula","url":"https://www.youtube.com/watch?v=dQw4w9WgXcQ","mode":"link","info":"5 min"},
+{"id":"b10","type":"choice_question","prompt":"Qual fração é equivalente a 1/2?","options":["2/3","4/8","1/4","3/5"],"correct":1},
+{"id":"b11","type":"true_false","statements":["2/4 e 1/2 são iguais.","1/3 é maior que 1/2."],"answers":[true,false]},
+{"id":"b12","type":"open_question","prompt":"Explique o que o denominador indica.","lines":3,"answer":"Em quantas partes iguais o inteiro foi dividido."},
+{"id":"b13","type":"table","rows":[["Fração","Desenho"],["1/2","metade"],["1/4","um quarto"]]},
+{"id":"b14","type":"divider"},
+{"id":"b15","type":"page_break"},
+{"id":"b16","type":"word_search","title":"Encontre as palavras","words":["SOL","LUA"],"grid":[["S","O","L","X"],["A","B","C","D"],["L","U","A","E"],["F","G","H","I"]],"solution":[{"word":"SOL","cells":[[0,0],[0,1],[0,2]]},{"word":"LUA","cells":[[2,0],[2,1],[2,2]]}]},
+{"id":"b17","type":"crossword","title":"Cruzadinha","grid":[[{"letter":"S","number":1},{"letter":"O"},{"letter":"L"}],[null,null,{"letter":"U"}],[null,null,{"letter":"A","number":null}]],"clues":{"across":[{"n":1,"clue":"Estrela do dia","answer":"SOL"}],"down":[{"n":2,"clue":"Satélite da Terra","answer":"LUA"}]}},
+{"id":"b18","type":"match","prompt":"Ligue a fração ao nome.","left":["1/2","1/4"],"right":["um quarto","metade"],"answers":[1,0]},
+{"id":"b19","type":"fill_blank","prompt":"Complete.","text":"Em 3/8, o número [8] é o denominador e o [3] é o numerador."}
+]}

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=AulaViva Studio
+Comment=Crie apostilas e PDFs interativos para suas aulas
+Exec=AulaVivaStudio
+Icon=aulaviva-studio
+Categories=Education;Office;
+Terminal=false
+StartupWMClass=AulaVivaStudio

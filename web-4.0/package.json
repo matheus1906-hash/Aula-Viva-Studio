@@ -1,0 +1,24 @@
+{
+  "name": "aulaviva-web",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "axe-core": "^4.10.2",
+    "docx": "^8.5.0",
+    "jspdf": "^2.5.1",
+    "jszip": "^3.10.1",
+    "mammoth": "^1.6.0",
+    "pdfjs-dist": "^3.11.174",
+    "pptxgenjs": "^3.12.0"
+  }
+}

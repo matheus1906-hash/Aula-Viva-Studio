@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+.venv/
+build/
+dist/
+.pytest_cache/
+*.spec.bak
+
+*.zip
+.claude/
+
+# Credenciais OAuth (geradas localmente ou no build a partir de segredos; nunca versionar)
+aulaviva/assets/oauth_providers.json

@@ -1,0 +1,94 @@
+<title>AulaViva Studio</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="referrer" content="no-referrer">
+<meta name="description" content="Crie apostilas, listas, provas, roteiros, planos de aula, projetos e atividades com IA, e exporte em PDF interativo, Word, PowerPoint e mais.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Figtree:wght@400;500;600;700&display=swap">
+<style>/*CSS*/</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 6a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z"/></symbol>
+  <symbol id="i-library" viewBox="0 0 24 24"><path d="M4 4h4v16H4zM10 4h4v16h-4zM16.5 4.5l3.8 1-3.9 15-3.8-1z"/></symbol>
+  <symbol id="i-puzzle" viewBox="0 0 24 24"><path d="M9 3h4v3a2 2 0 1 0 4 0V3h3v6h-3a2 2 0 1 0 0 4h3v8h-6v-3a2 2 0 1 0-4 0v3H4v-6h3a2 2 0 1 0 0-4H4V3z"/></symbol>
+  <symbol id="i-qr" viewBox="0 0 24 24"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 14h2v2h-2zM14 18h2v2h-2zM18 18h2v2h-2z"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
+  <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="M12 3l1.9 5.6L19.5 10.5l-5.6 1.9L12 18l-1.9-5.6L4.5 10.5l5.6-1.9zM19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z"/></symbol>
+  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M20 11.5a8 8 0 0 1-11.8 7L4 20l1.5-4.2A8 8 0 1 1 20 11.5z"/></symbol>
+  <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2zM4 21V5M8 7h7M8 11h5"/></symbol>
+  <symbol id="i-doc" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8zM14 3v5h5M9 13h6M9 17h4"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8zM14 3v5h5"/><path d="M9 15l2 2 4-4"/></symbol>
+  <symbol id="i-slides" viewBox="0 0 24 24"><path d="M3 4h18v12H3zM12 16v4M8 20h8"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-calendar" viewBox="0 0 24 24"><path d="M4 6h16v14H4zM4 10h16M8 3v4M16 3v4"/></symbol>
+  <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r=".5"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V4m-5 5 5-5 5 5M5 20h14"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v12m-5-5 5 5 5-5M5 20h14"/></symbol>
+  <symbol id="i-video" viewBox="0 0 24 24"><path d="M3 6h12v12H3zM15 10l6-3.5v11L15 14z"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><path d="M9 9h11v11H9zM5 15H4V4h11v1"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><path d="M5 12h.01M12 12h.01M19 12h.01"/></symbol>
+  <symbol id="i-image" viewBox="0 0 24 24"><path d="M3 5h18v14H3z"/><circle cx="8.5" cy="10" r="1.6"/><path d="M3 17l5-5 4 4 3-3 6 6"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14.9-3M4 4v4h4M4 13a8 8 0 0 0 14.9 3M20 20v-4h-4"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="M21 3L10 14M21 3l-7 18-4-7-7-4z"/></symbol>
+  <symbol id="i-share" viewBox="0 0 24 24"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M8.2 10.8l7.6-4.4M8.2 13.2l7.6 4.4"/></symbol>
+  <symbol id="i-mic" viewBox="0 0 24 24"><path d="M9 4a3 3 0 0 1 6 0v7a3 3 0 0 1-6 0zM5 11a7 7 0 0 0 14 0M12 18v3"/></symbol>
+  <symbol id="i-audio" viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4zM16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/></symbol>
+  <symbol id="i-cards" viewBox="0 0 24 24"><path d="M7 4h13v13H7zM4 7v13h13"/></symbol>
+  <symbol id="i-mind" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><circle cx="4" cy="5" r="2"/><circle cx="20" cy="5" r="2"/><circle cx="4" cy="19" r="2"/><circle cx="20" cy="19" r="2"/><path d="M9.8 10L5.5 6.3M14.2 10l4.3-3.7M9.8 14l-4.3 3.7M14.2 14l4.3 3.7"/></symbol>
+  <symbol id="i-wa" viewBox="0 0 24 24"><path d="M20 11.5a8 8 0 0 1-11.8 7L4 20l1.5-4.2A8 8 0 1 1 20 11.5z"/><path d="M9 8.5c0 3 2.5 6.5 6.5 6.5l1-1.5-2-1-1 .8c-1-.4-2-1.4-2.4-2.4l.8-1-1-2z"/></symbol>
+  <symbol id="i-logo" viewBox="0 0 24 24"><path d="M3 6.5c3-1.5 6-1.5 9 .5 3-2 6-2 9-.5V19c-3-1.5-6-1.5-9 .5-3-2-6-2-9-.5z"/><path d="M12 7v12.5"/></symbol>
+</svg>
+
+<!--ICONS-->
+<datalist id="dl-levels"><option>Educação Infantil</option><option>1º ano</option><option>2º ano</option><option>3º ano</option><option>4º ano</option><option>5º ano</option><option>6º ano</option><option>7º ano</option><option>8º ano</option><option>9º ano</option><option>1ª série EM</option><option>2ª série EM</option><option>3ª série EM</option><option>EJA</option></datalist>
+<datalist id="dl-subjects"><option>Língua Portuguesa</option><option>Matemática</option><option>Ciências</option><option>História</option><option>Geografia</option><option>Língua Inglesa</option><option>Arte</option><option>Educação Física</option><option>Ensino Religioso</option><option>Interdisciplinar</option></datalist>
+
+<div class="app">
+  <aside class="rail side" aria-label="Menu principal">
+    <a class="rail-logo" href="#inicio" aria-label="AulaViva Studio, início"><svg class="i"><use href="#i-logo"/></svg></a>
+    <nav class="rail-nav nav" aria-label="Seções">
+      <a href="#inicio" data-nav="inicio" title="Início"><svg class="i"><use href="#i-home"/></svg><span>Início</span></a>
+      <a href="#materiais" data-nav="materiais" title="Materiais"><svg class="i"><use href="#i-folder"/></svg><span>Materiais</span></a>
+      <a href="#modelos" data-nav="modelos" title="Modelos"><svg class="i"><use href="#i-grid"/></svg><span>Modelos</span></a>
+      <a href="#atividades" data-nav="atividades" title="Atividades"><svg class="i"><use href="#i-puzzle"/></svg><span>Atividades</span></a>
+      <a href="#animacao" data-nav="animacao" title="Vídeos"><svg class="i"><use href="#i-film"/></svg><span>Vídeos</span></a>
+      <a href="#acervo" data-nav="acervo" title="Livros"><svg class="i"><use href="#i-library"/></svg><span>Livros</span></a>
+      <a href="#biblioteca" data-nav="biblioteca" title="Conteúdos"><svg class="i"><use href="#i-book"/></svg><span>Conteúdos</span></a>
+      <a href="#chat" data-nav="chat" title="Chat"><svg class="i"><use href="#i-chat"/></svg><span>Chat</span></a>
+      <a href="#estudio" data-nav="estudio" title="Estúdio"><svg class="i"><use href="#i-sparkle"/></svg><span>Estúdio</span></a>
+      <a href="#ferramentas" data-nav="ferramentas" title="QR code"><svg class="i"><use href="#i-qr"/></svg><span>QR code</span></a>
+      <a href="#config" data-nav="config" title="Ajustes"><svg class="i"><use href="#i-gear"/></svg><span>Ajustes</span></a>
+    </nav>
+    <button class="rail-btn" type="button" data-theme-btn aria-label="Mudar para tema escuro"><svg class="i"><use href="#i-moon"/></svg></button>
+  </aside>
+  <div class="stage">
+    <header class="topbar">
+      <a class="tb-brand" href="#inicio"><svg class="i"><use href="#i-logo"/></svg><b>AulaViva</b><span>Studio</span></a>
+      <button class="cmdk" id="cmdk" type="button" aria-label="Buscar ou criar"><svg class="i"><use href="#i-search"/></svg><span>Buscar ou criar…</span><kbd data-notr>Ctrl K</kbd></button>
+      <div class="lang-sel" role="group" aria-label="Idioma" data-notr id="lang-sel"><button type="button" data-lang="pt">PT</button><button type="button" data-lang="en">EN</button><button type="button" data-lang="es">ES</button></div>
+      <button class="tb-btn" type="button" data-theme-btn aria-label="Mudar para tema escuro"><svg class="i"><use href="#i-moon"/></svg></button>
+    </header>
+    <main class="view" id="main" tabindex="-1"></main>
+  </div>
+</div>
+<nav class="bnav" aria-label="Menu">
+  <a href="#inicio" data-nav="inicio"><svg class="i"><use href="#i-home"/></svg>Início</a>
+  <a href="#materiais" data-nav="materiais"><svg class="i"><use href="#i-folder"/></svg>Materiais</a>
+  <button class="plus" id="bn-plus" type="button" aria-label="Criar"><span><svg class="i"><use href="#i-plus"/></svg></span>Criar</button>
+  <a href="#chat" data-nav="chat"><svg class="i"><use href="#i-chat"/></svg>Chat</a>
+  <button id="bn-more" type="button"><svg class="i"><use href="#i-more"/></svg>Mais</button>
+</nav>
+<button class="fab" id="fab-wa" type="button" aria-label="WhatsApp: enviar ou abrir" title="WhatsApp"><svg class="i"><use href="#i-wa"/></svg></button>
+
+<script>/*JS*/</script>
