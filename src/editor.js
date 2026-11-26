@@ -44,7 +44,7 @@
       const title = h("input", { class: "ed-title", id: "ed-title", value: doc.meta.title, "aria-label": "Título do material", oninput: (e) => { doc.meta.title = e.target.value; changed(); } });
       const bar = h("div", { class: "ed-bar" }, h("a", { class: "btn ghost icon", href: "#materiais", "aria-label": "Voltar para Meus materiais" }, AV.icon("back")), title,
         h("button", { class: "btn sm", onclick: () => addMenu(doc.blocks.length) }, AV.icon("plus"), "Adicionar"),
-        h("button", { class: "btn sm", onclick: aiMenu }, AV.icon("sparkle"), "IA"),
+        h("button", { class: "btn sm", onclick: aiMenu }, AV.icon("sparkle"), "Editar com IA"),
         h("button", { class: "btn sm", onclick: moreMenu }, AV.icon("more"), "Mais"),
         h("button", { class: "btn sm icon", "aria-label": "Configurações do documento", title: "Configurações do documento", onclick: settings }, AV.icon("gear")),
         h("button", { class: "btn sm wa icon", "aria-label": "WhatsApp", title: "WhatsApp", onclick: () => AV.whatsSheet(doc) }, AV.icon("chat")),
@@ -172,6 +172,44 @@
           h("button", { onclick: () => { d.close(); AV.go("ferramentas"); } }, AV.icon("qr"), h("b", null, "Gerador de QR code e links"), h("span", null, "WhatsApp, YouTube no minuto, Drive, Docs...")),
           h("button", { onclick: () => { const c = AV.clone(doc); c.id = AV.uid(); c.meta.title += " (cópia)"; d.close(); AV.openDoc(c); } }, AV.icon("copy"), h("b", null, "Duplicar material"), h("span", null, "Cria uma cópia para outra turma"))));
       }
+      function editWithAI() {
+        const instruction = h("textarea", { class: "in", rows: 3, maxLength: 4000, placeholder: "Ex.: desenvolva a segunda etapa com um exemplo comentado ou simplifique a leitura para o 6º ano." });
+        const feedback = h("p", { class: "muted small", role: "status" });
+        const preview = h("div");
+        const generate = h("button", { class: "btn pri", onclick: propose }, "Gerar proposta");
+        const apply = h("button", { class: "btn pri", hidden: true, onclick: accept }, "Aplicar alterações");
+        const ctrl = new AbortController();
+        aiCtrls.add(ctrl);
+        let proposal, baseline;
+        const d = AV.dialog("Editar com IA", h("div", { style: { display: "grid", gap: "12px" } },
+          lab("O que você quer modificar neste material?", instruction), feedback, preview,
+          h("div", { class: "row end" }, generate, apply)), { large: true, onClose: () => { ctrl.abort(); aiCtrls.delete(ctrl); } });
+        instruction.oninput = () => { proposal = null; apply.hidden = true; preview.textContent = ""; feedback.textContent = ""; };
+        instruction.focus();
+
+        async function propose() {
+          const request = instruction.value.trim();
+          if (!request) { feedback.textContent = "Descreva a alteração desejada."; instruction.focus(); return; }
+          baseline = JSON.stringify(doc.blocks);
+          instruction.disabled = true; generate.disabled = true; apply.hidden = true;
+          preview.textContent = ""; feedback.textContent = "Preparando a proposta…";
+          try {
+            proposal = await AV.AI.revise(doc, request, ctrl.signal);
+            if (!alive || ctrl.signal.aborted) return;
+            preview.appendChild(AV.renderPaper(Object.assign({}, doc, { blocks: proposal }), version));
+            feedback.textContent = "Confira o material revisado antes de aplicar.";
+            apply.hidden = false;
+          } catch (e) { if (!ctrl.signal.aborted) feedback.textContent = AV.AI.explain(e); }
+          finally { instruction.disabled = false; generate.disabled = false; }
+        }
+
+        function accept() {
+          if (!alive || !proposal || ctrl.signal.aborted) return;
+          if (JSON.stringify(doc.blocks) !== baseline) { apply.hidden = true; feedback.textContent = "O material mudou. Gere uma nova proposta."; return; }
+          doc.blocks = proposal; renderList(); changed(); flush(); d.close(); AV.toast("Alterações aplicadas.");
+        }
+      }
+
       function aiMenu() {
         const acts = [
           ["Gerar mais questões", "Cria questões variadas sobre o conteúdo atual", "questions"],
@@ -181,12 +219,12 @@
           ["Sugerir vídeos e links", "Recursos para enriquecer a aula", "links"]
         ];
         const status = h("p", { class: "muted small", "aria-live": "polite" });
-        const d = AV.dialog("Assistente de IA", h("div", { style: { display: "grid", gap: "10px" } }, h("div", { class: "menu" }, acts.map((a) => h("button", { onclick: (e) => run(a[2], e.currentTarget) }, AV.icon("sparkle"), h("b", null, a[0]), h("span", null, a[1])))), status), { onClose: () => aiCtrls.forEach((c) => c.abort()) });
+        const d = AV.dialog("Assistente de IA", h("div", { style: { display: "grid", gap: "10px" } }, h("div", { class: "menu" }, h("button", { onclick: () => { d.close(); editWithAI(); } }, AV.icon("sparkle"), h("b", null, "Modificar com um pedido"), h("span", null, "Descreva a mudança e revise a proposta.")), acts.map((a) => h("button", { onclick: (e) => run(a[2], e.currentTarget) }, AV.icon("sparkle"), h("b", null, a[0]), h("span", null, a[1])))), status), { onClose: () => aiCtrls.forEach((c) => c.abort()) });
         async function run(kind, btn) {
           d.el.querySelectorAll(".menu button").forEach((x) => (x.disabled = true));
           AV.busy(btn, true, "Pensando...");
           const ctrl = new AbortController(); aiCtrls.add(ctrl);
-          const opt = (o) => Object.assign({ signal: ctrl.signal, lang: AV.docLang(doc) }, o || {});
+          const opt = (o) => Object.assign({ signal: ctrl.signal, lang: AV.docLang(doc), tier: "complex" }, o || {});
           const ctx = "Material atual (" + doc.meta.title + ", " + [doc.meta.subject, doc.meta.level].filter(Boolean).join(", ") + "):\n" + AV.docText(doc, 12000);
           try {
             if (kind === "improve" || kind === "inclusive") {
