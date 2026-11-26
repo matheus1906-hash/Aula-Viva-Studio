@@ -4,9 +4,11 @@ const root = path.join(__dirname, ".."); const ok = (c, m) => { console.log((c ?
 const DOC = JSON.stringify({ title: "O ciclo da água", subtitle: "Apostila do 5º ano", blocks: [
   { type: "heading", text: "1. Para onde vai a água?", level: 1 }, { type: "paragraph", text: "A água da Terra está sempre em movimento: ela **evapora**, forma nuvens e volta como chuva." },
   { type: "callout", style: "curiosidade", title: "Você sabia?", text: "A mesma água que os dinossauros beberam ainda circula no planeta." },
-  { type: "choice_question", prompt: "O que acontece na evaporação?", options: ["A água congela", "A água vira vapor", "A água some", "A água vira sal"], correct: 1 },
-  { type: "true_false", statements: ["As nuvens são feitas de gotas de água.", "A chuva não faz parte do ciclo."], answers: [true, false] },
-  { type: "open_question", prompt: "Por que devemos economizar água?", lines: 4, answer: "Porque a água potável é limitada." } ] });
+  { type: "callout", style: "definicao", text: "Evaporação é a passagem da água líquida para vapor." },
+  { type: "paragraph", text: "Exemplo: a água de uma poça evapora sob o sol." },
+  { type: "paragraph", text: "Quando o vapor esfria, formam-se gotículas nas nuvens." },
+  { type: "paragraph", text: "A chuva devolve a água à superfície." },
+  { type: "heading", text: "Resumo", level: 1 }, { type: "bullets", items: ["A água circula entre superfície e atmosfera."] } ] });
 const srv = http.createServer((q, r) => { const f = path.join(root, "dist", decodeURIComponent(q.url.split("?")[0])); fs.readFile(f, (e, d) => { if (e) { r.writeHead(404); r.end(); } else { r.writeHead(200, { "content-type": f.endsWith(".json") ? "application/json" : "text/html; charset=utf-8" }); r.end(d); } }); }).listen(8801);
 (async () => {
   const b = await chromium.launch(); const errs = [];
@@ -28,7 +30,7 @@ const srv = http.createServer((q, r) => { const f = path.join(root, "dist", deco
   await p.screenshot({ path: path.join(root, "tests", "live-meio.png") });
   await p.waitForSelector("text=Abrir no editor", { timeout: 15000 });
   const end = await p.evaluate(() => ({ blocks: +document.querySelector(".live-stat b").textContent, qs: +document.querySelectorAll(".live-stat b")[1].textContent, stage: (document.querySelector(".live-steps li.on") || {}).dataset?.k }));
-  ok(end.blocks >= 6 && end.qs === 3 && end.stage === "done", "termina com todos os blocos e questões (" + JSON.stringify(end) + ")");
+  ok(end.blocks >= 6 && end.qs === 0 && end.stage === "done", "termina com todos os blocos e questões (" + JSON.stringify(end) + ")");
   await p.screenshot({ path: path.join(root, "tests", "live-fim.png") });
   await p.click("text=Abrir no editor"); await p.waitForSelector(".ed-title");
   ok((await p.inputValue(".ed-title")) === "O ciclo da água", "abre no editor com o material");
@@ -58,7 +60,7 @@ const srv = http.createServer((q, r) => { const f = path.join(root, "dist", deco
   await c2.route("https://aulavivastudio.vercel.app/api/ia", async (r) => {
     const body = JSON.parse(r.request().postData() || "{}"); calls.push(body);
     const first = calls.length === 1;
-    const content = first ? "isto não é JSON" : DOC;
+    const content = first ? "isto não é JSON" : calls.length === 2 ? JSON.stringify({ blocks: Array.from({ length: 6 }, () => ({ type: "open_question", prompt: "Responda." })) }) : DOC;
     r.fulfill({ contentType: "text/event-stream", headers: { "access-control-allow-origin": "null" }, body: "data: " + JSON.stringify({ engine: first ? "reserva" : "groq", choices: [{ delta: { content: "" } }] }) + "\n\ndata: " + JSON.stringify({ choices: [{ delta: { content } }] }) + "\n\ndata: [DONE]\n\n" });
   });
   const p3 = await c2.newPage(); p3.on("pageerror", (e) => errs.push(e.message));
