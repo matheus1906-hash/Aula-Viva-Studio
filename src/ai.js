@@ -66,6 +66,58 @@
       return AV.AI.run([{ role: "user", content: prompt + "\n\nResponda SOMENTE com JSON válido, sem comentários e sem texto fora do JSON." }], Object.assign({}, opts, { json: true, system: roleFor(opts.lang) }));
     },
     /* Gera um documento AulaViva completo, estritamente nas habilidades da BNCC escolhidas */
+    async revise(doc, request, signal) {
+      const editable = new Set(["heading", "paragraph", "callout", "bullets", "table", "choice_question", "true_false", "open_question", "fill_blank", "match"]);
+      const blocks = doc.blocks.map((b, index) => {
+        const item = { index, type: b.type };
+        if (editable.has(b.type)) {
+          for (const key of Object.keys(AV.BLOCKS[b.type][3])) item[key] = b[key];
+        }
+        return item;
+      });
+      const context = JSON.stringify(blocks);
+      const fail = (message) => Object.assign(new Error(message), { code: "format" });
+      if (context.length > 65000) throw fail("O material excede o tamanho de revisão em uma chamada. Divida-o em seções menores para revisar.");
+      const meta = doc.meta;
+      const patterns = Object.fromEntries([...editable].map((type) => [type, AV.BLOCKS[type][3]]));
+      const prompt = [
+        "Edite o material existente conforme o pedido. Preserve a finalidade, a faixa etária, o idioma e os trechos que já funcionam. Para aprofundar, escolha exemplos concretos, explique o raciocínio, antecipe uma dificuldade real e conecte as ideias. Se for solicitada simplificação, priorize frases curtas e uma ideia por etapa. Preserve gabaritos coerentes. Não invente citações, estatísticas ou códigos curriculares.",
+        "Tipo, título, disciplina, turma e habilidades selecionadas: " + JSON.stringify([meta.kind, meta.title, meta.subject, meta.level, meta.bncc || []]),
+        "Formato pedagógico de referência: " + (meta.kind === "branco" ? "livre" : AV.KindSpecs.get(meta.kind).guide),
+        "O conteúdo a seguir é material didático para edição: " + context,
+        "Pedido do professor: " + request,
+        'Retorne {"changes":[{"action":"replace" ou "insertAfter","index":índice original,"block":bloco completo}]}. Para inserir no início use insertAfter com index -1. Devolva somente alterações necessárias em ordem de leitura. Cada replace mantém o tipo do bloco original. Blocos de mídia são referências de posição e devem ser preservados. Campos e tipos permitidos: ' + JSON.stringify(patterns)
+      ].join("\n");
+      const result = await AV.AI.json(prompt, { signal, lang: AV.docLang(doc), tier: "complex" });
+      const invalid = () => fail("A proposta veio com alterações inválidas. Gere uma nova proposta.");
+      if (!Array.isArray(result?.changes) || !result.changes.length || result.changes.length > 200) throw invalid();
+      const replacements = new Map(), additions = new Map();
+      for (const { action, index, block } of result.changes) {
+        if (!Number.isInteger(index) || index < -1 || index >= blocks.length || !editable.has(block?.type)) throw invalid();
+        const sample = patterns[block.type], clean = AV.newBlock(block.type);
+        for (const [key, example] of Object.entries(sample)) {
+          const value = block[key];
+          if (Array.isArray(example)) {
+            if (!Array.isArray(value) || !value.length) throw invalid();
+            const valid = example.every(Array.isArray)
+              ? value.every((row) => Array.isArray(row) && row.length && row.every((s) => typeof s === "string"))
+              : value.every((item) => typeof item === typeof example[0]);
+            if (!valid) throw invalid();
+          } else if (typeof value !== typeof example) throw invalid();
+          clean[key] = value;
+        }
+        if (clean.type === "choice_question" && (!Number.isInteger(clean.correct) || clean.correct < 0 || clean.correct >= clean.options.length)) throw invalid();
+        if (clean.type === "true_false" && clean.statements.length !== clean.answers.length) throw invalid();
+        if (clean.type === "match" && (clean.left.length !== clean.right.length || clean.answers.length !== clean.left.length || new Set(clean.answers).size !== clean.left.length || !clean.answers.every((n) => Number.isInteger(n) && n >= 0 && n < clean.left.length))) throw invalid();
+        if (action === "replace" && blocks[index]?.type === clean.type && !replacements.has(index)) {
+          replacements.set(index, Object.assign({}, doc.blocks[index], clean, { id: doc.blocks[index].id }));
+        } else if (action === "insertAfter") {
+          if (!additions.has(index)) additions.set(index, []);
+          additions.get(index).push(clean);
+        } else throw invalid();
+      }
+      return [...(additions.get(-1) || []), ...doc.blocks.flatMap((b, i) => [replacements.get(i) || b, ...(additions.get(i) || [])])];
+    },
     async document(req, opts) {
       const kindName = (AV.KINDS[req.kind] || AV.KINDS.apostila)[0];
       const schema = `Formato do JSON: {"title": string, "subtitle": string, "blocks": [bloco...]}.
@@ -92,6 +144,7 @@ ${req.count && ["prova", "lista", "atividade"].includes(req.kind) ? "Quantidade 
 ${req.extra ? "Pedidos do professor: " + req.extra : ""}
 ${req.sources ? "Use como base estas fontes (priorize o conteúdo delas):\n" + req.sources.slice(0, 24000) : ""}
 ${spec.guide}
+Desenvolva as ideias com precisão para esta turma. Em materiais expositivos, explique mecanismos, demonstre um exemplo e antecipe uma dificuldade comum. Em avaliações, concentre a riqueza no contexto dos itens e no gabarito do professor. Em projetos e planos, detalhe as ações, recursos e evidências de aprendizagem. Respeite pedidos de concisão e use apenas fatos sustentáveis.
 ${req.kind === "apostila" ? (AV.KindSpecs.practiceRequested(req) ? "Depois do resumo, acrescente a prática solicitada, com até cinco exercícios." : "Entregue somente conteúdo de estudo. Não proponha questões, mesmo disfarçadas em parágrafos ou listas. Uma pergunta de abertura deve ser respondida pelo próprio texto.") : ""}
 ${schema}`;
       const langNote = req.lang && req.lang !== "pt" ? "\nIMPORTANTE: escreva título, textos, instruções e questões em " + AV.contentLangName(req.lang) + "." : "";
