@@ -33,6 +33,12 @@ const srv = http.createServer((q, r) => { const f = path.join(root, "dist", deco
   await p.keyboard.press("Escape");
   // 6. hash estranho não quebra
   await p.evaluate(() => (location.hash = "constructor")); await p.waitForTimeout(300); ok((await p.locator(".hero").count()) === 1, "hash desconhecido volta ao início");
+  // 7. pedido de vídeo animado no card inicial abre o estúdio de animação com o tema preenchido
+  await p.evaluate(() => (location.hash = "inicio")); await p.waitForTimeout(300);
+  await p.fill(".hero-search input, .hero-search textarea", "vídeo animado sobre o ciclo da água para o 2º ano");
+  await p.click(".hero-search button.pri"); await p.waitForTimeout(600);
+  ok(/animacao/.test(await p.evaluate(() => location.hash)), "pedido de vídeo animado vai para o estúdio de animação");
+  ok(await p.evaluate(() => [...document.querySelectorAll("input, textarea")].some((i) => /ciclo da água/i.test(i.value))), "tema do vídeo já vem preenchido");
   ok(!errs.length, "sem erros de página " + JSON.stringify(errs));
   await b.close(); srv.close();
 })();

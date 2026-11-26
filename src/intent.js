@@ -8,6 +8,7 @@
   const UB = "(?:(?<![\\p{L}\\p{N}])(?=[\\p{L}\\p{N}])|(?<=[\\p{L}\\p{N}])(?![\\p{L}\\p{N}]))";
   const W = (re) => new RegExp(re.source.replace(/\\b/g, UB), re.flags.includes("u") ? re.flags : re.flags + "u");
   const KIND_RULES = [
+    ["video", /\bv[ií]deos?\b|\bdesenhos? animados?\b|\banima[cç][aãõo]+e?s?\b|\bcurta animado\b/],
     ["plano", /\bplanos? de aula\b|\bplano\b|\bsequ[eê]ncia did[aá]tica\b/],
     ["prova", /\bprovas?\b|\bavalia[cç][aã]o\b|\bavalia[cç][oõ]es\b|\bsimulados?\b|\btestes?\b/],
     ["lista", /\blistas?\b|\bexerc[ií]cios?\b/],
@@ -64,7 +65,8 @@
     let t = " " + text + " ";
     const cut = [
       /\b(?:crie|criar|fa[cç]a|fazer|gere|gerar|monte|montar|preciso de|quero|me d[eê]|elabore|elaborar|prepare|preparar)\b/gi,
-      /\b(?:uma?|umas?|uns|o|a|os|as)\s+(?=(?:apostila|lista|prova|avalia[cç][aã]o|atividade|plano|projeto|roteiro|simulado|resumo|ficha|folha|sequ[eê]ncia)s?\b)/gi,
+      /\b(?:uma?|umas?|uns|o|a|os|as)\s+(?=(?:apostila|lista|prova|avalia[cç][aã]o|atividade|plano|projeto|roteiro|simulado|resumo|ficha|folha|sequ[eê]ncia|v[ií]deo|desenho|anima[cç][aã]o)s?\b)/gi,
+      /\b(?:v[ií]deos?(?: animados?)?|desenhos? animados?|anima[cç](?:[aã]o|[oõ]es)|curta animado)\b/gi,
       /\b(?:apostilas?|listas? de exerc[ií]cios|listas?|exerc[ií]cios|provas?|avalia[cç](?:[aã]o|[oõ]es)|atividades?(?: para imprimir)?|planos? de aula|planos?|projetos?(?: educacionais?)?|roteiros?(?: com qr ?codes?)?|simulados?|resumos?|fichas?|folhas?|sequ[eê]ncias? did[aá]ticas?)\b/gi,
       /\b(?:simples|f[aá]cil|b[aá]sic[ao]|l[uú]dic[ao]|divertid[ao]|curt[ao]|completo|completa|com gabarito|desafiador[ao]?|diagn[oó]stic[ao])\b/gi,
       /\b(?:para|pra|do|da|de|no|na)\s+(?:o|a|os|as)?\s*(?:turma\s+(?:do|da)\s+)?\d{1,2}\s*(?:º|°|o|ª|a)?\s*(?:ano|s[eé]rie)(?:\s+do\s+(?:ensino\s+)?(?:fundamental|m[eé]dio))?/gi,

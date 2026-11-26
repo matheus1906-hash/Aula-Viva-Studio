@@ -31,6 +31,7 @@
     opts = opts || {};
     return new Promise((resolve) => {
       const ctrl = new AbortController();
+      const kindLabel = ((AV.KINDS[req.kind] || [])[0] || "").toLowerCase();
       let raw = "", lastRender = 0, renderTimer = null, shown = 0, finished = false, failed = false;
       const t0 = Date.now();
       const stageBox = h("ol", { class: "live-steps", "aria-label": "Etapas" }, STAGES.map(([k, l]) => h("li", { "data-k": k }, h("span", { class: "dot", "aria-hidden": "true" }), AV.t(l))));
@@ -82,9 +83,9 @@
         if (!renderTimer) renderTimer = setTimeout(render, Math.max(0, 220 - (Date.now() - lastRender)));
       };
 
-      const onRetry = () => {
+      const onRetry = (why) => {
         raw = ""; shown = 0; setStage("write");
-        statusEl.textContent = AV.t("A resposta veio incompleta. Tentando de novo com outro motor de IA…");
+        statusEl.textContent = why === "format" ? AV.t("Conferindo o formato: refazendo para ficar exatamente como") + " " + kindLabel + "…" : AV.t("A resposta veio incompleta. Tentando de novo com outro motor de IA…");
       };
       AV.AI.document(req, { signal: ctrl.signal, onText, onRetry }).then((doc) => {
         finished = true; clearTimeout(renderTimer); raw = raw || ""; render();

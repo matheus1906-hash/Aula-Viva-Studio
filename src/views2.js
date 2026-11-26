@@ -76,6 +76,15 @@
         const nsc = h("select", { class: "in", id: "anim-n" }, [4, 6, 8, 10].map((n) => h("option", { value: n, selected: n === 6 }, n + " cenas")));
         const lang = h("select", { class: "in", "data-notr": "" }, Object.keys(AV.LANGS).map((k) => h("option", { value: k, selected: k === AV.lang() }, AV.LANGS[k][2] + " " + AV.LANGS[k][0])));
         const go = h("button", { class: "btn pri", onclick: () => aiStory(topic.value.trim(), age.value, +nsc.value, lang.value, go) }, AV.icon("sparkle"), "Criar vídeo com IA");
+        /* veio do card da tela inicial ("vídeo animado sobre..."): preenche e já cria */
+        const pending = AV.LS.get("animRequest", null);
+        if (pending && Date.now() - (pending.at || 0) < 60000) {
+          AV.LS.del("animRequest");
+          topic.value = pending.topic || "";
+          const lv = AV.BNCC ? AV.BNCC.levelInfo(pending.level) : { etapa: "" };
+          age.value = lv.etapa === "EI" ? "Educação Infantil (3 a 5 anos)" : lv.etapa === "EF" && lv.ano <= 2 ? "1º e 2º ano" : "3º ao 5º ano";
+          setTimeout(() => go.click(), 50);
+        }
         gallery.append(h("section", { class: "feature-card" },
           h("div", { style: { display: "grid", gap: "12px", minWidth: 0 } }, h("h2", null, "Criar com IA"), h("p", { class: "muted" }, "Descreva o tema. A IA escreve o roteiro, escolhe cenários e personagens e monta as cenas. Você ajusta tudo depois."),
             h("div", { class: "form" }, h("label", { class: "f full" }, "Tema do vídeo", topic), h("label", { class: "f" }, "Idade", age), h("label", { class: "f" }, "Tamanho", nsc), h("label", { class: "f" }, "Idioma", lang)),

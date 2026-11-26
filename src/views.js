@@ -43,6 +43,8 @@
         const text = q.value.trim();
         if (text.length < 3) { q.focus(); AV.toast(AV.t("Escreva o que você quer criar. Ex.: apostila sobre o ciclo da água para o 3º ano")); return; }
         const req = Object.assign(AV.parseRequest(text), { lang: AV.lang() });
+        /* pedido de vídeo animado vai para o estúdio de vídeos, que cria o desenho com o mesmo tema */
+        if (req.kind === "video") { AV.LS.set("animRequest", { topic: req.topic, level: req.level, at: Date.now() }); AV.go("animacao"); return; }
         if (!req.subject) req.subject = AV.profile().subject || "";
         /* BNCC é obrigatória: com ano e componente reconhecidos, escolhe as habilidades e cria; senão, abre o formulário */
         AV.bnccAuto(req).then((auto) => {

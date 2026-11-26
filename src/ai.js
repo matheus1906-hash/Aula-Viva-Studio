@@ -82,27 +82,27 @@ Tipos de bloco permitidos (use só estes campos):
 {"type":"table","rows":[[cabeçalho...],[...]]}
 {"type":"link","label":string,"url":"https://...","description":string}   (só sites oficiais e estáveis, ex.: ibge.gov.br, gov.br, phet.colorado.edu)
 {"type":"video","title":string,"url":"https://www.youtube.com/results?search_query=termos","info":string}`;
-      const guide = {
-        apostila: "Apostila com seções (heading), textos explicativos, destaques, uma tabela ou lista quando útil e atividades ao final de cada seção.",
-        lista: "Lista de exercícios variados (múltipla escolha, V/F, completar, ligar, abertas), do mais simples ao mais desafiador, com gabarito correto.",
-        prova: "Avaliação com instruções (callout atencao), questões numeradas de vários tipos e níveis de dificuldade, gabarito correto.",
-        roteiro: "Roteiro de aula com objetivo, etapas (heading por etapa), links e vídeos para os alunos, e uma atividade final.",
-        plano: "Plano de aula: identificação, habilidades da BNCC (códigos reais), objetivos, conteúdos, metodologia passo a passo com tempo, recursos, avaliação, adaptações para inclusão e referências.",
-        atividade: "Atividade lúdica e prática para imprimir, com instruções claras para o aluno.",
-        projeto: "Projeto educacional profissional: apresentação, justificativa, objetivos (geral e específicos), habilidades da BNCC, público-alvo, metodologia em etapas, cronograma em tabela, recursos, produto final, avaliação, referências (ABNT).",
-        branco: "Material didático bem organizado."
-      }[req.kind] || "Material didático bem organizado.";
-      const prompt = `Crie um material do tipo "${kindName}".
+      const spec = AV.KindSpecs.get(req.kind);
+      const prompt = `${spec.role} Crie um material do tipo "${kindName}", e SOMENTE desse tipo.
 Tema: ${req.topic}
 Componente curricular: ${req.subject || "a definir pelo tema"}
 Ano/turma: ${req.level || "a definir"}
 ${bnccPrompt(req)}
-${req.count ? "Quantidade aproximada de questões: " + req.count : ""}
+${req.count && ["prova", "lista", "atividade"].includes(req.kind) ? "Quantidade de questões: " + req.count : ""}
 ${req.extra ? "Pedidos do professor: " + req.extra : ""}
 ${req.sources ? "Use como base estas fontes (priorize o conteúdo delas):\n" + req.sources.slice(0, 24000) : ""}
-Orientação: ${guide}
+${spec.guide}
 ${schema}`;
-      const out = await AV.AI.json(prompt + (req.lang && req.lang !== "pt" ? "\nIMPORTANTE: escreva título, textos, instruções e questões em " + AV.contentLangName(req.lang) + "." : ""), Object.assign({ tier: "complex", lang: req.lang, validate: (o) => !!o && Array.isArray(o.blocks) && o.blocks.length >= 2 }, opts));
+      const langNote = req.lang && req.lang !== "pt" ? "\nIMPORTANTE: escreva título, textos, instruções e questões em " + AV.contentLangName(req.lang) + "." : "";
+      const jsonOpts = Object.assign({ tier: "complex", lang: req.lang, validate: (o) => !!o && Array.isArray(o.blocks) && o.blocks.length >= 2 }, opts);
+      let out = await AV.AI.json(prompt + langNote, jsonOpts);
+      /* conferência do formato: se saiu com cara de outro tipo, a IA recebe o motivo e refaz uma vez */
+      const issue = AV.KindSpecs.check(req.kind, out, req);
+      if (issue) {
+        if (opts && opts.onRetry) opts.onRetry("format");
+        const again = await AV.AI.json(prompt + langNote + "\n\nATENÇÃO: uma versão anterior saiu ERRADA porque " + issue + ". Refaça do zero respeitando exatamente a estrutura de " + kindName + ".", jsonOpts).catch(() => null);
+        if (again) out = again; // a segunda versão já recebeu a correção; a limpeza final garante o resto
+      }
       return AV.AI.toDoc(out, req);
     },
     toDoc(out, req) {
@@ -123,7 +123,8 @@ ${schema}`;
         return b;
       }).filter(Boolean);
       const codes = (req.bncc || []).filter((c) => AV.BNCC && AV.BNCC.get(c));
-      const clean = codes.length ? blocks.map((b) => sanitizeCodes(b, codes)) : blocks;
+      const fitted = AV.KindSpecs ? AV.KindSpecs.clean(req.kind, blocks) : blocks;
+      const clean = codes.length ? fitted.map((b) => sanitizeCodes(b, codes)) : fitted;
       const header = codes.length ? AV.BNCC.block(codes) : null;
       doc.meta.bncc = codes;
       doc.blocks = doc.blocks.filter((b) => b.type === "callout").concat(header ? [header] : [], clean);

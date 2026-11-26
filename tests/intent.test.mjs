@@ -17,6 +17,9 @@ const cases = [
   ["apostila de física sobre movimento para o 1º ano do ensino médio", { kind: "apostila", topic: "Movimento", subject: "Física", level: "1ª série do Ensino Médio" }],
   ["me dê uma avaliação diagnóstica de português 6º ano", { kind: "prova", subject: "Língua Portuguesa", level: "6º ano do Ensino Fundamental" }],
   ["simulado de química para a 2ª série do ensino médio", { kind: "prova", topic: "Química", level: "2ª série do Ensino Médio", subject: "Química" }],
+  ["faça um vídeo animado sobre o ciclo da água para o 2º ano", { kind: "video", topic: "Ciclo da água", level: "2º ano do Ensino Fundamental" }],
+  ["desenho animado sobre higiene das mãos para a educação infantil", { kind: "video", topic: "Higiene das mãos", level: "Educação Infantil" }],
+  ["apostila sobre animais vertebrados", { kind: "apostila", topic: "Animais vertebrados" }],
   ["", { kind: "atividade", topic: "" }]
 ];
 for (const [input, want] of cases) {
