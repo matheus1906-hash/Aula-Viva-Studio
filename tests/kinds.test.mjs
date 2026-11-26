@@ -8,7 +8,7 @@ const Q = (i) => ({ type: i % 2 ? "choice_question" : "open_question", prompt: "
 const TF = { type: "true_false", statements: ["a"], answers: [true] };
 const apostilaBoa = { blocks: [H("Introdução"), P("a"), H("Conceito"), P("b"), { type: "callout", style: "definicao", text: "def" }, P("Exemplo: c"), { type: "table", rows: [["a"]] }, H("Mais"), P("d"), { type: "callout", style: "curiosidade", text: "x" }, H("Resumo"), { type: "bullets", items: ["a"] }, H("Para praticar"), Q(1), Q(2)] };
 const apostilaProva = { blocks: [{ type: "callout", style: "importante", text: "Instruções" }, Q(1), Q(2), Q(3), Q(4), Q(5), Q(6), Q(7), Q(8)] };
-ok(K.check("apostila", apostilaBoa, {}) === "", "apostila de estudo bem feita passa");
+ok(K.check("apostila", apostilaBoa, { extra: "com exercícios" }) === "", "apostila de estudo bem feita passa");
 ok(/questões/.test(K.check("apostila", apostilaProva, {})), "apostila com cara de prova é recusada: " + K.check("apostila", apostilaProva, {}));
 const provaBoa = { blocks: [{ type: "callout", style: "importante", text: "Instruções: 50 min, 10 pontos" }, Q(1), Q(2), TF, Q(3), Q(4), Q(5), Q(6), Q(7)] };
 ok(K.check("prova", provaBoa, { count: 8 }) === "", "prova com instruções e questões variadas passa");
@@ -30,4 +30,6 @@ ok(K.check("roteiro", roteiroBom, {}) === "", "roteiro em passos com vídeo pass
 const projetoBom = { blocks: [H("Apresentação"), P("x"), H("Justificativa"), P("y"), H("Objetivos"), { type: "bullets", items: ["a"] }, H("Etapas e cronograma"), { type: "table", rows: [["a"]] }, H("Avaliação"), P("z")] };
 ok(K.check("projeto", projetoBom, {}) === "", "projeto com justificativa, cronograma e avaliação passa");
 ok(K.check("apostila", { blocks: [P("x")] }, {}) !== "", "material vazio ou curto é recusado");
+ok(K.check("apostila", apostilaBoa, { extra: "para ministração de aula, sem questões" }) !== "", "apostila para ministração recusa bateria de questões");
+ok(K.check("apostila", { blocks: apostilaBoa.blocks.slice(0, -3) }, {}) === "", "apostila expositiva termina no resumo");
 process.exit(fails ? 1 : 0);
