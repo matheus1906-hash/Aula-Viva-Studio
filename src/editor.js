@@ -172,7 +172,7 @@
           h("button", { onclick: () => { d.close(); AV.go("ferramentas"); } }, AV.icon("qr"), h("b", null, "Gerador de QR code e links"), h("span", null, "WhatsApp, YouTube no minuto, Drive, Docs...")),
           h("button", { onclick: () => { const c = AV.clone(doc); c.id = AV.uid(); c.meta.title += " (cópia)"; d.close(); AV.openDoc(c); } }, AV.icon("copy"), h("b", null, "Duplicar material"), h("span", null, "Cria uma cópia para outra turma"))));
       }
-      function editWithAI() {
+      function editWithAI(initialRequest = "") {
         const instruction = h("textarea", { class: "in", rows: 3, maxLength: 4000, placeholder: "Ex.: desenvolva a segunda etapa com um exemplo comentado ou simplifique a leitura para o 6º ano." });
         const feedback = h("p", { class: "muted small", role: "status" });
         const preview = h("div");
@@ -185,6 +185,7 @@
           lab("O que você quer modificar neste material?", instruction), feedback, preview,
           h("div", { class: "row end" }, generate, apply)), { large: true, onClose: () => { ctrl.abort(); aiCtrls.delete(ctrl); } });
         instruction.oninput = () => { proposal = null; apply.hidden = true; preview.textContent = ""; feedback.textContent = ""; };
+        instruction.value = initialRequest;
         instruction.focus();
 
         async function propose() {
@@ -194,10 +195,11 @@
           instruction.disabled = true; generate.disabled = true; apply.hidden = true;
           preview.textContent = ""; feedback.textContent = "Preparando a proposta…";
           try {
-            proposal = await AV.AI.revise(doc, request, ctrl.signal);
+            let summary = "";
+            proposal = await AV.AI.revise(doc, request, ctrl.signal, (message) => { summary = message; });
             if (!alive || ctrl.signal.aborted) return;
             preview.appendChild(AV.renderPaper(Object.assign({}, doc, { blocks: proposal }), version));
-            feedback.textContent = "Confira o material revisado antes de aplicar.";
+            feedback.textContent = summary + " Confira a prévia antes de aplicar.";
             apply.hidden = false;
           } catch (e) { if (!ctrl.signal.aborted) feedback.textContent = AV.AI.explain(e); }
           finally { instruction.disabled = false; generate.disabled = false; }
@@ -216,11 +218,12 @@
           ["Revisar e melhorar textos", "Corrige e deixa a linguagem mais clara", "improve"],
           ["Adaptar para inclusão", "Versão com linguagem simplificada e apoio visual", "inclusive"],
           ["Criar resumo para o aluno", "Um destaque com os pontos principais", "summary"],
-          ["Sugerir vídeos e links", "Recursos para enriquecer a aula", "links"]
+          ["Buscar referências na internet", "Encontre fontes para inserir no material", "links"]
         ];
         const status = h("p", { class: "muted small", "aria-live": "polite" });
         const d = AV.dialog("Assistente de IA", h("div", { style: { display: "grid", gap: "10px" } }, h("div", { class: "menu" }, h("button", { onclick: () => { d.close(); editWithAI(); } }, AV.icon("sparkle"), h("b", null, "Modificar com um pedido"), h("span", null, "Descreva a mudança e revise a proposta.")), acts.map((a) => h("button", { onclick: (e) => run(a[2], e.currentTarget) }, AV.icon("sparkle"), h("b", null, a[0]), h("span", null, a[1])))), status), { onClose: () => aiCtrls.forEach((c) => c.abort()) });
         async function run(kind, btn) {
+          if (kind === "links") { d.close(); editWithAI("Busque referências na internet sobre o conteúdo e adicione os links ao material."); return; }
           d.el.querySelectorAll(".menu button").forEach((x) => (x.disabled = true));
           AV.busy(btn, true, "Pensando...");
           const ctrl = new AbortController(); aiCtrls.add(ctrl);
