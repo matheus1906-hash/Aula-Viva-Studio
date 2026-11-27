@@ -13,7 +13,7 @@
         h("button", { onclick: () => { d.close(); AV.aiCreateDialog(); } }, AV.appIcon("wand", "pink"), h("b", null, "Criar com IA"), h("span", null, "Apostila, lista, prova, plano, projeto...")),
         h("button", { onclick: () => { d.close(); AV.go("chat"); } }, AV.appIcon("chat", "sky"), h("b", null, "Chat livre"), h("span", null, "Projeto do zero, conversando")),
         h("button", { onclick: () => { d.close(); AV.go("atividades"); } }, AV.appIcon("puzzle", "rose"), h("b", null, "Atividade pronta"), h("span", null, "Caça-palavras, cruzadinha, contas...")),
-        h("button", { onclick: () => { d.close(); AV.go("modelos"); } }, AV.appIcon("folder", "amber"), h("b", null, "A partir de um modelo"), h("span", null, "290 modelos prontos")),
+        h("button", { onclick: () => { d.close(); AV.go("modelos"); } }, AV.appIcon("folder", "amber"), h("b", null, "A partir de um modelo"), h("span", null, "490 modelos prontos")),
         h("button", { onclick: () => { d.close(); AV.importAny(); } }, AV.appIcon("studio", "teal"), h("b", null, "Importar arquivo"), h("span", null, "Word, PowerPoint, PDF...")),
         Object.keys(AV.KINDS).filter((k) => ["apostila", "lista", "prova", "roteiro", "branco"].includes(k)).map((k) => h("button", { onclick: () => { d.close(); AV.createAndOpen(k); } }, AV.appIcon({ apostila: "book", lista: "list", prova: "exam", roteiro: "route", branco: "blank" }[k], { apostila: "blue", lista: "orange", prova: "slate", roteiro: "green", branco: "gray" }[k]), h("b", null, AV.KINDS[k][0]), h("span", null, "Começar no editor")))));
     });

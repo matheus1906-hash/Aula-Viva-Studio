@@ -54,7 +54,7 @@
         }).catch(() => AV.aiCreateDialog(req));
       };
       const daily = AV.homePlanner();
-      const nModelos = h("b", null, "290");
+      const nModelos = h("b", null, "490");
       AV.loadModelos().then((m) => (nModelos.textContent = m.length)).catch(() => {});
       main.appendChild(h("div", { class: "wrap" },
         h("div", { class: "bento" },

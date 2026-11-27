@@ -22,3 +22,7 @@ Nenhum texto, atividade ou questão foi copiado: todos os modelos do AulaViva s�
 9. Interdisciplinares (projetos curtos de 1 semana)
 
 Meta: cerca de 200 modelos novos, todos com 1 a 3 habilidades da BNCC escolhidas da base oficial.
+
+## Situação em 27/11/2026 (versão 5.3.0)
+As 9 lacunas acima foram cobertas com 200 modelos originais (25 por grupo; Ensino Religioso e Educação Física dividem um grupo, e Oficinas Saeb ficaram junto dos simulados). Total no site: 490 modelos.
+Os simulados seguem o formato do Saeb (texto-base e múltipla escolha), mas não citam descritores da Matriz de Referência: só as habilidades da BNCC, conferidas na base oficial.

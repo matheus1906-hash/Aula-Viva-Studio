@@ -50,8 +50,8 @@ O leitor permite grifar trechos, marcar páginas, retomar a leitura e ajustar a 
 |---|---|
 | ![Leitor em papel sépia com um trecho grifado](docs/screenshots/leitor.webp) | ![Aparência do leitor no celular](docs/screenshots/leitor-celular.webp) |
 
-### Atividades prontas e 290 modelos
-13 geradores de atividades comuns (caça-palavras, cruzadinha, ligar colunas, lacunas, palavras embaralhadas, ordenar frases, contas, tabuada, sílabas, ordem alfabética, conte e escreva, V/F e quiz) e 290 modelos prontos (atividades, apostilas, provas, listas, planos de aula e roteiros) de várias disciplinas e anos.
+### Atividades prontas e 490 modelos
+13 geradores de atividades comuns (caça-palavras, cruzadinha, ligar colunas, lacunas, palavras embaralhadas, ordenar frases, contas, tabuada, sílabas, ordem alfabética, conte e escreva, V/F e quiz) e 490 modelos prontos (atividades, apostilas, provas, listas, planos de aula e roteiros) de várias disciplinas e anos.
 
 
 | Atividades | Modelos |

@@ -1,5 +1,23 @@
 # Histórico de versões
 
+## 5.3.0
+
+**200 modelos originais novos (490 no total), todos com habilidades da BNCC escolhidas da base oficial**
+- 12 simulados e 13 oficinas no formato do Saeb (Língua Portuguesa e Matemática, 2º, 5º e 9º anos).
+- 25 quizzes rápidos de 10 questões (Matemática, Língua Portuguesa, Ciências, Geografia, História e Inglês).
+- 25 atividades e vivências de Educação Infantil (alfabetização e matemática, crianças pequenas e bem pequenas).
+- 25 propostas de produção de texto com checklist de revisão (bilhete, convite, carta, relato, conto, fábula, notícia, entrevista, resenha, artigo de opinião, crônica, reportagem e outros).
+- 25 materiais de gramática e análise linguística do 1º ao 9º ano.
+- 12 de Ensino Religioso (abordagem não confessional) e 13 de Educação Física.
+- 25 gincanas e dinâmicas de sala com regras, tempo, materiais e inclusão.
+- 25 projetos interdisciplinares de uma semana, do 1º ao 9º ano.
+- Cada modelo novo tem página própria de SEO (sitemap com 2.074 endereços).
+- Ferramentas de manutenção: validador de modelos (gabaritos, ligações, BNCC do ano e do componente e estrutura de cada tipo), junção ao acervo e consulta à BNCC (`tools/`).
+
+**Criação com IA**
+- Ficha técnica por tipo de material: apostila, prova, lista, atividade, plano, roteiro e projeto saem cada um no seu formato; se a IA errar, refaz explicando o erro.
+- Pedido de vídeo animado no card inicial abre o estúdio de animação já com o tema.
+
 ## 5.2.0
 
 - Estante com 571 livros em domínio público (450 novos), escolhidos pela relevância (mais lidos e autores mais trabalhados nas escolas), em português, inglês e espanhol.

@@ -48,7 +48,7 @@
       h("h1", null, AV.t("Bem-vindo(a) ao AulaViva Studio")),
       h("p", { class: "auth-lead" }, AV.t("A plataforma que prepara suas aulas com você: crie materiais completos com IA, transforme-os em PDF interativo, Word ou PowerPoint e leve para a sala em minutos.")),
       h("ul", { class: "auth-feats" },
-        [["wand", "Materiais alinhados à BNCC em português, inglês e espanhol"], ["film", "Vídeos animados, atividades e 290 modelos prontos"], ["shelf", "Biblioteca com livros reais em domínio público"], ["exam", "Provas e listas com gabarito e versão do aluno"]].map(([i, t]) => h("li", null, AV.appIcon(i, "transparent"), AV.t(t)))),
+        [["wand", "Materiais alinhados à BNCC em português, inglês e espanhol"], ["film", "Vídeos animados, atividades e 490 modelos prontos"], ["shelf", "Biblioteca com livros reais em domínio público"], ["exam", "Provas e listas com gabarito e versão do aluno"]].map(([i, t]) => h("li", null, AV.appIcon(i, "transparent"), AV.t(t)))),
       imgs.length ? h("div", { class: "auth-gallery" }, h("div", { class: "auth-frame" }, imgs), cap, dots) : null);
     /* formulário */
     const msg = h("p", { class: "auth-msg", role: "alert" });
