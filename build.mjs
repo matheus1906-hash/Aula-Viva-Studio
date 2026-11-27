@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { readingText } from "./reading-text.mjs";
 import { buildSeo, homeHead, HOME_TITLE, NOSCRIPT } from "./seo.mjs";
 import { gunzipSync, gzipSync } from "node:zlib";
-const order = ["core.js", "shield.js", "home-icons.js", "vault.js", "i18n.js", "i18n-dict.js", "i18n-extra.js", "importers.js", "exporters.js", "atividades.js", "biblioteca-data.js", "providers.js", "bncc.js", "bncc-ui.js", "intent.js", "kinds.js", "ai.js", "ai-live.js", "ai-settings.js", "preview.js", "editor.js", "home-planner.js", "views.js", "chat-studio.js", "animacao.js", "animacao-modelos.js", "reader.js", "views2.js", "conta.js", "auth.js", "main.js"];
+const order = ["core.js", "shield.js", "home-icons.js", "vault.js", "i18n.js", "i18n-dict.js", "i18n-extra.js", "importers.js", "exporters.js", "atividades.js", "biblioteca-data.js", "providers.js", "bncc.js", "bncc-ui.js", "intent.js", "kinds.js", "research.js", "ai.js", "ai-live.js", "ai-settings.js", "preview.js", "editor.js", "home-planner.js", "views.js", "chat-studio.js", "animacao.js", "animacao-modelos.js", "reader.js", "views2.js", "conta.js", "auth.js", "main.js"];
 /* SRI: o navegador só roda as bibliotecas do CDN se forem idênticas às versões verificadas */
 const SRI_FILES = { jspdf: "jspdf/dist/jspdf.umd.min.js", docx: "docx/build/index.umd.js", pptx: "pptxgenjs/dist/pptxgen.bundle.js", jszip: "jszip/dist/jszip.min.js", mammoth: "mammoth/mammoth.browser.min.js", pdfjs: "pdfjs-dist/build/pdf.min.js" };
 const SRI = {};

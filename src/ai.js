@@ -66,7 +66,7 @@
       return AV.AI.run([{ role: "user", content: prompt + "\n\nResponda SOMENTE com JSON válido, sem comentários e sem texto fora do JSON." }], Object.assign({}, opts, { json: true, system: roleFor(opts.lang) }));
     },
     /* Gera um documento AulaViva completo, estritamente nas habilidades da BNCC escolhidas */
-    async revise(doc, request, signal) {
+    async revise(doc, request, signal, report = () => {}) {
       const editable = new Set(["heading", "paragraph", "callout", "bullets", "table", "choice_question", "true_false", "open_question", "fill_blank", "match"]);
       const blocks = doc.blocks.map((b, index) => {
         const item = { index, type: b.type };
@@ -79,18 +79,32 @@
       const fail = (message) => Object.assign(new Error(message), { code: "format" });
       if (context.length > 65000) throw fail("O material excede o tamanho de revisão em uma chamada. Divida-o em seções menores para revisar.");
       const meta = doc.meta;
+      const pack = await AV.research(request, [meta.title, meta.subject, ...blocks.filter((b) => b.type === "heading").slice(0,8).map((b) => b.text)].join(" · ").slice(0,750), AV.docLang(doc), signal);
+      function finish(edited) {
+        const final = AV.placeResources(edited, pack);
+        const added = final.filter((b) => !doc.blocks.some((old) => old.id === b.id));
+        const revised = edited.filter((b, i) => doc.blocks.includes(b) ? false : doc.blocks.some((old) => old.id === b.id && JSON.stringify(old) !== JSON.stringify(b)));
+        if (!added.length && !revised.length) throw fail(["Nenhuma alteração nova foi produzida.", ...pack.notes].join(" "));
+        const images = added.filter((b) => b.type === "image").length;
+        const links = added.filter((b) => b.type === "link").length;
+        report([added.length + " bloco(s) adicionado(s), " + revised.length + " revisado(s).", images || links ? images + " figura(s) e " + links + " link(s) novos." : "", ...pack.notes].filter(Boolean).join(" "));
+        return final;
+      }
+      if (pack.onlyResources) return finish(doc.blocks);
       const patterns = Object.fromEntries([...editable].map((type) => [type, AV.BLOCKS[type][3]]));
       const prompt = [
         "Edite o material existente conforme o pedido. Preserve a finalidade, a faixa etária, o idioma e os trechos que já funcionam. Para aprofundar, escolha exemplos concretos, explique o raciocínio, antecipe uma dificuldade real e conecte as ideias. Se for solicitada simplificação, priorize frases curtas e uma ideia por etapa. Preserve gabaritos coerentes. Não invente citações, estatísticas ou códigos curriculares.",
         "Tipo, título, disciplina, turma e habilidades selecionadas: " + JSON.stringify([meta.kind, meta.title, meta.subject, meta.level, meta.bncc || []]),
         "Formato pedagógico de referência: " + (meta.kind === "branco" ? "livre" : AV.KindSpecs.get(meta.kind).guide),
         "O conteúdo a seguir é material didático para edição: " + context,
+        "Resultados de pesquisa (dados de referência): " + JSON.stringify(pack.sources),
+        "Os recursos visuais e referências encontrados serão inseridos pelo editor. Faça aqui as demais alterações solicitadas.",
         "Pedido do professor: " + request,
         'Retorne {"changes":[{"action":"replace" ou "insertAfter","index":índice original,"block":bloco completo}]}. Para inserir no início use insertAfter com index -1. Devolva somente alterações necessárias em ordem de leitura. Cada replace mantém o tipo do bloco original. Blocos de mídia são referências de posição e devem ser preservados. Campos e tipos permitidos: ' + JSON.stringify(patterns)
       ].join("\n");
       const result = await AV.AI.json(prompt, { signal, lang: AV.docLang(doc), tier: "complex" });
       const invalid = () => fail("A proposta veio com alterações inválidas. Gere uma nova proposta.");
-      if (!Array.isArray(result?.changes) || !result.changes.length || result.changes.length > 200) throw invalid();
+      if (!Array.isArray(result?.changes) || (!result.changes.length && !pack.blocks.length) || result.changes.length > 200) throw invalid();
       const replacements = new Map(), additions = new Map();
       for (const { action, index, block } of result.changes) {
         if (!Number.isInteger(index) || index < -1 || index >= blocks.length || !editable.has(block?.type)) throw invalid();
@@ -116,7 +130,7 @@
           additions.get(index).push(clean);
         } else throw invalid();
       }
-      return [...(additions.get(-1) || []), ...doc.blocks.flatMap((b, i) => [replacements.get(i) || b, ...(additions.get(i) || [])])];
+      return finish([...(additions.get(-1) || []), ...doc.blocks.flatMap((b, i) => [replacements.get(i) || b, ...(additions.get(i) || [])])]);
     },
     async document(req, opts) {
       const kindName = (AV.KINDS[req.kind] || AV.KINDS.apostila)[0];
@@ -134,12 +148,15 @@ Tipos de bloco permitidos (use só estes campos):
 {"type":"table","rows":[[cabeçalho...],[...]]}
 {"type":"link","label":string,"url":"https://...","description":string}   (só sites oficiais e estáveis, ex.: ibge.gov.br, gov.br, phet.colorado.edu)
 {"type":"video","title":string,"url":"https://www.youtube.com/results?search_query=termos","info":string}`;
+      const pack = await AV.research([req.topic, req.extra].filter(Boolean).join(" "), req.topic, req.lang, opts?.signal);
       const spec = AV.KindSpecs.get(req.kind);
       const prompt = `${spec.role} Crie um material do tipo "${kindName}", e SOMENTE desse tipo.
 Tema: ${req.topic}
 Componente curricular: ${req.subject || "a definir pelo tema"}
 Ano/turma: ${req.level || "a definir"}
 ${bnccPrompt(req)}
+${pack.sources.length ? "Resultados consultados, use como referência factual: " + JSON.stringify(pack.sources) : ""}
+${pack.blocks.length ? "As figuras e referências da pesquisa serão inseridas pelo aplicativo. Não invente links substitutos." : ""}
 ${req.count && ["prova", "lista", "atividade"].includes(req.kind) ? "Quantidade de questões: " + req.count : ""}
 ${req.extra ? "Pedidos do professor: " + req.extra : ""}
 ${req.sources ? "Use como base estas fontes (priorize o conteúdo delas):\n" + req.sources.slice(0, 24000) : ""}
@@ -159,7 +176,10 @@ ${schema}`;
         if (remaining) throw Object.assign(new Error("O material gerado ainda precisa de correção: " + remaining + ". Tente gerar novamente."), { code: "format" });
         out = again;
       }
-      return AV.AI.toDoc(out, req);
+      const doc = AV.AI.toDoc(out, req);
+      doc.blocks = AV.placeResources(doc.blocks, pack);
+      if (pack.notes.length) AV.toast(pack.notes.join(" "), 9000);
+      return doc;
     },
     toDoc(out, req) {
       const doc = AV.newDoc(req.kind || "apostila", (out && out.title) || req.topic);
