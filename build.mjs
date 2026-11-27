@@ -50,6 +50,8 @@ vm.runInThisContext(fs.readFileSync("src/bncc.js", "utf8"));
 AV.BNCC.use(JSON.parse(fs.readFileSync("data/bncc.json", "utf8")));
 let semBncc = 0;
 for (const m of modelos) {
+  /* habilidades escolhidas à mão pelo autor do modelo têm prioridade sobre a sugestão automática */
+  if (Array.isArray(m.bncc) && m.bncc.length && m.bncc.every((c) => AV.BNCC.get(c))) { if (m.doc && m.doc.meta) m.doc.meta.bncc = m.bncc; continue; }
   const info = AV.BNCC.levelInfo(m.level || (m.doc && m.doc.meta && m.doc.meta.level));
   const sigla = AV.BNCC.siglaFor(m.subject, info.etapa);
   const list = info.etapa ? AV.BNCC.filter({ etapa: info.etapa, ano: info.etapa === "EM" ? 0 : info.ano, sigla }) : [];

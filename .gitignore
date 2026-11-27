@@ -3,3 +3,4 @@ dist/
 .alethe/
 *.log
 tests/*.png
+.lotes/
